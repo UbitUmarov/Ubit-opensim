@@ -133,6 +133,60 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public bool HasGroupChangedDueToDelink { get; private set; }
 
+
+        [XmlIgnore]
+        private bool m_ValidgrpOOB = false; // control flag to avoid unnecessary calculations. 
+                                     // Must be false if position,rotation scale etc of group ( or its parts ) change so box can be updated when needed
+        [XmlIgnore]
+        private Vector3 m_grpOOBsize; // the size of a bounding box oriented as prim, is future will consider cutted prims, meshs etc
+        [XmlIgnore]
+        private Vector3 m_grpOOBoffset; // the position center of the bounding box relative to it's Position
+        [XmlIgnore]
+        private float m_grpBSphereRadiusSQ; // the square of the radius of a sphere containing the oob
+
+
+        /// <summary>
+        /// The size of a simple object oriented bounding box oriented in future can consider tortured prims, meshs etc
+        /// </summary>
+        [XmlIgnore]
+        public Vector3 OOBsize
+            {
+            get
+                {
+                if (!m_ValidgrpOOB)
+                    UpdateOOBfromOOBs();
+                return m_grpOOBsize;
+                }
+            }
+
+        /// <summary>
+        /// The position center of the bounding box relative to it's Position
+        /// </summary>
+        [XmlIgnore]
+        public Vector3 OOBoffset
+            {
+            get
+                {
+                if (!m_ValidgrpOOB)
+                    UpdateOOBfromOOBs();
+                return m_grpOOBoffset;
+                }
+            }
+
+        /// <summary>
+        /// The square of the radius of a sphere containing the oob
+        /// </summary>
+        [XmlIgnore]
+        public float BSphereRadiusSQ
+            {
+            get
+                {
+                if (!m_ValidgrpOOB)
+                    UpdateOOBfromOOBs();
+                return m_grpBSphereRadiusSQ;
+                }
+            }
+
         private bool isTimeToPersist()
         {
             if (IsSelected || IsDeleted || IsAttachment)
@@ -183,7 +237,7 @@ namespace OpenSim.Region.Framework.Scenes
         public void ClearPartAttachmentData()
         {
             AttachmentPoint = 0;
-
+            m_ValidgrpOOB = false;
             // Even though we don't use child part state parameters for attachments any more, we still need to set
             // these to zero since having them non-zero in rezzed scene objects will crash some clients.  Even if
             // we store them correctly, scene objects that we receive from elsewhere might not.
@@ -286,7 +340,10 @@ namespace OpenSim.Region.Framework.Scenes
         public virtual Quaternion Rotation
         {
             get { return m_rotation; }
-            set { m_rotation = value; }
+            set {
+                m_rotation = value;
+                m_ValidgrpOOB = false;
+                }
         }
 
         public Quaternion GroupRotation
@@ -423,7 +480,9 @@ namespace OpenSim.Region.Framework.Scenes
                 //m_rootPart.GroupPosition.Z);
                 //m_scene.PhysicsScene.AddPhysicsActorTaint(m_rootPart.PhysActor);
                 //}
-                
+
+                m_ValidgrpOOB = false;
+
                 if (Scene != null)
                     Scene.EventManager.TriggerParcelPrimCountTainted();
             }
@@ -679,10 +738,67 @@ namespace OpenSim.Region.Framework.Scenes
 
             ApplyPhysics(m_scene.m_physicalPrim);
 
+            m_ValidgrpOOB = false;
+
             // Don't trigger the update here - otherwise some client issues occur when multiple updates are scheduled
             // for the same object with very different properties.  The caller must schedule the update.
             //ScheduleGroupForFullUpdate();
         }
+
+
+        public void UpdateOOBfromOOBs()
+            {
+            Vector3 minScale = new Vector3(int.MaxValue, int.MaxValue, int.MaxValue);
+            Vector3 maxScale = new Vector3(int.MinValue, int.MinValue, int.MinValue);
+
+            SceneObjectPart[] parts = m_parts.GetArray();
+            for (int i = 0; i < parts.Length; i++)
+                {
+                SceneObjectPart part = parts[i];
+                Vector3 partscale = part.OOBsize;
+                Vector3 partoffset = part.OOBoffset;
+                Quaternion partrot = part.RotationOffset;
+                if (part.ParentID != 0) // prims are rotated in group
+                    {
+                    partscale *= partrot;
+                    partoffset *= partrot;
+                    }
+                partoffset += part.OffsetPosition;
+
+                Vector3 delta = partoffset - partscale;
+                if (delta.X < minScale.X)
+                    minScale.X = delta.X;
+                if (delta.Y < minScale.Y)
+                    minScale.Y = delta.Y;
+                if (delta.Z < minScale.Z)
+                    minScale.Z = delta.Z;
+
+                delta = partoffset + partscale;
+                if (delta.X > maxScale.X)
+                    maxScale.X = delta.X;
+                if (delta.Y > maxScale.Y)
+                    maxScale.Y = delta.Y;
+                if (delta.Z > maxScale.Z)
+                    maxScale.Z = delta.Z;
+                }
+
+            m_grpOOBsize.X = 0.5f * Math.Abs(maxScale.X - minScale.X);
+            m_grpOOBsize.Y = 0.5f * Math.Abs(maxScale.Y - minScale.Y);
+            m_grpOOBsize.Z = 0.5f * Math.Abs(maxScale.Z - minScale.Z);
+
+            m_grpOOBoffset.X = 0.5f * (maxScale.X + minScale.X);
+            m_grpOOBoffset.Y = 0.5f * (maxScale.Y + minScale.Y);
+            m_grpOOBoffset.Z = 0.5f * (maxScale.Z + minScale.Z);
+
+            m_grpBSphereRadiusSQ = m_grpOOBsize.X;
+            if (m_grpBSphereRadiusSQ < m_grpOOBsize.Y)
+                m_grpBSphereRadiusSQ = m_grpOOBsize.Y;
+            if (m_grpBSphereRadiusSQ < m_grpOOBsize.Z)
+                m_grpBSphereRadiusSQ = m_grpOOBsize.Z;
+            m_grpBSphereRadiusSQ *= m_grpBSphereRadiusSQ;
+            m_ValidgrpOOB = true;
+            }
+
 
         public EntityIntersection TestIntersection(Ray hRay, bool frontFacesOnly, bool faceCenters)
         {
@@ -1010,6 +1126,7 @@ namespace OpenSim.Region.Framework.Scenes
             SceneObjectPart[] parts = m_parts.GetArray();
             for (int i = 0; i < parts.Length; i++)
                 parts[i].UpdateMovement();
+            m_ValidgrpOOB = false;
         }
 
         public ushort GetTimeDilation()
@@ -1043,6 +1160,7 @@ namespace OpenSim.Region.Framework.Scenes
             part.LinkNum = 0;
             
             m_parts.Add(m_rootPart.UUID, m_rootPart);
+            m_ValidgrpOOB = false;
         }
 
         /// <summary>
@@ -1055,6 +1173,7 @@ namespace OpenSim.Region.Framework.Scenes
             part.LinkNum = m_parts.Add(part.UUID, part);
             if (part.LinkNum == 2)
                 RootPart.LinkNum = 1;
+            m_ValidgrpOOB = false;
         }
 
         /// <summary>
@@ -1104,7 +1223,10 @@ namespace OpenSim.Region.Framework.Scenes
         
         public void ResetChildPrimPhysicsPositions()
         {
+            m_ValidgrpOOB = false;
+            // this is NASTY
             AbsolutePosition = AbsolutePosition; // could someone in the know please explain how this works?
+
 
             // teravus: AbsolutePosition is NOT a normal property!
             // the code in the getter of AbsolutePosition is significantly different then the code in the setter!
@@ -1161,6 +1283,7 @@ namespace OpenSim.Region.Framework.Scenes
         public void DeleteGroupFromScene(bool silent)
         {
             SceneObjectPart[] parts = m_parts.GetArray();
+            m_ValidgrpOOB = false; // just in case
             for (int i = 0; i < parts.Length; i++)
             {
                 SceneObjectPart part = parts[i];
@@ -1435,6 +1558,8 @@ namespace OpenSim.Region.Framework.Scenes
             dupe.CopyRootPart(m_rootPart, OwnerID, GroupID, userExposed);
             dupe.m_rootPart.LinkNum = m_rootPart.LinkNum;
 
+            dupe.m_ValidgrpOOB = false;
+
             if (userExposed)
                 dupe.m_rootPart.TrimPermissions();
 
@@ -1683,6 +1808,7 @@ namespace OpenSim.Region.Framework.Scenes
             AddPart(newPart);
 
             SetPartAsNonRoot(newPart);
+            m_ValidgrpOOB = false; // just in case
             return newPart;
         }
 
@@ -2531,6 +2657,7 @@ namespace OpenSim.Region.Framework.Scenes
             if (part != null)
             {
                 part.UpdateShape(shapeBlock);
+                m_ValidgrpOOB = false;
 
                 if (part.PhysActor != null)
                     m_scene.PhysicsScene.AddPhysicsActorTaint(part.PhysActor);
@@ -2551,6 +2678,7 @@ namespace OpenSim.Region.Framework.Scenes
 //                "[SCENE OBJECT GROUP]: Group resizing {0} {1} from {2} to {3}", Name, LocalId, RootPart.Scale, scale);
 
             RootPart.StoreUndoState(true);
+            m_ValidgrpOOB = false;
 
             scale.X = Math.Min(scale.X, Scene.m_maxNonphys);
             scale.Y = Math.Min(scale.Y, Scene.m_maxNonphys);
@@ -2701,7 +2829,7 @@ namespace OpenSim.Region.Framework.Scenes
 //            m_log.DebugFormat("[SCENE OBJECT GROUP]: Updating group position on {0} {1} to {2}", Name, LocalId, pos);
 
             RootPart.StoreUndoState(true);
-
+            m_ValidgrpOOB = false;
 //            SceneObjectPart[] parts = m_parts.GetArray();
 //            for (int i = 0; i < parts.Length; i++)
 //                parts[i].StoreUndoState();
@@ -2741,6 +2869,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             SceneObjectPart part = GetChildPart(localID);
 
+            m_ValidgrpOOB = false;
 //            SceneObjectPart[] parts = m_parts.GetArray();
 //            for (int i = 0; i < parts.Length; i++)
 //                parts[i].StoreUndoState();
@@ -2779,6 +2908,7 @@ namespace OpenSim.Region.Framework.Scenes
 //            SceneObjectPart[] parts = m_parts.GetArray();
 //            for (int i = 0; i < parts.Length; i++)
 //                parts[i].StoreUndoState();
+            m_ValidgrpOOB = false;
 
             Vector3 newPos = new Vector3(pos.X, pos.Y, pos.Z);
             Vector3 oldPos =
@@ -2829,6 +2959,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             m_rootPart.StoreUndoState(true);
 
+            m_ValidgrpOOB = false;
+
             m_rootPart.UpdateRotation(rot);
 
             PhysicsActor actor = m_rootPart.PhysActor;
@@ -2858,6 +2990,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             RootPart.StoreUndoState(true);
             RootPart.IgnoreUndoUpdate = true;
+
+            m_ValidgrpOOB = false;
 
             m_rootPart.UpdateRotation(rot);
 
@@ -2889,10 +3023,15 @@ namespace OpenSim.Region.Framework.Scenes
             for (int i = 0; i < parts.Length; i++)
                 parts[i].StoreUndoState();
 
+
             if (part != null)
             {
+
+                m_ValidgrpOOB = false;
+
 //                m_log.DebugFormat(
 //                    "[SCENE OBJECT GROUP]: Updating single rotation of {0} {1} to {2}", part.Name, part.LocalId, rot);
+
 
                 if (part.UUID == m_rootPart.UUID)
                 {
@@ -2921,6 +3060,8 @@ namespace OpenSim.Region.Framework.Scenes
 
                 part.StoreUndoState();
                 part.IgnoreUndoUpdate = true;
+
+                m_ValidgrpOOB = false;
 
                 if (part.UUID == m_rootPart.UUID)
                 {
@@ -2951,6 +3092,8 @@ namespace OpenSim.Region.Framework.Scenes
             Quaternion oldParentRot = m_rootPart.RotationOffset;
 
             m_rootPart.StoreUndoState();
+            m_ValidgrpOOB = false;
+
             m_rootPart.UpdateRotation(rot);
             if (m_rootPart.PhysActor != null)
             {
@@ -3012,6 +3155,7 @@ namespace OpenSim.Region.Framework.Scenes
             setZ = ((axis & zaxis) != 0) ? true : false;
 
             float setval = (rotate10 > 0) ? 1f : 0f;
+
 
             if (setX)
                 RootPart.RotationAxis.X = setval;

@@ -204,33 +204,84 @@ namespace OpenSim.Region.Framework.Scenes
             // the same queue with the root of the group, the root prim (which goes into
             // the queue first) should always be sent first, no need to adjust child prim
             // priorities
-            Vector3 entityPos = entity.AbsolutePosition;
-            if (entity is SceneObjectPart)
-            {
-                SceneObjectGroup group = (entity as SceneObjectPart).ParentGroup;
-                entityPos = group.AbsolutePosition;
-            }
+
+/*  use object oriented bounding position and it's sphere radius squared
+    so that big objects that are in fact near do get higher priority even if absolute position is far
+    this is of course crude, but guess it's good enough for now
+  
+                        Vector3 entityPos = entity.AbsolutePosition;
+                        if (entity is SceneObjectPart)
+                        {
+                            SceneObjectGroup group = (entity as SceneObjectPart).ParentGroup;
+                            entityPos = group.AbsolutePosition;
+                        }
+*/
+
+            Vector3 entityPos;
+            float oobSQ;
+
+            if (entity is SceneObjectGroup)
+                {
+                SceneObjectGroup group = (entity as SceneObjectGroup);
+                entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
+                oobSQ = group.BSphereRadiusSQ;
+                }
+            else if (entity is SceneObjectPart)
+                {
+                SceneObjectPart p = (entity as SceneObjectPart);
+                entityPos = p.AbsolutePosition;
+                oobSQ = p.BSphereRadiusSQ;
+                }
+            else
+                {
+                entityPos = entity.AbsolutePosition;
+                oobSQ = 0;
+                }
 
             // Use the camera position for local agents and avatar position for remote agents
             Vector3 presencePos = (presence.IsChildAgent) ?
                 presence.AbsolutePosition :
                 presence.CameraPosition;
 
-            // Compute the distance... 
-            double distance = Vector3.Distance(presencePos, entityPos);
 
             // And convert the distance to a priority queue, this computation gives queues
             // at 10, 20, 40, 80, 160, 320, 640, and 1280m
-            uint pqueue = PriorityQueue.NumberOfImmediateQueues;
-            uint queues = PriorityQueue.NumberOfQueues - PriorityQueue.NumberOfImmediateQueues;
-            
+//            uint pqueue = PriorityQueue.NumberOfImmediateQueues;
+//            uint queues = PriorityQueue.NumberOfQueues - PriorityQueue.NumberOfImmediateQueues;
+
+/* yeack...            
             for (int i = 0; i < queues - 1; i++)
             {
                 if (distance < 10 * Math.Pow(2.0,i))
                     break;
                 pqueue++;
             }
-            
+ */
+            // Compute the distance... 
+
+            uint pqueue;
+            float distancesq = Vector3.DistanceSquared(presencePos, entityPos) - oobSQ;
+
+            if (distancesq > 100.0)
+                {
+                float tmp = (float)Math.Log((double)distancesq) * 0.72134752044448170367996234050095f - 2.3025850929940456840179914546844f;
+                // 1st constant is 1/(2*log(2)) (natural log)
+                // 2st constant is log(10)
+
+                // this should give similar results
+
+                pqueue = (uint)tmp;
+                pqueue += PriorityQueue.NumberOfImmediateQueues;
+                if (pqueue >= PriorityQueue.NumberOfQueues - 1)
+                    {
+                    // Ooops...
+                    pqueue = PriorityQueue.NumberOfQueues - 1;
+                    }
+                }
+            else // we are 'inside' the object sphere
+                pqueue = PriorityQueue.NumberOfImmediateQueues;
+
+
             // If this is a root agent, then determine front & back
             // Bump up the priority queue (drop the priority) for any objects behind the avatar
             if (useFrontBack && ! presence.IsChildAgent)
@@ -248,6 +299,5 @@ namespace OpenSim.Region.Framework.Scenes
 
             return pqueue;
         }
-
     }
 }

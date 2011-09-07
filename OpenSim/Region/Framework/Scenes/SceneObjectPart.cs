@@ -309,6 +309,59 @@ namespace OpenSim.Region.Framework.Scenes
         protected UUID m_uuid;
         protected Vector3 m_velocity;
 
+        [XmlIgnore]
+        private bool m_IsSelected = false;
+
+
+        // helper values for updates pririty and culling
+        [XmlIgnore]
+        private bool m_ValidgrpOOB = false; // control flag to avoid unnecessary calculations.
+        [XmlIgnore]
+        private Vector3 m_partOOBsize; // the size of a Object Oriented Bounding box oriented as prim, is future will consider cutted prims, meshs etc
+        [XmlIgnore]
+        private Vector3 m_partOOBoffset; // the position center of the bounding box relative to it's Position
+        [XmlIgnore]
+        private float m_partBSphereRadiusSQ; // the square of the radius of a sphere containing the oob
+
+        // the size of a bounding box oriented as the prim, is future will consider cutted prims, meshs etc
+        [XmlIgnore]
+        public Vector3 OOBsize
+            {
+            get
+                {
+                if (!m_ValidgrpOOB)
+                    UpdateOOBfromOOBs();
+                return m_partOOBsize;
+                }
+            }
+
+        // the position center of the bounding box relative to it's Position
+        // on complex forms this will not be zero
+        [XmlIgnore]
+        public Vector3 OOBoffset
+            {
+            get
+                {
+                if (!m_ValidgrpOOB)
+                    UpdateOOBfromOOBs();
+                return m_partOOBoffset;
+                }
+            }
+
+        // the square of the radius of a sphere containing the oobb
+        [XmlIgnore]
+        public float BSphereRadiusSQ
+            {
+            get
+                {
+                if (!m_ValidgrpOOB)
+                    UpdateOOBfromOOBs();
+                return m_partBSphereRadiusSQ;
+                }
+            }
+      
+
+
         protected Vector3 m_lastPosition;
         protected Quaternion m_lastRotation;
         protected Vector3 m_lastVelocity;
@@ -351,7 +404,9 @@ namespace OpenSim.Region.Framework.Scenes
             m_TextureAnimation = Utils.EmptyBytes;
             m_particleSystem = Utils.EmptyBytes;
             Rezzed = DateTime.UtcNow;
-            
+
+            m_ValidgrpOOB = false;
+
             m_inventory = new SceneObjectPartInventory(this);
         }
 
@@ -389,6 +444,11 @@ namespace OpenSim.Region.Framework.Scenes
             Velocity = Vector3.Zero;
             AngularVelocity = Vector3.Zero;
             Acceleration = Vector3.Zero;
+
+
+            m_ValidgrpOOB = false;
+
+
             m_TextureAnimation = Utils.EmptyBytes;
             m_particleSystem = Utils.EmptyBytes;
 
@@ -728,6 +788,7 @@ namespace OpenSim.Region.Framework.Scenes
             set
             {
                 m_groupPosition = value;
+                m_ValidgrpOOB = false;
 
                 PhysicsActor actor = PhysActor;
                 if (actor != null)
@@ -774,6 +835,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
 //                StoreUndoState();
                 m_offsetPosition = value;
+                m_ValidgrpOOB = false;
 
                 if (ParentGroup != null && !ParentGroup.IsDeleted)
                 {
@@ -831,6 +893,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 StoreUndoState();
                 m_rotationOffset = value;
+                m_ValidgrpOOB = false;
 
                 PhysicsActor actor = PhysActor;
                 if (actor != null)
@@ -1008,11 +1071,15 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_shape.Scale; }
             set
             {
+                m_ValidgrpOOB = false;
+ 
                 if (m_shape != null)
                 {
+
                     StoreUndoState();
 
                     m_shape.Scale = value;
+
 
                     PhysicsActor actor = PhysActor;
                     if (actor != null)
@@ -1364,6 +1431,25 @@ namespace OpenSim.Region.Framework.Scenes
         // }
 
         #endregion Private Methods
+        private void UpdateOOBfromOOBs()
+            {
+            // use a the basic box for now
+            m_partOOBoffset = Vector3.Zero;
+
+            m_partOOBsize.X = Scale.X * 0.5f;
+            m_partOOBsize.Y = Scale.Y * 0.5f;
+            m_partOOBsize.Z = Scale.Z * 0.5f;
+
+            m_partBSphereRadiusSQ = m_partOOBsize.X;
+            if (m_partBSphereRadiusSQ < m_partOOBsize.Y)
+                m_partBSphereRadiusSQ = m_partOOBsize.Y;
+            if (m_partBSphereRadiusSQ < m_partOOBsize.Z)
+                m_partBSphereRadiusSQ = m_partOOBsize.Z;
+
+            m_partBSphereRadiusSQ *= m_partBSphereRadiusSQ; // square it for faster compare with squared distances
+
+            m_ValidgrpOOB = true;
+            }
 
         #region Public Methods
 
@@ -1634,12 +1720,22 @@ namespace OpenSim.Region.Framework.Scenes
 
             dupe._ownerID = AgentID;
             dupe._groupID = GroupID;
+/* nasty things
             dupe.GroupPosition = GroupPosition;
             dupe.OffsetPosition = OffsetPosition;
             dupe.RotationOffset = RotationOffset;
+this maybe be less nasty
+*/
+            dupe.m_groupPosition = GroupPosition;
+            dupe.m_offsetPosition = OffsetPosition;
+            dupe.m_rotationOffset = RotationOffset;
+
             dupe.Velocity = new Vector3(0, 0, 0);
             dupe.Acceleration = new Vector3(0, 0, 0);
             dupe.AngularVelocity = new Vector3(0, 0, 0);
+
+            dupe.m_ValidgrpOOB = false;
+ 
             dupe.Flags = Flags;
 
             dupe._ownershipCost = _ownershipCost;
@@ -2771,6 +2867,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="scale"></param>
         public void Resize(Vector3 scale)
         {
+            m_ValidgrpOOB = false;
             scale.X = Math.Min(scale.X, ParentGroup.Scene.m_maxNonphys);
             scale.Y = Math.Min(scale.Y, ParentGroup.Scene.m_maxNonphys);
             scale.Z = Math.Min(scale.Z, ParentGroup.Scene.m_maxNonphys);
@@ -4529,6 +4626,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void UpdateRotation(Quaternion rot)
         {
+            m_ValidgrpOOB = false;
+
             if ((rot.X != RotationOffset.X) ||
                 (rot.Y != RotationOffset.Y) ||
                 (rot.Z != RotationOffset.Z) ||
@@ -4585,6 +4684,7 @@ namespace OpenSim.Region.Framework.Scenes
                 ParentGroup.RootPart.Rezzed = DateTime.UtcNow;
 
             ParentGroup.HasGroupChanged = true;
+            m_ValidgrpOOB = false;
             TriggerScriptChangedEvent(Changed.SHAPE);
             ScheduleFullUpdate();
         }
@@ -4855,5 +4955,6 @@ namespace OpenSim.Region.Framework.Scenes
             Color color = Color;
             return new Color4(color.R, color.G, color.B, (byte)(0xFF - color.A));
         }
+
     }
 }
