@@ -259,10 +259,13 @@ namespace OpenSim.Region.Framework.Scenes
  */
             // Compute the distance... 
 
-            uint pqueue;
+//            uint pqueue;
             float distancesq = Vector3.DistanceSquared(presencePos, entityPos) - oobSQ;
+            if (distancesq < 0)
+                distancesq = 0;
+            uint prio = (uint) distancesq + 2; // (+2 So not to go into a imediate queue)
 
-
+/* moved into PriorityQueue.cs
 // colapse original first queues for closer than 40m to first non imeadiate
             if (distancesq < 1600.0) 
                 pqueue = PriorityQueue.NumberOfImmediateQueues;
@@ -281,10 +284,12 @@ namespace OpenSim.Region.Framework.Scenes
                     pqueue = PriorityQueue.NumberOfQueues - 2;
                     }
                 }
-
+*/
 
             // If this is a root agent, then determine front & back
             // Bump up the priority queue (drop the priority) for any objects behind the avatar
+
+/* ignore this.. avas do rotate a lot
             if (useFrontBack && ! presence.IsChildAgent)
             {
                 // Root agent, decrease priority for objects behind us
@@ -297,8 +302,9 @@ namespace OpenSim.Region.Framework.Scenes
                 if (p < 0.0f) 
                     pqueue++;
             }
-
-            return pqueue;
+*/
+//            return pqueue;
+            return prio;
         }
     }
 }
