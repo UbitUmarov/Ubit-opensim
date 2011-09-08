@@ -60,7 +60,15 @@ namespace OpenSim.Framework
         // each pass. weighted towards the higher priority queues
         private uint m_nextQueue = 0;
         private uint m_countFromQueue = 0;
-        private uint[] m_queueCounts = { 8, 4, 4, 2, 2, 2, 2, 1, 1, 1, 1, 1 };
+/*
+        only significante numbers on imediate queues??    private uint[] m_queueCounts = { 8, 4, 4, 2, 2, 2, 2, 1, 1, 1, 1, 1 };
+        and with this 'fairness' why to bother with priority?
+        try to make this more a safeguard against stalled queues
+*/
+        //    from prioritizer:           im   im   10   20   40   80 160 320 640 1280 1280back ?
+        //  now om prioritizer:           im   im   40   80 160 320 640 1280 1280back ?
+        private uint[] m_queueCounts = { 128, 128, 512, 256, 64, 4,  2,   1,       1, 1, 1, 1 };
+        // first entries are of course dummy
 
         // next request is a counter of the number of updates queued, it provides
         // a total ordering on the updates coming through the queue and is more
@@ -172,15 +180,20 @@ namespace OpenSim.Framework
             }
             
             // Find the next non-immediate queue with updates in it
-            for (int i = 0; i < NumberOfQueues; ++i)
+            for (int i = (int)NumberOfImmediateQueues; i < NumberOfQueues; ++i)
             {
-                m_nextQueue = (uint)((m_nextQueue + 1) % NumberOfQueues);
-                m_countFromQueue = m_queueCounts[m_nextQueue];
+ //               m_nextQueue = (uint)((m_nextQueue + 1) % NumberOfQueues);
+                
+
+                if ( ++m_nextQueue >= NumberOfQueues)
+                    m_nextQueue = NumberOfImmediateQueues;
 
                 // if this is one of the immediate queues, just skip it
-                if (m_nextQueue < NumberOfImmediateQueues)
-                    continue;
-                
+//                if (m_nextQueue < NumberOfImmediateQueues)
+//                    continue;
+
+                m_countFromQueue = m_queueCounts[m_nextQueue];
+
                 if (m_heaps[m_nextQueue].Count > 0)
                 {
                     m_countFromQueue--;
