@@ -228,9 +228,9 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             else if (entity is SceneObjectPart)
                 {
-                SceneObjectPart p = (entity as SceneObjectPart);
-                entityPos = p.AbsolutePosition;
-                oobSQ = p.BSphereRadiusSQ;
+                SceneObjectGroup group = (entity as SceneObjectPart).ParentGroup;
+                entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
+                oobSQ = group.BSphereRadiusSQ;
                 }
             else
                 {
@@ -262,24 +262,25 @@ namespace OpenSim.Region.Framework.Scenes
             uint pqueue;
             float distancesq = Vector3.DistanceSquared(presencePos, entityPos) - oobSQ;
 
-            if (distancesq > 100.0)
+
+// colapse original first queues for closer than 40m to first non imeadiate
+            if (distancesq < 1600.0) 
+                pqueue = PriorityQueue.NumberOfImmediateQueues;
+            else
                 {
-                float tmp = (float)Math.Log((double)distancesq) * 0.72134752044448170367996234050095f - 2.3025850929940456840179914546844f;
+                float tmp = (float)Math.Log((double)distancesq) * 0.72134752044448170367996234050095f - 4.3219280948873623478703194294894f;
                 // 1st constant is 1/(2*log(2)) (natural log)
-                // 2st constant is log(10)
+                // 2st constant is log(10)/ln(2) + 1
 
                 // this should give similar results
 
-                pqueue = (uint)tmp;
-                pqueue += PriorityQueue.NumberOfImmediateQueues;
-                if (pqueue >= PriorityQueue.NumberOfQueues - 1)
+                pqueue = (uint)tmp + PriorityQueue.NumberOfImmediateQueues;
+                if (pqueue >= PriorityQueue.NumberOfQueues - 2)
                     {
                     // Ooops...
-                    pqueue = PriorityQueue.NumberOfQueues - 1;
+                    pqueue = PriorityQueue.NumberOfQueues - 2;
                     }
                 }
-            else // we are 'inside' the object sphere
-                pqueue = PriorityQueue.NumberOfImmediateQueues;
 
 
             // If this is a root agent, then determine front & back
