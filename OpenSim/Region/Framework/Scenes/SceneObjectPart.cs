@@ -315,7 +315,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         // helper values for updates pririty and culling
         [XmlIgnore]
-        private bool m_ValidgrpOOB = false; // control flag to avoid unnecessary calculations.
+        private bool m_ValidpartOOB = false; // control flag to avoid unnecessary calculations.
         [XmlIgnore]
         private Vector3 m_partOOBsize; // the size of a Object Oriented Bounding box oriented as prim, is future will consider cutted prims, meshs etc
         [XmlIgnore]
@@ -329,7 +329,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
             get
                 {
-                if (!m_ValidgrpOOB)
+                if (!m_ValidpartOOB)
                     UpdateOOBfromOOBs();
                 return m_partOOBsize;
                 }
@@ -342,7 +342,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
             get
                 {
-                if (!m_ValidgrpOOB)
+                if (!m_ValidpartOOB)
                     UpdateOOBfromOOBs();
                 return m_partOOBoffset;
                 }
@@ -354,7 +354,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
             get
                 {
-                if (!m_ValidgrpOOB)
+                if (!m_ValidpartOOB)
                     UpdateOOBfromOOBs();
                 return m_partBSphereRadiusSQ;
                 }
@@ -405,7 +405,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_particleSystem = Utils.EmptyBytes;
             Rezzed = DateTime.UtcNow;
 
-            m_ValidgrpOOB = false;
+            m_ValidpartOOB = false;
 
             m_inventory = new SceneObjectPartInventory(this);
         }
@@ -446,7 +446,7 @@ namespace OpenSim.Region.Framework.Scenes
             Acceleration = Vector3.Zero;
 
 
-            m_ValidgrpOOB = false;
+            m_ValidpartOOB = false;
 
 
             m_TextureAnimation = Utils.EmptyBytes;
@@ -788,7 +788,7 @@ namespace OpenSim.Region.Framework.Scenes
             set
             {
                 m_groupPosition = value;
-                m_ValidgrpOOB = false;
+                m_ValidpartOOB = false;
 
                 PhysicsActor actor = PhysActor;
                 if (actor != null)
@@ -835,7 +835,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
 //                StoreUndoState();
                 m_offsetPosition = value;
-                m_ValidgrpOOB = false;
+                m_ValidpartOOB = false;
 
                 if (ParentGroup != null && !ParentGroup.IsDeleted)
                 {
@@ -893,7 +893,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 StoreUndoState();
                 m_rotationOffset = value;
-                m_ValidgrpOOB = false;
+                m_ValidpartOOB = false;
 
                 PhysicsActor actor = PhysActor;
                 if (actor != null)
@@ -1071,7 +1071,7 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_shape.Scale; }
             set
             {
-                m_ValidgrpOOB = false;
+                m_ValidpartOOB = false;
  
                 if (m_shape != null)
                 {
@@ -1448,7 +1448,7 @@ namespace OpenSim.Region.Framework.Scenes
 
             m_partBSphereRadiusSQ *= m_partBSphereRadiusSQ; // square it for faster compare with squared distances
 
-            m_ValidgrpOOB = true;
+            m_ValidpartOOB = true;
             }
 
         #region Public Methods
@@ -1734,7 +1734,7 @@ this maybe be less nasty
             dupe.Acceleration = new Vector3(0, 0, 0);
             dupe.AngularVelocity = new Vector3(0, 0, 0);
 
-            dupe.m_ValidgrpOOB = false;
+            dupe.m_ValidpartOOB = false;
  
             dupe.Flags = Flags;
 
@@ -2867,7 +2867,7 @@ this maybe be less nasty
         /// <param name="scale"></param>
         public void Resize(Vector3 scale)
         {
-            m_ValidgrpOOB = false;
+            m_ValidpartOOB = false;
             scale.X = Math.Min(scale.X, ParentGroup.Scene.m_maxNonphys);
             scale.Y = Math.Min(scale.Y, ParentGroup.Scene.m_maxNonphys);
             scale.Z = Math.Min(scale.Z, ParentGroup.Scene.m_maxNonphys);
@@ -4286,8 +4286,9 @@ this maybe be less nasty
                 (pos.Y != GroupPosition.Y) ||
                 (pos.Z != GroupPosition.Z))
             {
-                Vector3 newPos = new Vector3(pos.X, pos.Y, pos.Z);
+                 Vector3 newPos = new Vector3(pos.X, pos.Y, pos.Z);
                 GroupPosition = newPos;
+                m_ValidpartOOB = false;
                 ScheduleTerseUpdate();
             }
         }
@@ -4319,6 +4320,7 @@ this maybe be less nasty
                     }
                 }
 
+                m_ValidpartOOB = false;
                 OffsetPosition = newPos;
                 ScheduleTerseUpdate();
             }
@@ -4626,7 +4628,7 @@ this maybe be less nasty
 
         public void UpdateRotation(Quaternion rot)
         {
-            m_ValidgrpOOB = false;
+            m_ValidpartOOB = false;
 
             if ((rot.X != RotationOffset.X) ||
                 (rot.Y != RotationOffset.Y) ||
@@ -4684,7 +4686,7 @@ this maybe be less nasty
                 ParentGroup.RootPart.Rezzed = DateTime.UtcNow;
 
             ParentGroup.HasGroupChanged = true;
-            m_ValidgrpOOB = false;
+            m_ValidpartOOB = false;
             TriggerScriptChangedEvent(Changed.SHAPE);
             ScheduleFullUpdate();
         }
