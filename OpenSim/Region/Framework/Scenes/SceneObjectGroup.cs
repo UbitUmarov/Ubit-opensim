@@ -751,10 +751,21 @@ namespace OpenSim.Region.Framework.Scenes
             Vector3 minScale = new Vector3(int.MaxValue, int.MaxValue, int.MaxValue);
             Vector3 maxScale = new Vector3(int.MinValue, int.MinValue, int.MinValue);
 
+            SceneObjectPart part;
             SceneObjectPart[] parts = m_parts.GetArray();
+            if (parts.Length == 1)
+                {
+                part = parts[0];
+                m_grpOOBsize = part.OOBsize;
+                m_grpOOBoffset = part.OOBoffset;
+                m_grpBSphereRadiusSQ = part.BSphereRadiusSQ;
+                m_ValidgrpOOB = true;
+                return;
+                }
+
             for (int i = 0; i < parts.Length; i++)
                 {
-                SceneObjectPart part = parts[i];
+                part = parts[i];
                 Vector3 partscale = part.OOBsize;
                 Vector3 partoffset = part.OOBoffset;
                 Quaternion partrot = part.RotationOffset;
