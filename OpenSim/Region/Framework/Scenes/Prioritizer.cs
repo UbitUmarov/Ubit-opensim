@@ -68,14 +68,7 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        /// Returns the priority queue into which the update should be placed. Updates within a
-        /// queue will be processed in arrival order. There are currently 12 priority queues
-        /// implemented in PriorityQueue class in LLClientView. Queue 0 is generally retained
-        /// for avatar updates. The fair queuing discipline for processing the priority queues
-        /// assumes that the number of entities in each priority queues increases exponentially.
-        /// So for example... if queue 1 contains all updates within 10m of the avatar or camera
-        /// then queue 2 at 20m is about 3X bigger in space & about 3X bigger in total number
-        /// of updates.
+        /// Returns the priority for a update
         /// </summary>
         public uint GetUpdatePriority(IClientAPI client, ISceneEntity entity)
         {
@@ -126,7 +119,8 @@ namespace OpenSim.Region.Framework.Scenes
                     return 1;
             }
 
-            return PriorityQueue.NumberOfImmediateQueues; // first queue past the immediate queues
+        //            return PriorityQueue.NumberOfImmediateQueues; // first queue past the immediate queues
+            return 2; // first queue past the immediate queues
         }
 
         private uint GetPriorityByDistance(IClientAPI client, ISceneEntity entity)
@@ -197,28 +191,13 @@ namespace OpenSim.Region.Framework.Scenes
 
                 // m_log.WarnFormat("[PRIORITIZER] attempt to use agent {0} not in the scene",client.AgentId);
                 // throw new InvalidOperationException("Prioritization agent not defined");
-                return PriorityQueue.NumberOfQueues - 1;
+//                return PriorityQueue.NumberOfQueues - 1;
+            return uint.MaxValue-2;
             }
                 
-            // Use group position for child prims, since we are putting child prims in
-            // the same queue with the root of the group, the root prim (which goes into
-            // the queue first) should always be sent first, no need to adjust child prim
-            // priorities
-
-/*  use object oriented bounding position and it's sphere radius squared
-    so that big objects that are in fact near do get higher priority even if absolute position is far
-    this is of course crude, but guess it's good enough for now
-  
-                        Vector3 entityPos = entity.AbsolutePosition;
-                        if (entity is SceneObjectPart)
-                        {
-                            SceneObjectGroup group = (entity as SceneObjectPart).ParentGroup;
-                            entityPos = group.AbsolutePosition;
-                        }
-*/
-
-            Vector3 entityPos;
+              Vector3 entityPos;
             float oobSQ;
+            bool ischildpart = false;
 
             if (entity is SceneObjectGroup)
                 {
@@ -231,6 +210,8 @@ namespace OpenSim.Region.Framework.Scenes
                 SceneObjectGroup group = (entity as SceneObjectPart).ParentGroup;
                 entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
                 oobSQ = group.BSphereRadiusSQ;
+                if ((entity as SceneObjectPart).ParentID != 0)
+                    ischildpart = true;
                 }
             else
                 {
@@ -243,53 +224,19 @@ namespace OpenSim.Region.Framework.Scenes
                 presence.AbsolutePosition :
                 presence.CameraPosition;
 
-
-            // And convert the distance to a priority queue, this computation gives queues
-            // at 10, 20, 40, 80, 160, 320, 640, and 1280m
-//            uint pqueue = PriorityQueue.NumberOfImmediateQueues;
-//            uint queues = PriorityQueue.NumberOfQueues - PriorityQueue.NumberOfImmediateQueues;
-
-/* yeack...            
-            for (int i = 0; i < queues - 1; i++)
-            {
-                if (distance < 10 * Math.Pow(2.0,i))
-                    break;
-                pqueue++;
-            }
- */
             // Compute the distance... 
 
-//            uint pqueue;
             float distancesq = Vector3.DistanceSquared(presencePos, entityPos) - oobSQ;
             if (distancesq < 0)
                 distancesq = 0;
-            uint prio = (uint) distancesq + 2; // (+2 So not to go into a imediate queue)
+            uint prio = (uint) distancesq + 2; // (+2 fake old imediate queues)
 
-/* moved into PriorityQueue.cs
-// colapse original first queues for closer than 40m to first non imeadiate
-            if (distancesq < 1600.0) 
-                pqueue = PriorityQueue.NumberOfImmediateQueues;
-            else
-                {
-                float tmp = (float)Math.Log((double)distancesq) * 0.72134752044448170367996234050095f - 4.3219280948873623478703194294894f;
-                // 1st constant is 1/(2*log(2)) (natural log)
-                // 2st constant is log(10)/ln(2) + 1
-
-                // this should give similar results
-
-                pqueue = (uint)tmp + PriorityQueue.NumberOfImmediateQueues;
-                if (pqueue >= PriorityQueue.NumberOfQueues - 2)
-                    {
-                    // Ooops...
-                    pqueue = PriorityQueue.NumberOfQueues - 2;
-                    }
-                }
-*/
+            if (ischildpart)
+                prio++;
 
             // If this is a root agent, then determine front & back
             // Bump up the priority queue (drop the priority) for any objects behind the avatar
-
-/* ignore this.. avas do rotate a lot
+            
             if (useFrontBack && ! presence.IsChildAgent)
             {
                 // Root agent, decrease priority for objects behind us
@@ -300,10 +247,8 @@ namespace OpenSim.Region.Framework.Scenes
                 float d = -Vector3.Dot(camPosition, camAtAxis);
                 float p = Vector3.Dot(camAtAxis, entityPos) + d;
                 if (p < 0.0f) 
-                    pqueue++;
+                    prio++;
             }
-*/
-//            return pqueue;
             return prio;
         }
     }
