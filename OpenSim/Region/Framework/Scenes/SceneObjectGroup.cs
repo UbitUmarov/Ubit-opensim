@@ -748,8 +748,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void UpdateOOBfromOOBs()
             {
-            Vector3 minScale = new Vector3(int.MaxValue, int.MaxValue, int.MaxValue);
-            Vector3 maxScale = new Vector3(int.MinValue, int.MinValue, int.MinValue);
+            Vector3 minScale = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            Vector3 maxScale = new Vector3(float.MinValue, float.MinValue, float.MinValue);
 
             SceneObjectPart part;
             SceneObjectPart[] parts = m_parts.GetArray();
@@ -769,9 +769,14 @@ namespace OpenSim.Region.Framework.Scenes
                 Vector3 partscale = part.OOBsize;
                 Vector3 partoffset = part.OOBoffset;
                 Quaternion partrot = part.RotationOffset;
+
                 if (part.ParentID != 0) // prims are rotated in group
                     {
                     partscale *= partrot;
+                    // scale is positive
+                    partscale.X = Math.Abs(partscale.X);
+                    partscale.Y = Math.Abs(partscale.Y);
+                    partscale.Z = Math.Abs(partscale.Z);
                     partoffset *= partrot;
                     }
                 partoffset += part.OffsetPosition;
