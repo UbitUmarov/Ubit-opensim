@@ -1433,21 +1433,15 @@ namespace OpenSim.Region.Framework.Scenes
         #endregion Private Methods
         private void UpdateOOBfromOOBs()
             {
-            // use a the basic box for now
+            // use a the basic box of base prim for now
+            // until we get a better box from meshs or physics
             m_partOOBoffset = Vector3.Zero;
 
             m_partOOBsize.X = Scale.X * 0.5f;
             m_partOOBsize.Y = Scale.Y * 0.5f;
             m_partOOBsize.Z = Scale.Z * 0.5f;
 
-            m_partBSphereRadiusSQ = m_partOOBsize.X;
-            if (m_partBSphereRadiusSQ < m_partOOBsize.Y)
-                m_partBSphereRadiusSQ = m_partOOBsize.Y;
-            if (m_partBSphereRadiusSQ < m_partOOBsize.Z)
-                m_partBSphereRadiusSQ = m_partOOBsize.Z;
-
-            m_partBSphereRadiusSQ *= m_partBSphereRadiusSQ; // square it for faster compare with squared distances
-
+            m_partBSphereRadiusSQ = m_partOOBsize.LengthSquared();
             m_ValidpartOOB = true;
             }
 

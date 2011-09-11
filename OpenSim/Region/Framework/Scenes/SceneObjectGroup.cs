@@ -134,16 +134,16 @@ namespace OpenSim.Region.Framework.Scenes
         public bool HasGroupChangedDueToDelink { get; private set; }
 
 
+// UbitUmarov Mess:
         [XmlIgnore]
         private bool m_ValidgrpOOB = false; // control flag to avoid unnecessary calculations. 
-                                     // Must be false if position,rotation scale etc of group ( or its parts ) change so box can be updated when needed
+            // Must be set to false where position, scale etc of group is changed so box can be updated later and only on first use.           
         [XmlIgnore]
-        private Vector3 m_grpOOBsize; // the size of a bounding box oriented as prim, is future will consider cutted prims, meshs etc
+        private Vector3 m_grpOOBsize; // the size of a bounding box oriented as the root ( vertice with all coords >0)
         [XmlIgnore]
-        private Vector3 m_grpOOBoffset; // the position center of the bounding box relative to it's Position
+        private Vector3 m_grpOOBoffset; // the position center of the bounding box relative to root position
         [XmlIgnore]
         private float m_grpBSphereRadiusSQ; // the square of the radius of a sphere containing the oob
-
 
         /// <summary>
         /// The size of a simple object oriented bounding box oriented in future can consider tortured prims, meshs etc
@@ -186,6 +186,7 @@ namespace OpenSim.Region.Framework.Scenes
                 return m_grpBSphereRadiusSQ;
                 }
             }
+// UbitUmarov Mess /
 
         private bool isTimeToPersist()
         {
@@ -365,7 +366,9 @@ namespace OpenSim.Region.Framework.Scenes
                     SceneObjectPart part = parts[i];
                     Vector3 partscale = part.Scale;
                     Vector3 partoffset = part.OffsetPosition;
-    
+
+//UbitUmarov shouldn't we see a part.OffsetRotation somewhere ?    
+
                     minScale.X = (partscale.X + partoffset.X < minScale.X) ? partscale.X + partoffset.X : minScale.X;
                     minScale.Y = (partscale.Y + partoffset.Y < minScale.Y) ? partscale.Y + partoffset.Y : minScale.Y;
                     minScale.Z = (partscale.Z + partoffset.Z < minScale.Z) ? partscale.Z + partoffset.Z : minScale.Z;
@@ -745,15 +748,13 @@ namespace OpenSim.Region.Framework.Scenes
             //ScheduleGroupForFullUpdate();
         }
 
-
+// UbitUmarov Mess:
         public void UpdateOOBfromOOBs()
             {
-            Vector3 minScale = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-            Vector3 maxScale = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-
             SceneObjectPart part;
             SceneObjectPart[] parts = m_parts.GetArray();
-            if (parts.Length == 1)
+
+            if (parts.Length == 1) // nice single part group
                 {
                 part = parts[0];
                 m_grpOOBsize = part.OOBsize;
@@ -763,58 +764,112 @@ namespace OpenSim.Region.Framework.Scenes
                 return;
                 }
 
+            Vector3 minScale = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            Vector3 maxScale = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            Vector3 deltam;
+            Vector3 deltaM;
+            Quaternion partrot;
+
             for (int i = 0; i < parts.Length; i++)
                 {
                 part = parts[i];
-                Vector3 partscale = part.OOBsize;
+                Vector3 partscale = part.OOBsize; // (oobsize == vector with box vertice with all coords positive)
                 Vector3 partoffset = part.OOBoffset;
-                Quaternion partrot = part.RotationOffset;
 
-                if (part.ParentID != 0) // prims are rotated in group
+                // not assuming root is at index 0
+                if (part.ParentID == 0) // root is in local frame of reference, partscale.? are positive, no rotations
                     {
-                    partscale *= partrot;
-                    // scale is positive
-                    partscale.X = Math.Abs(partscale.X);
-                    partscale.Y = Math.Abs(partscale.Y);
-                    partscale.Z = Math.Abs(partscale.Z);
-                    partoffset *= partrot;
+//2 vertices in the right extrem sides:
+                    deltam = partoffset - partscale;
+                    deltaM = partoffset + partscale;
+
+// if root is always at index 0 this can be just assigns
+                    if (deltam.X < minScale.X)
+                        minScale.X = deltam.X;
+                    if (deltam.Y < minScale.Y)
+                        minScale.Y = deltam.Y;
+                    if (deltam.Z < minScale.Z)
+                        minScale.Z = deltam.Z;
+
+                    if (deltaM.X > maxScale.X)
+                        maxScale.X = deltaM.X;
+                    if (deltaM.Y > maxScale.Y)
+                        maxScale.Y = deltaM.Y;
+                    if (deltaM.Z > maxScale.Z)
+                        maxScale.Z = deltaM.Z;
                     }
-                partoffset += part.OffsetPosition;
 
-                Vector3 delta = partoffset - partscale;
-                if (delta.X < minScale.X)
-                    minScale.X = delta.X;
-                if (delta.Y < minScale.Y)
-                    minScale.Y = delta.Y;
-                if (delta.Z < minScale.Z)
-                    minScale.Z = delta.Z;
+                else // prims are in their local frame of reference
+                    {
+                    // bring into this frame
+                    partrot = part.RotationOffset;
+                    partscale *= partrot;
+                    partoffset *= partrot;
+                    partoffset += part.OffsetPosition;
 
-                delta = partoffset + partscale;
-                if (delta.X > maxScale.X)
-                    maxScale.X = delta.X;
-                if (delta.Y > maxScale.Y)
-                    maxScale.Y = delta.Y;
-                if (delta.Z > maxScale.Z)
-                    maxScale.Z = delta.Z;
+                    // now just 2 vertices in a diagonal 
+                    deltam = partoffset - partscale;
+                    deltaM = partoffset + partscale;
+
+                    if (deltaM.X > deltam.X) // right vertices order for extrem X
+                        {
+                        if (deltam.X < minScale.X)
+                            minScale.X = deltam.X;
+                        if (deltaM.X > maxScale.X)
+                            maxScale.X = deltaM.X;
+                        }
+                    else // nopes inverse one
+                        {
+                        if (deltaM.X < minScale.X)
+                            minScale.X = deltaM.X;
+                        if (deltam.X > maxScale.X)
+                            maxScale.X = deltam.X;
+                        }
+
+                    if (deltaM.Y > deltam.Y)
+                        {
+                        if (deltam.Y < minScale.Y)
+                            minScale.Y = deltam.Y;
+                        if (deltaM.Y > maxScale.Y)
+                            maxScale.Y = deltaM.Y;
+                        }
+                    else
+                        {
+                        if (deltaM.Y < minScale.Y)
+                            minScale.Y = deltaM.Y;
+                        if (deltam.Y > maxScale.Y)
+                            maxScale.Y = deltam.Y;
+                        }
+
+                    if (deltaM.Z > deltam.Z)
+                        {
+                        if (deltam.Z < minScale.Z)
+                            minScale.Z = deltam.Z;
+                        if (deltaM.Z > maxScale.Z)
+                            maxScale.Z = deltaM.Z;
+                        }
+                    else
+                        {
+                        if (deltaM.Z < minScale.Z)
+                            minScale.Z = deltaM.Z;
+                        if (deltam.Z > maxScale.Z)
+                            maxScale.Z = deltam.Z;
+                        }
+                    }
                 }
-
+// size == the vertice of box with all coords positive
             m_grpOOBsize.X = 0.5f * Math.Abs(maxScale.X - minScale.X);
             m_grpOOBsize.Y = 0.5f * Math.Abs(maxScale.Y - minScale.Y);
             m_grpOOBsize.Z = 0.5f * Math.Abs(maxScale.Z - minScale.Z);
-
+// centroid:
             m_grpOOBoffset.X = 0.5f * (maxScale.X + minScale.X);
             m_grpOOBoffset.Y = 0.5f * (maxScale.Y + minScale.Y);
             m_grpOOBoffset.Z = 0.5f * (maxScale.Z + minScale.Z);
+// containing sphere:
+            m_grpBSphereRadiusSQ = m_grpOOBsize.LengthSquared();
 
-            m_grpBSphereRadiusSQ = m_grpOOBsize.X;
-            if (m_grpBSphereRadiusSQ < m_grpOOBsize.Y)
-                m_grpBSphereRadiusSQ = m_grpOOBsize.Y;
-            if (m_grpBSphereRadiusSQ < m_grpOOBsize.Z)
-                m_grpBSphereRadiusSQ = m_grpOOBsize.Z;
-            m_grpBSphereRadiusSQ *= m_grpBSphereRadiusSQ;
             m_ValidgrpOOB = true;
             }
-
 
         public EntityIntersection TestIntersection(Ray hRay, bool frontFacesOnly, bool faceCenters)
         {
