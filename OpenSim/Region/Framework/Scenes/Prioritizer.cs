@@ -195,7 +195,7 @@ namespace OpenSim.Region.Framework.Scenes
             return uint.MaxValue-2;
             }
                 
-              Vector3 entityPos;
+            Vector3 entityPos;
             float oobSQ;
             bool ischildpart = false;
 
@@ -207,11 +207,19 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             else if (entity is SceneObjectPart)
                 {
-                SceneObjectGroup group = (entity as SceneObjectPart).ParentGroup;
-                entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
-                oobSQ = group.BSphereRadiusSQ;
-                if ((entity as SceneObjectPart).ParentID != 0)
+                SceneObjectPart p = (SceneObjectPart)entity;
+                if ((entity as SceneObjectPart).ParentID == 0)
+                    {
+                    SceneObjectGroup group = p.ParentGroup;
+                    entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
+                    oobSQ = group.BSphereRadiusSQ; 
+                    }
+                else
+                    {
+                    entityPos = p.AbsolutePosition + p.OOBoffset * p.GetWorldRotation();
+                    oobSQ = p.BSphereRadiusSQ;
                     ischildpart = true;
+                    }
                 }
             else
                 {
@@ -231,8 +239,8 @@ namespace OpenSim.Region.Framework.Scenes
                 distancesq = 0;
             uint prio = (uint) distancesq + 2; // (+2 fake old imediate queues)
 
-            if (ischildpart)
-                prio++;
+            if (ischildpart) // try ot make root arrive first
+                prio ++;
 
             // If this is a root agent, then determine front & back
             // Bump up the priority queue (drop the priority) for any objects behind the avatar
