@@ -196,14 +196,18 @@ namespace OpenSim.Region.Framework.Scenes
             }
                 
             Vector3 entityPos;
-            float oobSQ;
-            bool ischildpart = false;
+            float distancesq;
+
+            // Use the camera position for local agents and avatar position for remote agents
+            Vector3 presencePos = (presence.IsChildAgent) ?
+                presence.AbsolutePosition :
+                presence.CameraPosition;
 
             if (entity is SceneObjectGroup)
                 {
                 SceneObjectGroup group = (entity as SceneObjectGroup);
                 entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
-                oobSQ = group.BSphereRadiusSQ;
+                distancesq = Vector3.DistanceSquared(presencePos, entityPos) - group.BSphereRadiusSQ;
                 }
             else if (entity is SceneObjectPart)
                 {
@@ -212,35 +216,24 @@ namespace OpenSim.Region.Framework.Scenes
                     {
                     SceneObjectGroup group = p.ParentGroup;
                     entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
-                    oobSQ = group.BSphereRadiusSQ; 
+                    distancesq = Vector3.DistanceSquared(presencePos, entityPos) - group.BSphereRadiusSQ; 
                     }
                 else
                     {
                     entityPos = p.AbsolutePosition + p.OOBoffset * p.GetWorldRotation();
-                    oobSQ = p.BSphereRadiusSQ;
-                    ischildpart = true;
+                    distancesq = p.clampedAABdistanceToSQ(presencePos) + 1.0f;
                     }
                 }
             else
                 {
                 entityPos = entity.AbsolutePosition;
-                oobSQ = 0;
+                distancesq = Vector3.DistanceSquared(presencePos, entityPos);
                 }
 
-            // Use the camera position for local agents and avatar position for remote agents
-            Vector3 presencePos = (presence.IsChildAgent) ?
-                presence.AbsolutePosition :
-                presence.CameraPosition;
-
-            // Compute the distance... 
-
-            float distancesq = Vector3.DistanceSquared(presencePos, entityPos) - oobSQ;
             if (distancesq < 0)
                 distancesq = 0;
-            uint prio = (uint) distancesq + 2; // (+2 fake old imediate queues)
 
-            if (ischildpart) // try ot make root arrive first
-                prio ++;
+            uint prio = (uint) distancesq + 2; // (+2 fake old imediate queues)
 
             // If this is a root agent, then determine front & back
             // Bump up the priority queue (drop the priority) for any objects behind the avatar
