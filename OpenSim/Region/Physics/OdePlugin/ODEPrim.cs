@@ -103,6 +103,10 @@ namespace OpenSim.Region.Physics.OdePlugin
         private float PID_G = 25f;
         private bool m_usePID;
 
+//UbitMess
+        public Vector3 primOOBsize; // cache its size 
+        public Vector3 primOOBoffset; // is centroid
+
         // KF: These next 7 params apply to llSetHoverHeight(float height, integer water, float tau),
         // and are for non-VEHICLES only.
 
@@ -270,7 +274,10 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_taintadd = true;
             _parent_scene.AddPhysicsActorTaint(this);
             //  don't do .add() here; old geoms get recycled with the same hash
-        }
+
+            // Ubit let's have a initial basic OOB
+            UpdatePrimOOB();
+            }
 
         public override int PhysicsActorType
         {
@@ -334,6 +341,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 d.GeomSetCategoryBits(prim_geom, (int)m_collisionCategories);
                 d.GeomSetCollideBits(prim_geom, (int)m_collisionFlags);
+
+                UpdatePrimOOB();
 
                 _parent_scene.geom_name_map[prim_geom] = Name;
                 _parent_scene.actor_name_map[prim_geom] = this;
@@ -428,7 +437,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
         #region Mass Calculation
-
+//Ubit mess
         private float CalculateMass()
         {
             float volume = _size.X * _size.Y * _size.Z; // default
@@ -740,6 +749,31 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
         #endregion
+
+        public void UpdatePrimOOB()
+            {
+            if (prim_geom == IntPtr.Zero)
+                {
+                // Ubit let's have a initial basic OOB
+                primOOBsize.X = 0.5f * _size.X;
+                primOOBsize.Y = 0.5f * _size.Y;
+                primOOBsize.Z = 0.5f * _size.Z;
+                primOOBoffset = Vector3.Zero;
+                return;
+                }
+
+            d.AABB AABB;
+            d.GeomGetAABB(prim_geom, out AABB); // get the AABB from engine geom
+
+            primOOBsize.X = 0.5f *(AABB.MaxX - AABB.MinX);
+            primOOBsize.X = 0.5f *(AABB.MaxY - AABB.MinY);
+            primOOBsize.X = 0.5f * (AABB.MaxZ - AABB.MinZ);
+
+            primOOBoffset.X = (AABB.MaxX + AABB.MinX) * 0.5f;
+            primOOBoffset.Y = (AABB.MaxY + AABB.MinY) * 0.5f;
+            primOOBoffset.Z = (AABB.MaxZ + AABB.MinZ) * 0.5f;
+            }
+//Ubit mess /
 
         public void setMass()
         {
@@ -1452,6 +1486,7 @@ Console.WriteLine("CreateGeom:");
                     _parent_scene.actor_name_map.Remove(prim_geom);
                     d.GeomDestroy(prim_geom);
                     prim_geom = IntPtr.Zero;
+                    UpdatePrimOOB();
                 }
                 catch (System.AccessViolationException)
                 {
@@ -2355,6 +2390,23 @@ Console.WriteLine(" JointCreateFixed");
             get { return Vector3.Zero; }
         }
 
+//UBit mess
+/* for later use
+        public override Vector3 PrimOOBsize
+            {
+            get
+                {
+                return primOOBsize;
+                }
+            }
+        public override Vector3 PrimOOBoffset
+            {
+            get
+                {
+                return primOOBoffset;
+                }
+            }
+*/
         public override PrimitiveBaseShape Shape
         {
             set
