@@ -1447,6 +1447,121 @@ namespace OpenSim.Region.Framework.Scenes
 
         #region Public Methods
 
+
+        // distance from aabb to point ( untested)
+        public float AABdistanceToSQ(Vector3 target)
+            {
+            // distance to group in world
+            Vector3 vtmp = target - m_groupPosition; // assume this updated
+
+            // rotate into group reference         
+            vtmp *= Quaternion.Inverse(ParentGroup.GroupRotation);
+
+            // move into offseted local ref
+            vtmp -= m_offsetPosition;
+            // rotate into local reference
+            vtmp *= Quaternion.Inverse(m_rotationOffset);
+
+            // now oob pos
+            vtmp -= OOBoffset; // force update
+
+            Vector3 box = OOBsize;
+
+            // hack distance to box: inside == 0
+            if (vtmp.X > 0)
+                {
+                vtmp.X -= box.X;
+                if (vtmp.X < 0.0)
+                    vtmp.X = 0.0f;
+                }
+            else
+                {
+                vtmp.X += box.X;
+                if (vtmp.X > 0.0)
+                    vtmp.X = 0.0f;
+                }
+            if (vtmp.Y > 0)
+                {
+                vtmp.Y -= box.Y;
+                if (vtmp.Y < 0.0)
+                    vtmp.Y = 0.0f;
+                }
+            else
+                {
+                vtmp.Z += box.Z;
+                if (vtmp.Z > 0.0)
+                    vtmp.Z = 0.0f;
+                }
+
+
+            return vtmp.LengthSquared();
+            }
+
+        // distance from aabb to point ( untested)
+        // if smaller than simplied distance to group returns that one
+        // hack to send root prims first
+
+        public float clampedAABdistanceToSQ(Vector3 target)
+            {
+            // distance to group in world
+            Vector3 vtmp = target - m_groupPosition; // assume this updated
+
+            // rotate into group reference         
+            vtmp *= Quaternion.Inverse(ParentGroup.GroupRotation);
+
+            // compute distance to grp oob
+            Vector3 grpv = vtmp - ParentGroup.OOBoffset;
+
+            // move into offseted local ref
+            vtmp -= m_offsetPosition;
+            // rotate into local reference
+            vtmp *= Quaternion.Inverse(m_rotationOffset);
+
+            // now oob pos
+            vtmp -= OOBoffset; // force update
+
+            Vector3 box = OOBsize;
+
+            // hack distance to box: inside == 0
+            if (vtmp.X > 0)
+                {
+                vtmp.X -= box.X;
+                if (vtmp.X < 0.0)
+                    vtmp.X = 0.0f;
+                }
+            else
+                {
+                vtmp.X += box.X;
+                if (vtmp.X > 0.0)
+                    vtmp.X = 0.0f;
+                }
+            if (vtmp.Y > 0)
+                {
+                vtmp.Y -= box.Y;
+                if (vtmp.Y < 0.0)
+                    vtmp.Y = 0.0f;
+                }
+            else
+                {
+                vtmp.Z += box.Z;
+                if (vtmp.Z > 0.0)
+                    vtmp.Z = 0.0f;
+                }
+
+            float distSQ = vtmp.LengthSquared();
+            // lets see group
+            float grpdSQ = grpv.LengthSquared() - ParentGroup.BSphereRadiusSQ;
+
+            if(ParentID == 0)
+                distSQ = vtmp.LengthSquared();
+
+            if (distSQ > grpdSQ)
+                return distSQ;
+            else
+                return grpdSQ;
+            }
+  
+
         public void ResetExpire()
         {
             Expires = DateTime.Now + new TimeSpan(600000000);
