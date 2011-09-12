@@ -323,6 +323,18 @@ namespace OpenSim.Region.Framework.Scenes
         [XmlIgnore]
         private float m_partBSphereRadiusSQ; // the square of the radius of a sphere containing the oob
 
+        [XmlIgnore]
+        public bool ValidpartOOB
+            {
+            set
+                {
+                m_ValidpartOOB = value;
+                // we need to invalidate grp oob
+                if (!m_ValidpartOOB && ParentID != 0)
+                    ParentGroup.ValidgrpOOB = false;
+                }
+            }
+
         // the size of a bounding box oriented as the prim, is future will consider cutted prims, meshs etc
         [XmlIgnore]
         public Vector3 OOBsize
@@ -405,7 +417,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_particleSystem = Utils.EmptyBytes;
             Rezzed = DateTime.UtcNow;
 
-            m_ValidpartOOB = false;
+            ValidpartOOB = false;
 
             m_inventory = new SceneObjectPartInventory(this);
         }
@@ -446,7 +458,7 @@ namespace OpenSim.Region.Framework.Scenes
             Acceleration = Vector3.Zero;
 
 
-            m_ValidpartOOB = false;
+            ValidpartOOB = false;
 
 
             m_TextureAnimation = Utils.EmptyBytes;
@@ -788,7 +800,7 @@ namespace OpenSim.Region.Framework.Scenes
             set
             {
                 m_groupPosition = value;
-                m_ValidpartOOB = false;
+                ValidpartOOB = false;
 
                 PhysicsActor actor = PhysActor;
                 if (actor != null)
@@ -835,7 +847,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
 //                StoreUndoState();
                 m_offsetPosition = value;
-                m_ValidpartOOB = false;
+                ValidpartOOB = false;
 
                 if (ParentGroup != null && !ParentGroup.IsDeleted)
                 {
@@ -893,7 +905,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 StoreUndoState();
                 m_rotationOffset = value;
-                m_ValidpartOOB = false;
+                ValidpartOOB = false;
 
                 PhysicsActor actor = PhysActor;
                 if (actor != null)
@@ -1071,7 +1083,7 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_shape.Scale; }
             set
             {
-                m_ValidpartOOB = false;
+                ValidpartOOB = false;
  
                 if (m_shape != null)
                 {
@@ -1442,7 +1454,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_partOOBsize.Z = Scale.Z * 0.5f;
 
             m_partBSphereRadiusSQ = m_partOOBsize.LengthSquared();
-            m_ValidpartOOB = true;
+            ValidpartOOB = true;
             }
 
         #region Public Methods
@@ -1454,12 +1466,15 @@ namespace OpenSim.Region.Framework.Scenes
             // distance to group in world
             Vector3 vtmp = target - m_groupPosition; // assume this updated
 
-            // rotate into group reference         
-            vtmp *= Quaternion.Inverse(ParentGroup.GroupRotation);
+            if (ParentID != 0)
+                {
+                // rotate into group reference         
+                vtmp *= Quaternion.Inverse(ParentGroup.GroupRotation);
+                // move into offseted local ref
+                vtmp -= m_offsetPosition;
+                }
 
-            // move into offseted local ref
-            vtmp -= m_offsetPosition;
-            // rotate into local reference
+            // rotate into local reference ( part or grp )
             vtmp *= Quaternion.Inverse(m_rotationOffset);
 
             // now oob pos
@@ -1480,6 +1495,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (vtmp.X > 0.0)
                     vtmp.X = 0.0f;
                 }
+
             if (vtmp.Y > 0)
                 {
                 vtmp.Y -= box.Y;
@@ -1488,11 +1504,23 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             else
                 {
+                vtmp.Y += box.Y;
+                if (vtmp.Y > 0.0)
+                    vtmp.Y = 0.0f;
+                }
+
+            if (vtmp.Z > 0)
+                {
+                vtmp.Z -= box.Z;
+                if (vtmp.Z < 0.0)
+                    vtmp.Z = 0.0f;
+                }
+            else
+                {
                 vtmp.Z += box.Z;
                 if (vtmp.Z > 0.0)
                     vtmp.Z = 0.0f;
                 }
-
 
             return vtmp.LengthSquared();
             }
@@ -1503,20 +1531,28 @@ namespace OpenSim.Region.Framework.Scenes
 
         public float clampedAABdistanceToSQ(Vector3 target)
             {
+            float grpdSQ = 0;
             // distance to group in world
             Vector3 vtmp = target - m_groupPosition; // assume this updated
 
-            // rotate into group reference         
-            vtmp *= Quaternion.Inverse(ParentGroup.GroupRotation);
 
-            // compute distance to grp oob
-            Vector3 grpv = vtmp - ParentGroup.OOBoffset;
+            if (ParentID != 0)
+                {
+                // rotate into group reference         
+                vtmp *= Quaternion.Inverse(ParentGroup.GroupRotation);
+                // compute distance to grp oob
+                Vector3 grpv = vtmp - ParentGroup.OOBoffset;
+                grpdSQ = grpv.LengthSquared() - ParentGroup.BSphereRadiusSQ;
+                if (grpdSQ < 0)
+                    grpdSQ = 0;
 
-            // move into offseted local ref
-            vtmp -= m_offsetPosition;
+                // back
+                // move into offseted local ref
+                vtmp -= m_offsetPosition;
+                }
+
             // rotate into local reference
             vtmp *= Quaternion.Inverse(m_rotationOffset);
-
             // now oob pos
             vtmp -= OOBoffset; // force update
 
@@ -1535,11 +1571,25 @@ namespace OpenSim.Region.Framework.Scenes
                 if (vtmp.X > 0.0)
                     vtmp.X = 0.0f;
                 }
+
             if (vtmp.Y > 0)
                 {
                 vtmp.Y -= box.Y;
                 if (vtmp.Y < 0.0)
                     vtmp.Y = 0.0f;
+                }
+            else
+                {
+                vtmp.Y += box.Y;
+                if (vtmp.Y > 0.0)
+                    vtmp.Y = 0.0f;
+                }
+
+            if (vtmp.Z > 0)
+                {
+                vtmp.Z -= box.Z;
+                if (vtmp.Z < 0.0)
+                    vtmp.Z = 0.0f;
                 }
             else
                 {
@@ -1549,16 +1599,11 @@ namespace OpenSim.Region.Framework.Scenes
                 }
 
             float distSQ = vtmp.LengthSquared();
-            // lets see group
-            float grpdSQ = grpv.LengthSquared() - ParentGroup.BSphereRadiusSQ;
 
-            if(ParentID == 0)
-                distSQ = vtmp.LengthSquared();
-
-            if (distSQ > grpdSQ)
-                return distSQ;
+            if (ParentID != 0 && distSQ < grpdSQ)
+                    return grpdSQ;
             else
-                return grpdSQ;
+                return distSQ;
             }
   
 
@@ -1829,15 +1874,10 @@ namespace OpenSim.Region.Framework.Scenes
 
             dupe._ownerID = AgentID;
             dupe._groupID = GroupID;
-/* nasty things
+
             dupe.GroupPosition = GroupPosition;
             dupe.OffsetPosition = OffsetPosition;
             dupe.RotationOffset = RotationOffset;
-this maybe be less nasty
-*/
-            dupe.m_groupPosition = GroupPosition;
-            dupe.m_offsetPosition = OffsetPosition;
-            dupe.m_rotationOffset = RotationOffset;
 
             dupe.Velocity = new Vector3(0, 0, 0);
             dupe.Acceleration = new Vector3(0, 0, 0);
@@ -1921,6 +1961,7 @@ this maybe be less nasty
             part.Name = "Primitive";
             part._ownerID = UUID.Random();
 
+            part.ValidpartOOB = false;
             return part;
         }
 
@@ -2976,7 +3017,7 @@ this maybe be less nasty
         /// <param name="scale"></param>
         public void Resize(Vector3 scale)
         {
-            m_ValidpartOOB = false;
+            ValidpartOOB = false;
             scale.X = Math.Min(scale.X, ParentGroup.Scene.m_maxNonphys);
             scale.Y = Math.Min(scale.Y, ParentGroup.Scene.m_maxNonphys);
             scale.Z = Math.Min(scale.Z, ParentGroup.Scene.m_maxNonphys);
@@ -4397,7 +4438,7 @@ this maybe be less nasty
             {
                  Vector3 newPos = new Vector3(pos.X, pos.Y, pos.Z);
                 GroupPosition = newPos;
-                m_ValidpartOOB = false;
+                ValidpartOOB = false;
                 ScheduleTerseUpdate();
             }
         }
@@ -4429,8 +4470,8 @@ this maybe be less nasty
                     }
                 }
 
-                m_ValidpartOOB = false;
                 OffsetPosition = newPos;
+                ValidpartOOB = false;
                 ScheduleTerseUpdate();
             }
         }
@@ -4737,7 +4778,6 @@ this maybe be less nasty
 
         public void UpdateRotation(Quaternion rot)
         {
-            m_ValidpartOOB = false;
 
             if ((rot.X != RotationOffset.X) ||
                 (rot.Y != RotationOffset.Y) ||
@@ -4745,6 +4785,7 @@ this maybe be less nasty
                 (rot.W != RotationOffset.W))
             {
                 RotationOffset = rot;
+                ValidpartOOB = false;
 
                 if (ParentGroup != null)
                 {
@@ -4795,7 +4836,7 @@ this maybe be less nasty
                 ParentGroup.RootPart.Rezzed = DateTime.UtcNow;
 
             ParentGroup.HasGroupChanged = true;
-            m_ValidpartOOB = false;
+            ValidpartOOB = false;
             TriggerScriptChangedEvent(Changed.SHAPE);
             ScheduleFullUpdate();
         }

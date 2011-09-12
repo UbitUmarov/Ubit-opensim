@@ -145,6 +145,15 @@ namespace OpenSim.Region.Framework.Scenes
         [XmlIgnore]
         private float m_grpBSphereRadiusSQ; // the square of the radius of a sphere containing the oob
 
+
+        [XmlIgnore]
+        public bool ValidgrpOOB
+            {
+            set
+                {
+                m_ValidgrpOOB = value;
+                }
+            }
         /// <summary>
         /// The size of a simple object oriented bounding box oriented in future can consider tortured prims, meshs etc
         /// </summary>
