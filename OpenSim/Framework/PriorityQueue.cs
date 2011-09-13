@@ -136,7 +136,8 @@ namespace OpenSim.Framework
                     uint localid = item.Value.Entity.LocalId;
 
                     if (handler(ref nprio, item.Value.Entity))
-                        {                       
+                        {
+                        /*
                         int age = item.Age;
 
                         if(age <1)
@@ -149,12 +150,16 @@ namespace OpenSim.Framework
                             nprio = nprio >> age;
                             }
                         item.Age=age;
-                        item.Priority=nprio;
+                        */
+                        if (item.Priority != nprio)
+                            {
+                            item.Priority = nprio;
 
-                        m_heap.Remove(lookup.Handle);
-                        LookupItem litem = lookup;
-                        m_heap.Add(new MinHeapItem(item), ref litem.Handle);
-                        m_lookupTable[localid] = litem;
+                            m_heap.Remove(lookup.Handle);
+                            LookupItem litem = lookup;
+                            m_heap.Add(new MinHeapItem(item), ref litem.Handle);
+                            m_lookupTable[localid] = litem;
+                            }
                         }
                     else
                     {
