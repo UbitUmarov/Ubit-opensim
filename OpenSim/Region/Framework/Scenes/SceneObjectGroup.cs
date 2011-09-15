@@ -136,8 +136,31 @@ namespace OpenSim.Region.Framework.Scenes
 
 // UbitUmarov Mess:
         [XmlIgnore]
+        private uint m_GPosVersion = 10; // control of world into group frames transformation (ie changes on group position and rotation)
+
+        [XmlIgnore]
+        public uint GPosVersion
+            {
+            get
+                {
+                return m_GPosVersion;
+                }
+            }
+        [XmlIgnore]
+        private uint m_GRotVersion = 10; // control of world into group frames transformation (ie changes on group position and rotation)
+
+        [XmlIgnore]
+        public uint GRotVersion
+            {
+            get
+                {
+                return m_GRotVersion;
+                }
+            }
+
+        [XmlIgnore]
         private bool m_ValidgrpOOB = false; // control flag to avoid unnecessary calculations. 
-            // Must be set to false where position, scale etc of group is changed so box can be updated later and only on first use.           
+        // Must be set to false where position, scale etc of group is changed so box can be updated later and only on first use.           
         [XmlIgnore]
         private Vector3 m_grpOOBsize; // the size of a bounding box oriented as the root ( vertice with all coords >0)
         [XmlIgnore]
@@ -352,6 +375,7 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_rotation; }
             set {
                 m_rotation = value;
+                GRotVersionInc();
                 m_ValidgrpOOB = false;
                 }
         }
@@ -456,6 +480,7 @@ namespace OpenSim.Region.Framework.Scenes
             set
             {
                 Vector3 val = value;
+//                GPosVersionInc(); done on root part below
 
                 if (Scene != null)
                 {
@@ -690,6 +715,16 @@ namespace OpenSim.Region.Framework.Scenes
                 } 
             }
         }
+
+        public void GRotVersionInc()
+            {
+            m_GRotVersion++;
+            }
+
+        public void GPosVersionInc()
+            {
+            m_GPosVersion++;
+            }
 
         public void SetFromItemID(UUID AssetId)
         {
@@ -1233,12 +1268,15 @@ namespace OpenSim.Region.Framework.Scenes
             if (part == null)
                 throw new ArgumentNullException("Cannot give SceneObjectGroup a null root SceneObjectPart");
 
+
             part.SetParent(this);
             m_rootPart = part;
             if (!IsAttachment)
                 part.ParentID = 0;
             part.LinkNum = 0;
-            
+
+            GPosVersionInc();
+            GRotVersionInc();
             m_parts.Add(m_rootPart.UUID, m_rootPart);
             m_ValidgrpOOB = false;
         }
@@ -1639,6 +1677,8 @@ namespace OpenSim.Region.Framework.Scenes
             dupe.m_rootPart.LinkNum = m_rootPart.LinkNum;
 
             dupe.m_ValidgrpOOB = false;
+            dupe.m_GRotVersion = 1;
+            dupe.m_GPosVersion = 1;
 
             if (userExposed)
                 dupe.m_rootPart.TrimPermissions();
@@ -3168,7 +3208,7 @@ namespace OpenSim.Region.Framework.Scenes
 //                "[SCENE OBJECT GROUP]: Updating root rotation of {0} {1} to {2}",
 //                Name, LocalId, rot);
 
-            Quaternion axRot = rot;
+            Quaternion NewGrpRot = rot;
             Quaternion oldParentRot = m_rootPart.RotationOffset;
 
             m_rootPart.StoreUndoState();
@@ -3188,14 +3228,26 @@ namespace OpenSim.Region.Framework.Scenes
                 if (prim.UUID != m_rootPart.UUID)
                 {
                     prim.IgnoreUndoUpdate = true;
+                    /*
+                                        Vector3 axPos = prim.OffsetPosition;
+                                        axPos *= oldParentRot;
+                                        axPos *= Quaternion.Inverse(axRot);
+                                        prim.OffsetPosition = axPos;
+                                        Quaternion primsRot = prim.RotationOffset;
+                                        Quaternion newRot = primsRot * oldParentRot;
+                                        newRot *= Quaternion.Inverse(axRot);
+                                        prim.RotationOffset = newRot;
+                     */
+                    // bring into world
+                    Quaternion NewRot = oldParentRot * prim.RotationOffset;
+                    NewRot = Quaternion.Inverse(NewGrpRot) * NewRot;
+                    prim.RotationOffset = NewRot;
+
                     Vector3 axPos = prim.OffsetPosition;
                     axPos *= oldParentRot;
-                    axPos *= Quaternion.Inverse(axRot);
+                    axPos *= Quaternion.Inverse(NewGrpRot);
                     prim.OffsetPosition = axPos;
-                    Quaternion primsRot = prim.RotationOffset;
-                    Quaternion newRot = primsRot * oldParentRot;
-                    newRot *= Quaternion.Inverse(axRot);
-                    prim.RotationOffset = newRot;
+
                     prim.ScheduleTerseUpdate();
                     prim.IgnoreUndoUpdate = false;
                 }

@@ -313,6 +313,17 @@ namespace OpenSim.Region.Framework.Scenes
         private bool m_IsSelected = false;
 
 
+        [XmlIgnore]
+        private uint m_curGPosVersion = 0; // group position version we used
+        [XmlIgnore]
+        private uint m_curGRotVersion = 0; // group position version we used
+        [XmlIgnore]
+        private bool m_validPoff = false;  // our in offsetposition didn't change
+        private Vector3 m_positionInWord; // our absolute position in world frame
+
+        private bool m_validRoff = false;  // our rotationoffset didn't change
+        private Quaternion m_rotationInWorld;  // our total rotation in world
+
         // helper values for updates pririty and culling
         [XmlIgnore]
         private bool m_ValidpartOOB = false; // control flag to avoid unnecessary calculations.
@@ -459,7 +470,10 @@ namespace OpenSim.Region.Framework.Scenes
 
 
             ValidpartOOB = false;
-
+            m_validPoff = false;
+            m_validRoff = false;
+            m_curGRotVersion = 0;
+            m_curGPosVersion = 0;
 
             m_TextureAnimation = Utils.EmptyBytes;
             m_particleSystem = Utils.EmptyBytes;
@@ -667,8 +681,7 @@ namespace OpenSim.Region.Framework.Scenes
                     ParentGroup.HasGroupChanged = true;
             }
         }
-
-        
+      
         
         public Dictionary<int, string> CollisionFilter
         {
@@ -786,6 +799,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (actor != null && _parentID == 0)
                 {
                     m_groupPosition = actor.Position;
+                    m_parentGroup.GPosVersionInc();
                 }
 
                 if (m_parentGroup.IsAttachment)
@@ -800,6 +814,9 @@ namespace OpenSim.Region.Framework.Scenes
             set
             {
                 m_groupPosition = value;
+                if (_parentID == 0 && ParentGroup != null)
+                    m_parentGroup.GPosVersionInc();
+
                 ValidpartOOB = false;
 
                 PhysicsActor actor = PhysActor;
@@ -847,6 +864,11 @@ namespace OpenSim.Region.Framework.Scenes
             {
 //                StoreUndoState();
                 m_offsetPosition = value;
+                m_validPoff = false;
+
+                if (_parentID == 0 && ParentGroup != null)
+                    ParentGroup.GPosVersionInc();
+
                 ValidpartOOB = false;
 
                 if (ParentGroup != null && !ParentGroup.IsDeleted)
@@ -895,6 +917,7 @@ namespace OpenSim.Region.Framework.Scenes
                         || actor.Orientation.Z != 0f || actor.Orientation.W != 0f)
                     {
                         m_rotationOffset = actor.Orientation;
+                        m_parentGroup.GRotVersionInc();
                     }
                 }
                 
@@ -905,6 +928,9 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 StoreUndoState();
                 m_rotationOffset = value;
+                m_validRoff = false;
+                if (_parentID == 0 && ParentGroup != null)
+                    ParentGroup.GRotVersionInc();
                 ValidpartOOB = false;
 
                 PhysicsActor actor = PhysActor;
@@ -1162,8 +1188,9 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (m_parentGroup.IsAttachment)
                     return GroupPosition;
-
-                return m_offsetPosition + m_groupPosition;
+//                m_log.DebugFormat("[SOP]: abs {0} {1}", m_offsetPosition + m_groupPosition, GetWorldPosition());
+//                return m_offsetPosition + m_groupPosition;
+                return GetWorldPosition();
             }
         }
 
@@ -1884,6 +1911,10 @@ namespace OpenSim.Region.Framework.Scenes
             dupe.AngularVelocity = new Vector3(0, 0, 0);
 
             dupe.m_ValidpartOOB = false;
+            dupe.m_validPoff = false;
+            dupe.m_validRoff = false;
+            dupe.m_curGPosVersion = 0;
+            dupe.m_curGRotVersion = 0;
  
             dupe.Flags = Flags;
 
@@ -1962,6 +1993,10 @@ namespace OpenSim.Region.Framework.Scenes
             part._ownerID = UUID.Random();
 
             part.ValidpartOOB = false;
+            part.m_validPoff = false;
+            part.m_validRoff = false;
+            part.m_curGRotVersion = 0;
+            part.m_curGPosVersion = 0;
             return part;
         }
 
@@ -2290,20 +2325,36 @@ namespace OpenSim.Region.Framework.Scenes
         /// <returns>A Linked Child Prim objects position in world</returns>
         public Vector3 GetWorldPosition()
         {
-            Quaternion parentRot = ParentGroup.RootPart.RotationOffset;
+            uint gversion = ParentGroup.GPosVersion;
 
-            Vector3 axPos = OffsetPosition;
+            if (gversion == m_curGPosVersion && m_validPoff)
+                {
+                return m_positionInWord;
+                }
+            else
+                {
 
-            axPos *= parentRot;
-            Vector3 translationOffsetPosition = axPos;
-            
-//            m_log.DebugFormat("[SCENE OBJECT PART]: Found group pos {0} for part {1}", GroupPosition, Name);
-            
-            Vector3 worldPos = GroupPosition + translationOffsetPosition;
-                
-//            m_log.DebugFormat("[SCENE OBJECT PART]: Found world pos {0} for part {1}", worldPos, Name);
-            
-            return worldPos;
+                Vector3 translationOffsetPosition = OffsetPosition;
+                translationOffsetPosition *= ParentGroup.RootPart.RotationOffset;
+
+                //            m_log.DebugFormat("[SCENE OBJECT PART]: Found group pos {0} for part {1}", GroupPosition, Name);
+
+                Vector3 worldPos = GroupPosition + translationOffsetPosition;
+                m_positionInWord = worldPos;
+                m_validPoff = true;
+                m_curGPosVersion = gversion;
+/*
+                if (gversion == m_curGPosVersion && m_validPoff)
+    {
+    if (m_positionInWord != worldPos)
+      m_log.DebugFormat("[SCENE OBJECT PART]: Getworldposition cache fail {0} {1} for part {2}", worldPos, m_positionInWord, Name);
+    }
+*/
+                //            m_log.DebugFormat("[SCENE OBJECT PART]: Found world pos {0} for part {1}", worldPos, Name);
+                return worldPos;
+              }
+
+//        return worldPos;
         }
 
         /// <summary>
@@ -2320,11 +2371,28 @@ namespace OpenSim.Region.Framework.Scenes
             }
             else
             {
-                Quaternion parentRot = ParentGroup.RootPart.RotationOffset;
-                Quaternion oldRot = RotationOffset;
-                newRot = parentRot * oldRot;
-            }
+                uint gversion=ParentGroup.GRotVersion;
+                if (gversion == m_curGRotVersion && m_validRoff)
+                    {
+                    return m_rotationInWorld;
+                    }
+                else
+                    {
+                    Quaternion parentRot = ParentGroup.RootPart.RotationOffset;
+                    Quaternion oldRot = RotationOffset;
+                    newRot = parentRot * oldRot;
 
+                    m_rotationInWorld = newRot;
+                    m_validRoff = true;
+                    m_curGRotVersion = gversion;
+                    }
+/*  
+         {
+         if (m_rotationInWorld != newRot)
+         m_log.DebugFormat("[SCENE OBJECT PART]: GetworldRotation cache fail {0} {1} for part {2}", newRot, m_rotationInWorld, Name);
+         }
+ */
+            }
             return newRot;
         }
 
@@ -4453,9 +4521,10 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="pos"></param>
         public void UpdateOffSet(Vector3 pos)
         {
-            if ((pos.X != OffsetPosition.X) ||
-                (pos.Y != OffsetPosition.Y) ||
-                (pos.Z != OffsetPosition.Z))
+            Vector3 offp = OffsetPosition;
+            if ((pos.X != offp.X) ||
+                (pos.Y != offp.Y) ||
+                (pos.Z != offp.Z))
             {
                 Vector3 newPos = new Vector3(pos.X, pos.Y, pos.Z);
 
@@ -4470,8 +4539,7 @@ namespace OpenSim.Region.Framework.Scenes
                     }
                 }
 
-                OffsetPosition = newPos;
-                ValidpartOOB = false;
+                OffsetPosition = newPos;              
                 ScheduleTerseUpdate();
             }
         }
@@ -4785,10 +4853,13 @@ namespace OpenSim.Region.Framework.Scenes
                 (rot.W != RotationOffset.W))
             {
                 RotationOffset = rot;
+                m_validRoff = false;
                 ValidpartOOB = false;
 
                 if (ParentGroup != null)
-                {
+                    {
+                    if (_parentID == 0)
+                        ParentGroup.GRotVersionInc();
                     ParentGroup.HasGroupChanged = true;
                     ScheduleTerseUpdate();
                 }
