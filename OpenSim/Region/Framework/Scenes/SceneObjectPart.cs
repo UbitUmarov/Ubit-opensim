@@ -381,9 +381,7 @@ namespace OpenSim.Region.Framework.Scenes
                     UpdateOOBfromOOBs();
                 return m_partBSphereRadiusSQ;
                 }
-            }
-      
-
+            }  
 
         protected Vector3 m_lastPosition;
         protected Quaternion m_lastRotation;
@@ -913,10 +911,10 @@ namespace OpenSim.Region.Framework.Scenes
                 PhysicsActor actor = PhysActor;
                 if (_parentID == 0 && (Shape.PCode != 9 || Shape.State == 0)  && actor != null)
                 {
-                    if (actor.Orientation.X != 0f || actor.Orientation.Y != 0f
-                        || actor.Orientation.Z != 0f || actor.Orientation.W != 0f)
+                    Quaternion tq = actor.Orientation; // Ubit: get a local copy
+                    if (tq.X != 0f || tq.Y != 0f || tq.Z != 0f || tq.W != 0f) // this is a odd check.. 
                     {
-                        m_rotationOffset = actor.Orientation;
+                        m_rotationOffset = tq;
                         m_parentGroup.GRotVersionInc();
                     }
                 }
@@ -1243,12 +1241,14 @@ namespace OpenSim.Region.Framework.Scenes
         {
             get {
                 double threshold = 0.02;
-                return (Math.Abs(Velocity.X) < threshold &&
-                        Math.Abs(Velocity.Y) < threshold &&
-                        Math.Abs(Velocity.Z) < threshold &&
-                        Math.Abs(AngularVelocity.X) < threshold &&
-                        Math.Abs(AngularVelocity.Y) < threshold &&
-                        Math.Abs(AngularVelocity.Z) < threshold);
+                
+                Vector3 tv = Velocity;
+                if(Math.Abs(tv.X) > threshold || Math.Abs(tv.Y) > threshold || Math.Abs(tv.Z) > threshold)
+                    return false;
+                //Ubit: threshold should be diferent rads/s != m/s
+                threshold = 0.02 * .16;
+                tv = AngularVelocity;
+                return (Math.Abs(tv.X) < threshold && Math.Abs(tv.Y) < threshold && Math.Abs(tv.Z) < threshold);
             }
         }
 
@@ -1475,10 +1475,11 @@ namespace OpenSim.Region.Framework.Scenes
             // use a the basic box of base prim for now
             // until we get a better box from meshs or physics
             m_partOOBoffset = Vector3.Zero;
+            m_partOOBsize = Scale;
 
-            m_partOOBsize.X = Scale.X * 0.5f;
-            m_partOOBsize.Y = Scale.Y * 0.5f;
-            m_partOOBsize.Z = Scale.Z * 0.5f;
+            m_partOOBsize.X *= 0.5f;
+            m_partOOBsize.Y *= 0.5f;
+            m_partOOBsize.Z *= 0.5f;
 
             m_partBSphereRadiusSQ = m_partOOBsize.LengthSquared();
             ValidpartOOB = true;
@@ -1765,16 +1766,12 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="localGlobalTF">true for the local frame, false for the global frame</param>
         public void ApplyAngularImpulse(Vector3 impulsei, bool localGlobalTF)
         {
-            Vector3 impulse = impulsei;
+            Vector3 impulse;
 
             if (localGlobalTF)
-            {
-                Quaternion grot = GetWorldRotation();
-                Quaternion AXgrot = grot;
-                Vector3 AXimpulsei = impulsei;
-                Vector3 newimpulse = AXimpulsei * AXgrot;
-                impulse = newimpulse;
-            }
+                impulse = impulsei * GetWorldRotation();
+            else
+                impulse = impulsei;
 
             m_parentGroup.applyAngularImpulse(impulse);
         }
@@ -1788,16 +1785,12 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="localGlobalTF">true for the local frame, false for the global frame</param>
         public void SetAngularImpulse(Vector3 impulsei, bool localGlobalTF)
         {
-            Vector3 impulse = impulsei;
+            Vector3 impulse;
 
             if (localGlobalTF)
-            {
-                Quaternion grot = GetWorldRotation();
-                Quaternion AXgrot = grot;
-                Vector3 AXimpulsei = impulsei;
-                Vector3 newimpulse = AXimpulsei * AXgrot;
-                impulse = newimpulse;
-            }
+                impulse = impulsei * GetWorldRotation();
+            else
+                impulse = impulsei;
 
             m_parentGroup.setAngularImpulse(impulse);
         }
@@ -2289,10 +2282,13 @@ namespace OpenSim.Region.Framework.Scenes
 
         public Vector3 GetGeometricCenter()
         {
-            if (PhysActor != null)
-                return new Vector3(PhysActor.CenterOfMass.X, PhysActor.CenterOfMass.Y, PhysActor.CenterOfMass.Z);
-            else
-                return new Vector3(0, 0, 0);
+        if (PhysActor != null)
+            {
+            Vector3 v = PhysActor.CenterOfMass;
+            return new Vector3(v.X, v.Y, v.Z);
+            }
+        else
+            return new Vector3(0, 0, 0);
         }
 
         public float GetMass()
@@ -2343,13 +2339,6 @@ namespace OpenSim.Region.Framework.Scenes
                 m_positionInWord = worldPos;
                 m_validPoff = true;
                 m_curGPosVersion = gversion;
-/*
-                if (gversion == m_curGPosVersion && m_validPoff)
-    {
-    if (m_positionInWord != worldPos)
-      m_log.DebugFormat("[SCENE OBJECT PART]: Getworldposition cache fail {0} {1} for part {2}", worldPos, m_positionInWord, Name);
-    }
-*/
                 //            m_log.DebugFormat("[SCENE OBJECT PART]: Found world pos {0} for part {1}", worldPos, Name);
                 return worldPos;
               }
@@ -2386,12 +2375,6 @@ namespace OpenSim.Region.Framework.Scenes
                     m_validRoff = true;
                     m_curGRotVersion = gversion;
                     }
-/*  
-         {
-         if (m_rotationInWorld != newRot)
-         m_log.DebugFormat("[SCENE OBJECT PART]: GetworldRotation cache fail {0} {1} for part {2}", newRot, m_rotationInWorld, Name);
-         }
- */
             }
             return newRot;
         }
@@ -3086,15 +3069,17 @@ namespace OpenSim.Region.Framework.Scenes
         public void Resize(Vector3 scale)
         {
             ValidpartOOB = false;
-            scale.X = Math.Min(scale.X, ParentGroup.Scene.m_maxNonphys);
-            scale.Y = Math.Min(scale.Y, ParentGroup.Scene.m_maxNonphys);
-            scale.Z = Math.Min(scale.Z, ParentGroup.Scene.m_maxNonphys);
+            float tf = ParentGroup.Scene.m_maxNonphys;
+            scale.X = Math.Min(scale.X, tf);
+            scale.Y = Math.Min(scale.Y, tf);
+            scale.Z = Math.Min(scale.Z, tf);
 
             if (PhysActor != null && PhysActor.IsPhysical)
             {
-                scale.X = Math.Min(scale.X, ParentGroup.Scene.m_maxPhys);
-                scale.Y = Math.Min(scale.Y, ParentGroup.Scene.m_maxPhys);
-                scale.Z = Math.Min(scale.Z, ParentGroup.Scene.m_maxPhys);
+                tf = ParentGroup.Scene.m_maxPhys;
+                scale.X = Math.Min(scale.X, tf);
+                scale.Y = Math.Min(scale.Y, tf);
+                scale.Z = Math.Min(scale.Z, tf);
             }
 
 //            m_log.DebugFormat("[SCENE OBJECT PART]: Resizing {0} {1} to {2}", Name, LocalId, scale);
@@ -4500,9 +4485,10 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void UpdateGroupPosition(Vector3 pos)
         {
-            if ((pos.X != GroupPosition.X) ||
-                (pos.Y != GroupPosition.Y) ||
-                (pos.Z != GroupPosition.Z))
+            Vector3 gpos = GroupPosition;
+            if ((pos.X != gpos.X) ||
+                (pos.Y != gpos.Y) ||
+                (pos.Z != gpos.Z))
             {
                  Vector3 newPos = new Vector3(pos.X, pos.Y, pos.Z);
                 GroupPosition = newPos;
@@ -4533,7 +4519,7 @@ namespace OpenSim.Region.Framework.Scenes
                     if (Util.GetDistanceTo(ParentGroup.RootPart.StatusSandboxPos, newPos) > 10)
                     {
                         ParentGroup.RootPart.ScriptSetPhysicsStatus(false);
-                        newPos = OffsetPosition;
+                        newPos = offp;
                         ParentGroup.Scene.SimChat(Utils.StringToBytes("Hit Sandbox Limit"),
                               ChatTypeEnum.DebugChannel, 0x7FFFFFFF, ParentGroup.RootPart.AbsolutePosition, Name, UUID, false);
                     }
@@ -4846,11 +4832,11 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void UpdateRotation(Quaternion rot)
         {
-
-            if ((rot.X != RotationOffset.X) ||
-                (rot.Y != RotationOffset.Y) ||
-                (rot.Z != RotationOffset.Z) ||
-                (rot.W != RotationOffset.W))
+            Quaternion tq = RotationOffset;
+            if ((rot.X != tq.X) ||
+                (rot.Y != tq.Y) ||
+                (rot.Z != tq.Z) ||
+                (rot.W != tq.W))
             {
                 RotationOffset = rot;
                 m_validRoff = false;

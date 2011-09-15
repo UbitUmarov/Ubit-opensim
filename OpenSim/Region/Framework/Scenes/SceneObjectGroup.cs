@@ -719,6 +719,7 @@ namespace OpenSim.Region.Framework.Scenes
         public void GRotVersionInc()
             {
             m_GRotVersion++;
+            m_GPosVersion++;    // rotation change also invalidates in world positions
             }
 
         public void GPosVersionInc()
