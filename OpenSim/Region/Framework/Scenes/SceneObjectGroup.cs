@@ -1975,8 +1975,6 @@ namespace OpenSim.Region.Framework.Scenes
 
         #endregion
 
-        #region Scheduling
-
         public override void Update()
         {
             // Check that the group was not deleted before the scheduled update
@@ -2127,7 +2125,14 @@ namespace OpenSim.Region.Framework.Scenes
                 parts[i].SendTerseUpdateToAllClients();
         }
 
-        #endregion
+        /// <summary>
+        /// Send metadata about the root prim (name, description, sale price, etc.) to a client.
+        /// </summary>
+        /// <param name="client"></param>
+        public void SendPropertiesToClient(IClientAPI client)
+        {
+            m_rootPart.SendPropertiesToClient(client);
+        }
 
         #region SceneGroupPart Methods
 
@@ -2614,15 +2619,6 @@ namespace OpenSim.Region.Framework.Scenes
                     //NonPhysicalSpinMovement(pos);
                 }
             }
-        }
-
-        /// <summary>
-        /// Return metadata about a prim (name, description, sale price, etc.)
-        /// </summary>
-        /// <param name="client"></param>
-        public void GetProperties(IClientAPI client)
-        {
-            m_rootPart.GetProperties(client);
         }
 
         /// <summary>

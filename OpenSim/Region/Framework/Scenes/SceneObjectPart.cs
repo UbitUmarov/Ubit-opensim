@@ -425,6 +425,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_TextureAnimation = Utils.EmptyBytes;
             m_particleSystem = Utils.EmptyBytes;
             Rezzed = DateTime.UtcNow;
+            
 
             ValidpartOOB = false;
 
@@ -679,6 +680,7 @@ namespace OpenSim.Region.Framework.Scenes
                     ParentGroup.HasGroupChanged = true;
             }
         }
+
       
         
         public Dictionary<int, string> CollisionFilter
@@ -911,9 +913,11 @@ namespace OpenSim.Region.Framework.Scenes
                 PhysicsActor actor = PhysActor;
                 if (_parentID == 0 && (Shape.PCode != 9 || Shape.State == 0)  && actor != null)
                 {
+
                     Quaternion tq = actor.Orientation; // Ubit: get a local copy
                     if (tq.X != 0f || tq.Y != 0f || tq.Z != 0f || tq.W != 0f) // this is a odd check.. 
                     {
+                        m_rotationOffset = actor.Orientation;
                         m_rotationOffset = tq;
                         m_parentGroup.GRotVersionInc();
                     }
@@ -1186,6 +1190,8 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (m_parentGroup.IsAttachment)
                     return GroupPosition;
+
+                return m_offsetPosition + m_groupPosition;
 //                m_log.DebugFormat("[SOP]: abs {0} {1}", m_offsetPosition + m_groupPosition, GetWorldPosition());
 //                return m_offsetPosition + m_groupPosition;
                 return GetWorldPosition();
@@ -1411,8 +1417,6 @@ namespace OpenSim.Region.Framework.Scenes
 
         #endregion Public Properties with only Get
 
-        #region Private Methods
-
         private uint ApplyMask(uint val, bool set, uint mask)
         {
             if (set)
@@ -1433,14 +1437,27 @@ namespace OpenSim.Region.Framework.Scenes
             m_updateFlag = 0;
         }
 
-        private void SendObjectPropertiesToClient(UUID AgentID)
+        /// <summary>
+        /// Send this part's properties (name, description, inventory serial, base mask, etc.) to a client
+        /// </summary>
+        /// <param name="client"></param>
+        public void SendPropertiesToClient(IClientAPI client)
+        {
+            client.SendObjectPropertiesReply(this);
+        }
+
+        /// <summary>
+        /// For the scene object group to which this part belongs, send that scene object's root part properties to a client.
+        /// </summary>
+        /// <param name="AgentID"></param>
+        private void SendRootPartPropertiesToClient(UUID AgentID)
         {
             m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
             {
                 // Ugly reference :(
                 if (avatar.UUID == AgentID)
                 {
-                    m_parentGroup.GetProperties(avatar.ControllingClient);
+                    m_parentGroup.SendPropertiesToClient(avatar.ControllingClient);
                 }
             });
         }
@@ -1469,14 +1486,12 @@ namespace OpenSim.Region.Framework.Scenes
         //     }
         // }
 
-        #endregion Private Methods
         private void UpdateOOBfromOOBs()
             {
             // use a the basic box of base prim for now
             // until we get a better box from meshs or physics
             m_partOOBoffset = Vector3.Zero;
             m_partOOBsize = Scale;
-
             m_partOOBsize.X *= 0.5f;
             m_partOOBsize.Y *= 0.5f;
             m_partOOBsize.Z *= 0.5f;
@@ -2305,11 +2320,6 @@ namespace OpenSim.Region.Framework.Scenes
                 return PhysActor.Force;
             else
                 return Vector3.Zero;
-        }
-
-        public void GetProperties(IClientAPI client)
-        {
-            client.SendObjectPropertiesReply(this);
         }
 
         /// <summary>
@@ -3753,7 +3763,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             _groupID = groupID;
             if (client != null)
-                GetProperties(client);
+                SendPropertiesToClient(client);
             m_updateFlag = 2;
         }
 
@@ -4576,10 +4586,10 @@ namespace OpenSim.Region.Framework.Scenes
 
                         break;
                 }
+
                 SendFullUpdateToAllClients();
 
-                SendObjectPropertiesToClient(AgentID);
-
+                SendRootPartPropertiesToClient(AgentID);
             }
         }
 
