@@ -42,9 +42,22 @@ namespace OpenSim.Framework
 
         public delegate bool UpdatePriorityHandler(ref uint priority, ISceneEntity entity);
 
+        /// <summary>
+        /// Total number of queues (priorities) available
+        /// </summary>
+        public const uint NumberOfQueues = 12;
+        /// <summary>
+        /// Number of queuest (priorities) that are processed immediately
+        /// </summary.
+        public const uint NumberOfImmediateQueues = 2;
 
-        private MinHeap<MinHeapItem> m_heap;
+        private MinHeap<MinHeapItem>[] m_heaps = new MinHeap<MinHeapItem>[NumberOfQueues];
         private Dictionary<uint, LookupItem> m_lookupTable;
+
+        // next request is a counter of the number of updates queued, it provides
+        // a total ordering on the updates coming through the queue and is more
+        // lightweight (and more discriminating) than tick count
+        private UInt64 m_nextRequest = 0;
 
         /// <summary>
         /// Lock for enqueue and dequeue operations on the priority queue
@@ -60,12 +73,51 @@ namespace OpenSim.Framework
         public PriorityQueue(int capacity)
         {
             m_lookupTable = new Dictionary<uint, LookupItem>(capacity);
-            m_heap = new MinHeap<MinHeapItem>(capacity);
-
+            for (int i = 0; i < m_heaps.Length; ++i)
+                m_heaps[i] = new MinHeap<MinHeapItem>(capacity);
         }
 #endregion Constructor
 
+// Ubit: maps priority into queue 
+// hack to keep compatibility with previus: priority of 0 and 1 directly select imediate queues
+// if priority is distance square then map is aprox:
+//      0           1             2     3      4     5      6      7     8     9    10    11
+// imediateQueue imediateQueue  <32m  <45m   <64m  <90m   <128m  <181m <256m <362 <512m TheRest
+// must be changed if number of queues change !!
+        private uint GetQueue(uint priority)
+            {
+
+            if (priority < 2) // the hack
+                return priority;
+
+            uint pqueue;
+
+            if (priority < 1024.0)
+                pqueue = NumberOfImmediateQueues;
+            else
+                {
+                float tmp = (float)Math.Log((double)priority) * 1.4426950408889634073599246810019f - 7f;
+                // for a map identical to original:
+                // 1st constant is 1/(2*log(2)) (natural log): 0.72134752044448170367996234050095f
+                // 2st constant is log(10)/ln(2) + 1 : 4.3219280948873623478703194294894f
+                // now 
+                // 1st constant is 1/(log(2)) (natural log)
+                // 2st constant shift into right one: 
+
+
+                pqueue = (uint)tmp + NumberOfImmediateQueues;
+                if (pqueue >= NumberOfQueues)
+                    {
+                    // Ooops...
+                    pqueue = PriorityQueue.NumberOfQueues - 1;
+                    }
+                }
+            return pqueue;
+            }
+
 #region PublicMethods
+
+
         /// <summary>
         /// Return the number of items in the queues
         /// </summary>
@@ -73,8 +125,11 @@ namespace OpenSim.Framework
         {
             get
             {
-            return m_heap.Count;
- 
+            int count = 0;
+            for (int i = 0; i < m_heaps.Length; ++i)
+                count += m_heaps[i].Count;
+
+            return count; 
             }
         }
 
@@ -87,17 +142,20 @@ namespace OpenSim.Framework
 
             uint localid = value.Entity.LocalId;
 
-            int age = -5; //delay start of promotion of stuked updates  to tune up ...
+            uint pqueue = GetQueue(priority);
+
+            UInt64 entry = m_nextRequest++;
             if (m_lookupTable.TryGetValue(localid, out lookup))
-            {
-                age = m_heap[lookup.Handle].Age;
-                value.Update(m_heap[lookup.Handle].Value);
-                m_heap.Remove(lookup.Handle);
-            }
+                {
+                entry = lookup.Heap[lookup.Handle].EntryOrder;
+                value.Update(lookup.Heap[lookup.Handle].Value);
+                lookup.Heap.Remove(lookup.Handle);
+                }
 
-            m_heap.Add(new MinHeapItem(age, priority, value), ref lookup.Handle);
+            pqueue = Util.Clamp<uint>(pqueue, 0, NumberOfQueues - 1);
+            lookup.Heap = m_heaps[pqueue];
+            lookup.Heap.Add(new MinHeapItem(pqueue, entry, priority, value), ref lookup.Handle);
             m_lookupTable[localid] = lookup;
-
             return true;
         }
 
@@ -108,13 +166,18 @@ namespace OpenSim.Framework
         /// </summary>
         public bool TryDequeue(out IEntityUpdate value, out Int32 timeinqueue)
             {
-            if (m_heap.Count > 0)
+            // get a next priority item
+            for (int iq = 0; iq < NumberOfQueues; iq++)
                 {
-                MinHeapItem item = m_heap.RemoveMin();
-                m_lookupTable.Remove(item.Value.Entity.LocalId);
-                timeinqueue = Util.EnvironmentTickCountSubtract(item.EntryTime);
-                value = item.Value;
-                return true;
+                if (m_heaps[iq].Count > 0)
+                    {
+                    MinHeapItem item = m_heaps[iq].RemoveMin();
+                    m_lookupTable.Remove(item.Value.Entity.LocalId);
+                    timeinqueue = Util.EnvironmentTickCountSubtract(item.EntryTime);
+                    value = item.Value;
+
+                    return true;
+                    }
                 }
             timeinqueue = 0;
             value = default(IEntityUpdate);
@@ -127,45 +190,35 @@ namespace OpenSim.Framework
         /// </summary
         public void Reprioritize(UpdatePriorityHandler handler)
         {
-            MinHeapItem item;
-            foreach (LookupItem lookup in new List<LookupItem>(this.m_lookupTable.Values))
+        MinHeapItem item;
+        foreach (LookupItem lookup in new List<LookupItem>(this.m_lookupTable.Values))
             {
-                if (m_heap.TryGetValue(lookup.Handle, out item))
+            if (lookup.Heap.TryGetValue(lookup.Handle, out item))
                 {
-                    uint nprio = 0;
-                    uint localid = item.Value.Entity.LocalId;
+                uint pqueue;
+                uint prio = item.Priority;
+                uint localid = item.Value.Entity.LocalId;
+                uint nprio = prio;
 
-                    if (handler(ref nprio, item.Value.Entity))
-                        {
-                        /*
-                        int age = item.Age;
-
-                        if(age <1)
-                            {
-                            age++;
-                            }
-                        else
-                            {
-                            age = age << 1;
-                            nprio = nprio >> age;
-                            }
-                        item.Age=age;
-                        */
-                        if (item.Priority != nprio)
-                            {
-                            item.Priority = nprio;
-
-                            m_heap.Remove(lookup.Handle);
-                            LookupItem litem = lookup;
-                            m_heap.Add(new MinHeapItem(item), ref litem.Handle);
-                            m_lookupTable[localid] = litem;
-                            }
-                        }
-                    else
+                if (handler(ref nprio, item.Value.Entity))
                     {
-                        // m_log.WarnFormat("[PQUEUE]: UpdatePriorityHandler returned false for {0}",item.Value.Entity.UUID);
-                        m_heap.Remove(lookup.Handle);
-                        this.m_lookupTable.Remove(localid);
+                    // unless the priority queue has changed, there is no need to modify
+                    // the entry
+                    if (nprio != prio)
+                        {
+                        lookup.Heap.Remove(lookup.Handle);
+                        LookupItem litem = lookup;
+                        pqueue = GetQueue(nprio);
+                        litem.Heap = m_heaps[pqueue];
+                        litem.Heap.Add(new MinHeapItem(pqueue, item), ref litem.Handle);
+                        m_lookupTable[localid] = litem;
+                        }
+                    }
+                else
+                    {
+                    // m_log.WarnFormat("[PQUEUE]: UpdatePriorityHandler returned false for {0}",item.Value.Entity.UUID);
+                    lookup.Heap.Remove(lookup.Handle);
+                    this.m_lookupTable.Remove(localid);
                     }
                 }
             }
@@ -176,7 +229,8 @@ namespace OpenSim.Framework
         public override string ToString()
         {
             string s = "";
-            s += String.Format("{0,7} ",m_heap.Count);
+            for (int i = 0; i < NumberOfQueues; i++)
+                s += String.Format("{0,7} ", m_heaps[i].Count);
             return s;
         }
 
@@ -192,6 +246,13 @@ namespace OpenSim.Framework
                 }
             }
 
+            private uint pqueue;
+            internal uint PriorityQueue {
+                get {
+                    return this.pqueue;
+                }
+            }
+
             private Int32 entrytime;
             internal Int32 EntryTime {
                 get {
@@ -199,20 +260,17 @@ namespace OpenSim.Framework
                 }
             }
 
-            private int age;
-            internal int Age
+            private UInt64 entryorder;
+            internal UInt64 EntryOrder
                 {
                 get
                     {
-                    return this.age;
-                    }
-                set
-                    {
-                    age = value;
+                    return this.entryorder;
                     }
                 }
-            private uint priority;
-            internal uint Priority
+
+           private uint priority;
+           internal uint Priority
                 {
                 get
                     {
@@ -225,32 +283,35 @@ namespace OpenSim.Framework
                     
                 }
 
-            internal MinHeapItem(MinHeapItem other)
-            {
+            internal MinHeapItem(uint pqueue, MinHeapItem other)
+                {
                 this.entrytime = other.entrytime;
-                this.age = other.age;
+                this.entryorder = other.entryorder;
                 this.value = other.value;
                 this.priority = other.priority;
-            }
+                this.pqueue = pqueue;
 
-            internal MinHeapItem(int age, uint priority, IEntityUpdate value)
-            {
+                }
+
+            internal MinHeapItem(uint pqueue, UInt64 entryorder, uint priority, IEntityUpdate value)
+                {
                 this.entrytime = Util.EnvironmentTickCount();
-                this.age = age;
+                this.entryorder = entryorder;
                 this.value = value;
                 this.priority = priority;
-            }
+                this.pqueue = pqueue;
+                }
 
             public override string ToString()
             {
-            return String.Format("[{0},{1},{2}", age, priority, value.Entity.LocalId);
+            return String.Format("[{0},{1},{2},{3}]", pqueue, entryorder, priority, value.Entity.LocalId);
             }
 
             public int CompareTo(MinHeapItem other)
             {
                 // I'm assuming that the root part of an SOG is added to the update queue
                 // before the component parts
-            return Comparer<UInt64>.Default.Compare(this.Priority, other.Priority);
+            return Comparer<UInt64>.Default.Compare(this.EntryOrder, other.EntryOrder);
             }
         }
 #endregion
@@ -258,6 +319,7 @@ namespace OpenSim.Framework
 #region LookupItem
         private struct LookupItem
         {
+            internal MinHeap<MinHeapItem> Heap;
             internal IHandle Handle;
         }
 #endregion
