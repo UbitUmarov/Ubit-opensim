@@ -3639,8 +3639,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 ResendPrimUpdate(update);
         }
 
-        private void ProcessEntityUpdates(int maxUpdates)
-        {
+//        private void ProcessEntityUpdates(int maxUpdates)
+// Ubit use number bytes that can reasonalbly go into wire in the time slot
+        private void ProcessEntityUpdates(int maxUpdatesBytes)
+            {
             OpenSim.Framework.Lazy<List<ObjectUpdatePacket.ObjectDataBlock>> objectUpdateBlocks = new OpenSim.Framework.Lazy<List<ObjectUpdatePacket.ObjectDataBlock>>();
             OpenSim.Framework.Lazy<List<ObjectUpdateCompressedPacket.ObjectDataBlock>> compressedUpdateBlocks = new OpenSim.Framework.Lazy<List<ObjectUpdateCompressedPacket.ObjectDataBlock>>();
             OpenSim.Framework.Lazy<List<ImprovedTerseObjectUpdatePacket.ObjectDataBlock>> terseUpdateBlocks = new OpenSim.Framework.Lazy<List<ImprovedTerseObjectUpdatePacket.ObjectDataBlock>>();
@@ -3652,36 +3654,48 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             OpenSim.Framework.Lazy<List<EntityUpdate>> terseAgentUpdates = new OpenSim.Framework.Lazy<List<EntityUpdate>>();
 
             // Check to see if this is a flush
-            if (maxUpdates <= 0)
-            {
-                maxUpdates = Int32.MaxValue;
-            }
+            // this is a dangerus mess.. there can be a lot of updates
+            // but ok lets keep it hopping flush is used well
+            /*
+                        if (maxUpdates <= 0)
+                            {
+                            maxUpdates = Int32.MaxValue;
+                            }
+            */
+
+            if (maxUpdatesBytes <= 0)
+                {
+                maxUpdatesBytes = Int32.MaxValue;
+                }
 
             int updatesThisCall = 0;
 
             // We must lock for both manipulating the kill record and sending the packet, in order to avoid a race
             // condition where a kill can be processed before an out-of-date update for the same object.                        
             lock (m_killRecord)
-            {
+                {
                 float avgTimeDilation = 1.0f;
                 IEntityUpdate iupdate;
                 Int32 timeinqueue; // this is just debugging code & can be dropped later
-
-                while (updatesThisCall < maxUpdates)
-                {
+                int thingsize;
+                ObjectUpdatePacket.ObjectDataBlock ablock;
+               
+                //                while (updatesThisCall < maxUpdates)
+                while(maxUpdatesBytes >0)
+                    {
                     lock (m_entityUpdates.SyncRoot)
                         if (!m_entityUpdates.TryDequeue(out iupdate, out timeinqueue))
                             break;
 
                     EntityUpdate update = (EntityUpdate)iupdate;
-                    
+
                     avgTimeDilation += update.TimeDilation;
                     avgTimeDilation *= 0.5f;
 
                     if (update.Entity is SceneObjectPart)
-                    {
+                        {
                         SceneObjectPart part = (SceneObjectPart)update.Entity;
-    
+
                         // Please do not remove this unless you can demonstrate on the OpenSim mailing list that a client
                         // will never receive an update after a prim kill.  Even then, keeping the kill record may be a good
                         // safety measure.
@@ -3693,53 +3707,53 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         // This doesn't appear to apply to child prims - a client will happily ignore these updates
                         // after the root prim has been deleted.
                         if (m_killRecord.Contains(part.LocalId))
-                        {
-        //                        m_log.WarnFormat(
-        //                            "[CLIENT]: Preventing update for prim with local id {0} after client for user {1} told it was deleted",
-        //                            part.LocalId, Name);
+                            {
+                            //                        m_log.WarnFormat(
+                            //                            "[CLIENT]: Preventing update for prim with local id {0} after client for user {1} told it was deleted",
+                            //                            part.LocalId, Name);
                             continue;
-                        }                        
-                            
+                            }
+
                         if (part.ParentGroup.IsAttachment && m_disableFacelights)
-                        {
+                            {
                             if (part.ParentGroup.RootPart.Shape.State != (byte)AttachmentPoint.LeftHand &&
                                 part.ParentGroup.RootPart.Shape.State != (byte)AttachmentPoint.RightHand)
-                            {
+                                {
                                 part.Shape.LightEntry = false;
+                                }
                             }
                         }
-                    }
-    
+
                     ++updatesThisCall;
-    
+
                     #region UpdateFlags to packet type conversion
-    
+
                     PrimUpdateFlags updateFlags = (PrimUpdateFlags)update.Flags;
-    
+
                     bool canUseCompressed = true;
                     bool canUseImproved = true;
-    
+
                     // Compressed object updates only make sense for LL primitives
                     if (!(update.Entity is SceneObjectPart))
-                    {
+                        {
                         canUseCompressed = false;
-                    }
-    
+                        }
+
                     if (updateFlags.HasFlag(PrimUpdateFlags.FullUpdate))
-                    {
+                        {
                         canUseCompressed = false;
                         canUseImproved = false;
-                    }
+                        }
                     else
-                    {
+                        {
                         if (updateFlags.HasFlag(PrimUpdateFlags.Velocity) ||
                             updateFlags.HasFlag(PrimUpdateFlags.Acceleration) ||
                             updateFlags.HasFlag(PrimUpdateFlags.CollisionPlane) ||
                             updateFlags.HasFlag(PrimUpdateFlags.Joint))
-                        {
+                            {
                             canUseCompressed = false;
-                        }
-    
+                            }
+
                         if (updateFlags.HasFlag(PrimUpdateFlags.PrimFlags) ||
                             updateFlags.HasFlag(PrimUpdateFlags.ParentID) ||
                             updateFlags.HasFlag(PrimUpdateFlags.Scale) ||
@@ -3754,122 +3768,132 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                             updateFlags.HasFlag(PrimUpdateFlags.ClickAction) ||
                             updateFlags.HasFlag(PrimUpdateFlags.MediaURL) ||
                             updateFlags.HasFlag(PrimUpdateFlags.Joint))
-                        {
+                            {
                             canUseImproved = false;
+                            }
                         }
-                    }
-    
+
                     #endregion UpdateFlags to packet type conversion
-    
+
                     #region Block Construction
-    
+
                     // TODO: Remove this once we can build compressed updates
                     canUseCompressed = false;
-    
+
                     if (!canUseImproved && !canUseCompressed)
-                    {
+                        {
                         if (update.Entity is ScenePresence)
-                        {
-                            objectUpdateBlocks.Value.Add(CreateAvatarUpdateBlock((ScenePresence)update.Entity));
+                            {
+                            ablock = CreateAvatarUpdateBlock((ScenePresence)update.Entity);
+                            objectUpdateBlocks.Value.Add(ablock);
                             objectUpdates.Value.Add(update);
-                        }
+                            maxUpdatesBytes -= ablock.Length;
+                            }
                         else
-                        {
-                            objectUpdateBlocks.Value.Add(CreatePrimUpdateBlock((SceneObjectPart)update.Entity, this.m_agentId));
+                            {
+                            ablock = CreatePrimUpdateBlock((SceneObjectPart)update.Entity, this.m_agentId);
+                            objectUpdateBlocks.Value.Add(ablock);
                             objectUpdates.Value.Add(update);
+                            maxUpdatesBytes -= ablock.Length;
+                            }
                         }
-                    }
                     else if (!canUseImproved)
-                    {
-                        compressedUpdateBlocks.Value.Add(CreateCompressedUpdateBlock((SceneObjectPart)update.Entity, updateFlags));
+                        {
+                        ObjectUpdateCompressedPacket.ObjectDataBlock tblock = CreateCompressedUpdateBlock((SceneObjectPart)update.Entity, updateFlags);
+                        compressedUpdateBlocks.Value.Add(tblock);
                         compressedUpdates.Value.Add(update);
-                    }
+                        maxUpdatesBytes -= tblock.Length;
+                        }
                     else
-                    {
+                        {
                         if (update.Entity is ScenePresence && ((ScenePresence)update.Entity).UUID == AgentId)
-                        {
+                            {
                             // Self updates go into a special list
-                            terseAgentUpdateBlocks.Value.Add(CreateImprovedTerseBlock(update.Entity, updateFlags.HasFlag(PrimUpdateFlags.Textures)));
+                            ImprovedTerseObjectUpdatePacket.ObjectDataBlock tblock = CreateImprovedTerseBlock(update.Entity, updateFlags.HasFlag(PrimUpdateFlags.Textures));
+                            terseAgentUpdateBlocks.Value.Add(tblock);
                             terseAgentUpdates.Value.Add(update);
-                        }
+                            maxUpdatesBytes -= tblock.Length;
+                            }
                         else
-                        {
+                            {
                             // Everything else goes here
-                            terseUpdateBlocks.Value.Add(CreateImprovedTerseBlock(update.Entity, updateFlags.HasFlag(PrimUpdateFlags.Textures)));
+                            ImprovedTerseObjectUpdatePacket.ObjectDataBlock tblock = CreateImprovedTerseBlock(update.Entity, updateFlags.HasFlag(PrimUpdateFlags.Textures));
+                            terseUpdateBlocks.Value.Add(tblock);
                             terseUpdates.Value.Add(update);
+                            maxUpdatesBytes -= tblock.Length;
+                            }
                         }
-                    }
-    
+
                     #endregion Block Construction
-                }
-                
-    
-                #region Packet Sending
-                ushort timeDilation = Utils.FloatToUInt16(avgTimeDilation, 0.0f, 1.0f);
+                    }
 
-                if (terseAgentUpdateBlocks.IsValueCreated)
-                {
-                    List<ImprovedTerseObjectUpdatePacket.ObjectDataBlock> blocks = terseAgentUpdateBlocks.Value;
 
-                    ImprovedTerseObjectUpdatePacket packet = new ImprovedTerseObjectUpdatePacket();
-                    packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
-                    packet.RegionData.TimeDilation = timeDilation;
-                    packet.ObjectData = new ImprovedTerseObjectUpdatePacket.ObjectDataBlock[blocks.Count];
+                    #region Packet Sending
+                    ushort timeDilation = Utils.FloatToUInt16(avgTimeDilation, 0.0f, 1.0f);
 
-                    for (int i = 0; i < blocks.Count; i++)
-                        packet.ObjectData[i] = blocks[i];
-                    // If any of the packets created from this call go unacknowledged, all of the updates will be resent
-                    OutPacket(packet, ThrottleOutPacketType.Unknown, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(terseAgentUpdates.Value, oPacket); });
+                    if (terseAgentUpdateBlocks.IsValueCreated)
+                        {
+                        List<ImprovedTerseObjectUpdatePacket.ObjectDataBlock> blocks = terseAgentUpdateBlocks.Value;
+
+                        ImprovedTerseObjectUpdatePacket packet = new ImprovedTerseObjectUpdatePacket();
+                        packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
+                        packet.RegionData.TimeDilation = timeDilation;
+                        packet.ObjectData = new ImprovedTerseObjectUpdatePacket.ObjectDataBlock[blocks.Count];
+
+                        for (int i = 0; i < blocks.Count; i++)
+                            packet.ObjectData[i] = blocks[i];
+                        // If any of the packets created from this call go unacknowledged, all of the updates will be resent
+                        OutPacket(packet, ThrottleOutPacketType.Unknown, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(terseAgentUpdates.Value, oPacket); });
+                        }
+
+                    if (objectUpdateBlocks.IsValueCreated)
+                        {
+                        List<ObjectUpdatePacket.ObjectDataBlock> blocks = objectUpdateBlocks.Value;
+
+                        ObjectUpdatePacket packet = (ObjectUpdatePacket)PacketPool.Instance.GetPacket(PacketType.ObjectUpdate);
+                        packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
+                        packet.RegionData.TimeDilation = timeDilation;
+                        packet.ObjectData = new ObjectUpdatePacket.ObjectDataBlock[blocks.Count];
+
+                        for (int i = 0; i < blocks.Count; i++)
+                            packet.ObjectData[i] = blocks[i];
+                        // If any of the packets created from this call go unacknowledged, all of the updates will be resent
+                        OutPacket(packet, ThrottleOutPacketType.Task, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(objectUpdates.Value, oPacket); });
+                        }
+
+                    if (compressedUpdateBlocks.IsValueCreated)
+                        {
+                        List<ObjectUpdateCompressedPacket.ObjectDataBlock> blocks = compressedUpdateBlocks.Value;
+
+                        ObjectUpdateCompressedPacket packet = (ObjectUpdateCompressedPacket)PacketPool.Instance.GetPacket(PacketType.ObjectUpdateCompressed);
+                        packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
+                        packet.RegionData.TimeDilation = timeDilation;
+                        packet.ObjectData = new ObjectUpdateCompressedPacket.ObjectDataBlock[blocks.Count];
+
+                        for (int i = 0; i < blocks.Count; i++)
+                            packet.ObjectData[i] = blocks[i];
+                        // If any of the packets created from this call go unacknowledged, all of the updates will be resent
+                        OutPacket(packet, ThrottleOutPacketType.Task, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(compressedUpdates.Value, oPacket); });
+                        }
+
+                    if (terseUpdateBlocks.IsValueCreated)
+                        {
+                        List<ImprovedTerseObjectUpdatePacket.ObjectDataBlock> blocks = terseUpdateBlocks.Value;
+
+                        ImprovedTerseObjectUpdatePacket packet = new ImprovedTerseObjectUpdatePacket();
+                        packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
+                        packet.RegionData.TimeDilation = timeDilation;
+                        packet.ObjectData = new ImprovedTerseObjectUpdatePacket.ObjectDataBlock[blocks.Count];
+
+                        for (int i = 0; i < blocks.Count; i++)
+                            packet.ObjectData[i] = blocks[i];
+                        // If any of the packets created from this call go unacknowledged, all of the updates will be resent
+                        OutPacket(packet, ThrottleOutPacketType.Task, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(terseUpdates.Value, oPacket); });
+                        }
                 }
 
-                if (objectUpdateBlocks.IsValueCreated)
-                {
-                    List<ObjectUpdatePacket.ObjectDataBlock> blocks = objectUpdateBlocks.Value;
-        
-                    ObjectUpdatePacket packet = (ObjectUpdatePacket)PacketPool.Instance.GetPacket(PacketType.ObjectUpdate);
-                    packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
-                    packet.RegionData.TimeDilation = timeDilation;
-                    packet.ObjectData = new ObjectUpdatePacket.ObjectDataBlock[blocks.Count];
-        
-                    for (int i = 0; i < blocks.Count; i++)
-                        packet.ObjectData[i] = blocks[i];
-                    // If any of the packets created from this call go unacknowledged, all of the updates will be resent
-                    OutPacket(packet, ThrottleOutPacketType.Task, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(objectUpdates.Value, oPacket); });
-                }
-        
-                if (compressedUpdateBlocks.IsValueCreated)
-                {
-                    List<ObjectUpdateCompressedPacket.ObjectDataBlock> blocks = compressedUpdateBlocks.Value;
-        
-                    ObjectUpdateCompressedPacket packet = (ObjectUpdateCompressedPacket)PacketPool.Instance.GetPacket(PacketType.ObjectUpdateCompressed);
-                    packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
-                    packet.RegionData.TimeDilation = timeDilation;
-                    packet.ObjectData = new ObjectUpdateCompressedPacket.ObjectDataBlock[blocks.Count];
-        
-                    for (int i = 0; i < blocks.Count; i++)
-                        packet.ObjectData[i] = blocks[i];
-                    // If any of the packets created from this call go unacknowledged, all of the updates will be resent
-                    OutPacket(packet, ThrottleOutPacketType.Task, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(compressedUpdates.Value, oPacket); });
-                }
-
-                if (terseUpdateBlocks.IsValueCreated)
-                {
-                    List<ImprovedTerseObjectUpdatePacket.ObjectDataBlock> blocks = terseUpdateBlocks.Value;
-        
-                    ImprovedTerseObjectUpdatePacket packet = new ImprovedTerseObjectUpdatePacket();
-                    packet.RegionData.RegionHandle = m_scene.RegionInfo.RegionHandle;
-                    packet.RegionData.TimeDilation = timeDilation;
-                    packet.ObjectData = new ImprovedTerseObjectUpdatePacket.ObjectDataBlock[blocks.Count];
-        
-                    for (int i = 0; i < blocks.Count; i++)
-                        packet.ObjectData[i] = blocks[i];
-                    // If any of the packets created from this call go unacknowledged, all of the updates will be resent
-                    OutPacket(packet, ThrottleOutPacketType.Task, true, delegate(OutgoingPacket oPacket) { ResendPrimUpdates(terseUpdates.Value, oPacket); });
-                }
+                    #endregion Packet Sending
             }
-
-            #endregion Packet Sending
-        }
 
         public void ReprioritizeUpdates()
         {
@@ -3903,38 +3927,54 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         // to sit in the queue with old data, only convert enough updates
         // to packets that can be sent in 200ms.
         private Int32 m_LastQueueFill = 0;
-        private Int32 m_maxUpdates = 0;
-
+        private Int32 m_maxUpdatesBytes = 0;
+        private int npack;
         void HandleQueueEmpty(ThrottleOutPacketTypeFlags categories)
-        {
-            if ((categories & ThrottleOutPacketTypeFlags.Task) != 0)
             {
-                if (m_maxUpdates == 0 || m_LastQueueFill == 0)
+            if ((categories & ThrottleOutPacketTypeFlags.Task) != 0)
                 {
-                    m_maxUpdates = m_udpServer.PrimUpdatesPerCallback;
-                }
-                else
-                {
-                    if (Util.EnvironmentTickCountSubtract(m_LastQueueFill) < 200)
-                        m_maxUpdates += 5;
-                    else
-                        m_maxUpdates = m_maxUpdates >> 1;
-                }
-                m_maxUpdates = Util.Clamp<Int32>(m_maxUpdates,10,500);
-                m_LastQueueFill = Util.EnvironmentTickCount();
-            
+                /*
+                 * Ubit lets try instead to use a number of bytes that fill bandwitdh a bit more than 30ms
+                 * the 30ms is the above rate limit to this call
+                                    if (m_maxUpdates == 0 || m_LastQueueFill == 0)
+                                        {
+                                        m_maxUpdates = m_udpServer.PrimUpdatesPerCallback / 10;
+
+                                        }
+                                    else
+                                        {
+                                        if (Util.EnvironmentTickCountSubtract(m_LastQueueFill) < 60)
+                                            m_maxUpdates += 2;
+                                        else
+                                            m_maxUpdates = m_maxUpdates >> 1;
+                                        }
+
+                                    //              m_maxUpdates = Util.Clamp<Int32>(m_maxUpdates,10,500);
+
+                                    m_maxUpdates = Util.Clamp<Int32>(m_maxUpdates, 1, 2 * m_udpServer.PrimUpdatesPerCallback);
+                                    m_LastQueueFill = Util.EnvironmentTickCount();
+                */
+                // Ubit lets try instead to use a number of bytes that fill bandwitdh a bit more than 30ms
+                // the 30ms is the above rate limit to this call
+                // the process updates will always send one packet more and should do so
+
+                m_maxUpdatesBytes = m_udpClient.GetCatRateMS(ThrottleOutPacketType.Task);
+                m_maxUpdatesBytes *= 30;
+
+                // there should be only one of this but ok it will take 60ms
                 if (m_entityUpdates.Count > 0)
-                    ProcessEntityUpdates(m_maxUpdates);
+
+                    ProcessEntityUpdates(m_maxUpdatesBytes);
 
                 if (m_entityProps.Count > 0)
-                    ProcessEntityPropertyRequests(m_maxUpdates);
-            }
+                    ProcessEntityPropertyRequests(m_maxUpdatesBytes);
+                }
 
             if ((categories & ThrottleOutPacketTypeFlags.Texture) != 0)
-            {
+                {
                 ProcessTextureRequests();
+                }
             }
-        }
 
         void ProcessTextureRequests()
         {
@@ -4098,7 +4138,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 m_entityProps.Enqueue(priority, new ObjectPropertyUpdate(entity,0,false,true));
         }
 
-        private void ProcessEntityPropertyRequests(int maxUpdates)
+//        private void ProcessEntityPropertyRequests(int maxUpdates)
+        private void ProcessEntityPropertyRequests(int maxUpdatesBytes)
         {
             OpenSim.Framework.Lazy<List<ObjectPropertiesFamilyPacket.ObjectDataBlock>> objectFamilyBlocks =
                 new OpenSim.Framework.Lazy<List<ObjectPropertiesFamilyPacket.ObjectDataBlock>>();
@@ -4115,8 +4156,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             IEntityUpdate iupdate;
             Int32 timeinqueue; // this is just debugging code & can be dropped later
 
-            int updatesThisCall = 0;
-            while (updatesThisCall < m_maxUpdates)
+            int updatesThisCall = 0; // keep for debug
+//            while (updatesThisCall < maxUpdates)
+            while (updatesThisCall < maxUpdatesBytes)
+
             {
                 lock (m_entityProps.SyncRoot)
                         if (!m_entityProps.TryDequeue(out iupdate, out timeinqueue))
@@ -4131,6 +4174,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         ObjectPropertiesFamilyPacket.ObjectDataBlock objPropDB = CreateObjectPropertiesFamilyBlock(sop,update.Flags);
                         objectFamilyBlocks.Value.Add(objPropDB);
                         familyUpdates.Value.Add(update);
+                        maxUpdatesBytes -= objPropDB.Length;
                     }
                 }
 
@@ -4142,6 +4186,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         ObjectPropertiesPacket.ObjectDataBlock objPropDB = CreateObjectPropertiesBlock(sop);
                         objectPropertiesBlocks.Value.Add(objPropDB);
                         propertyUpdates.Value.Add(update);
+                        maxUpdatesBytes -= objPropDB.Length;
                     }
                 }
 

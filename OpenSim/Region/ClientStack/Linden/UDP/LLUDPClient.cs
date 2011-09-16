@@ -461,6 +461,14 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             }
         }
 
+        public int GetCatRateMS(ThrottleOutPacketType cat)
+            {
+            TokenBucket bucket = m_throttleCategories[(int)cat];
+            int ratems = (int)(bucket.RequestedDripRate/1000);
+            if (ratems <1 ) ratems=1;
+            return ratems;
+            }
+
         /// <summary>
         /// Loops through all of the packet queues for this client and tries to send
         /// an outgoing packet from each, obeying the throttling bucket limits
@@ -541,6 +549,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     }
                 }
             }
+//            if (m_packetOutboxes[(int)ThrottleOutPacketType.Task].Count < 5)
+//                emptyCategories |= CategoryToFlag((int)ThrottleOutPacketType.Task);
 
             if (emptyCategories != 0)
                 BeginFireQueueEmpty(emptyCategories);
