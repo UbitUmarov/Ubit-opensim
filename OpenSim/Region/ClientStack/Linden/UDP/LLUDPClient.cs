@@ -134,6 +134,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <summary>Holds the Environment.TickCount value of when the next OnQueueEmpty can be fired</summary>
         private int m_nextOnQueueEmpty = 1;
 
+        
         /// <summary>Throttle bucket for this agent's connection</summary>
         private readonly AdaptiveTokenBucket m_throttleClient;
         public AdaptiveTokenBucket FlowThrottle
@@ -150,6 +151,13 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <summary>A container that can hold one packet for each outbox, used to store
         /// dequeued packets that are being held for throttling</summary>
         private readonly OutgoingPacket[] m_nextPackets = new OutgoingPacket[THROTTLE_CATEGORY_COUNT];
+
+// Ubit: only send one packet out per dequeueoutgoing call
+// this should improve wire multiplexing by clients
+// also giving it time to really do the send, reducing piling up of waiting threads on asyncsend
+        /// <summary>control throttle category to check</summary>
+        private int LastOutThrCatChecked = -1; // -1 so it starts checking 0
+
         /// <summary>A reference to the LLUDPServer that is managing this client</summary>
         private readonly LLUDPServer m_udpServer;
 
@@ -202,6 +210,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             // Initialize this to a sane value to prevent early disconnects
             TickLastPacketReceived = Environment.TickCount & Int32.MaxValue;
+            LastOutThrCatChecked = -1;
         }
 
         /// <summary>
@@ -486,7 +495,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// 
         /// <returns>True if any packets were sent, otherwise false</returns>
         public bool DequeueOutgoing()
-        {
+            {
             OutgoingPacket packet;
             OpenSim.Framework.LocklessQueue<OutgoingPacket> queue;
             TokenBucket bucket;
@@ -496,68 +505,71 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             //string queueDebugOutput = String.Empty; // Serious debug business
 
             for (int i = 0; i < THROTTLE_CATEGORY_COUNT; i++)
-            {
-                bucket = m_throttleCategories[i];
+                {
+                if (++LastOutThrCatChecked >= THROTTLE_CATEGORY_COUNT)
+                    LastOutThrCatChecked = 0;
+
+                bucket = m_throttleCategories[LastOutThrCatChecked];
                 //queueDebugOutput += m_packetOutboxes[i].Count + " ";  // Serious debug business
 
-                if (m_nextPackets[i] != null)
-                {
+                if (m_nextPackets[LastOutThrCatChecked] != null)
+                    {
                     // This bucket was empty the last time we tried to send a packet,
                     // leaving a dequeued packet still waiting to be sent out. Try to
                     // send it again
-                    OutgoingPacket nextPacket = m_nextPackets[i];
+                    OutgoingPacket nextPacket = m_nextPackets[LastOutThrCatChecked];
                     if (bucket.RemoveTokens(nextPacket.Buffer.DataLength))
-                    {
+                        {
                         // Send the packet
                         m_udpServer.SendPacketFinal(nextPacket);
-                        m_nextPackets[i] = null;
+                        m_nextPackets[LastOutThrCatChecked] = null;
                         packetSent = true;
+                        break;
+                        }
                     }
-                }
                 else
-                {
+                    {
                     // No dequeued packet waiting to be sent, try to pull one off
                     // this queue
-                    queue = m_packetOutboxes[i];
+                    queue = m_packetOutboxes[LastOutThrCatChecked];
                     if (queue.Dequeue(out packet))
-                    {
+                        {
                         // A packet was pulled off the queue. See if we have
                         // enough tokens in the bucket to send it out
                         if (bucket.RemoveTokens(packet.Buffer.DataLength))
-                        {
+                            {
                             // Send the packet
                             m_udpServer.SendPacketFinal(packet);
                             packetSent = true;
-                        }
+                            break;
+                            }
                         else
-                        {
+                            {
                             // Save the dequeued packet for the next iteration
-                            m_nextPackets[i] = packet;
-                        }
+                            m_nextPackets[LastOutThrCatChecked] = packet;
+                            }
 
                         // If the queue is empty after this dequeue, fire the queue
                         // empty callback now so it has a chance to fill before we 
                         // get back here
                         if (queue.Count == 0)
-                            emptyCategories |= CategoryToFlag(i);
-                    }
+                            emptyCategories |= CategoryToFlag(LastOutThrCatChecked);
+                        }
                     else
-                    {
+                        {
                         // No packets in this queue. Fire the queue empty callback
                         // if it has not been called recently
-                        emptyCategories |= CategoryToFlag(i);
+                        emptyCategories |= CategoryToFlag(LastOutThrCatChecked);
+                        }
                     }
                 }
-            }
-//            if (m_packetOutboxes[(int)ThrottleOutPacketType.Task].Count < 5)
-//                emptyCategories |= CategoryToFlag((int)ThrottleOutPacketType.Task);
 
             if (emptyCategories != 0)
                 BeginFireQueueEmpty(emptyCategories);
 
             //m_log.Info("[LLUDPCLIENT]: Queues: " + queueDebugOutput); // Serious debug business
             return packetSent;
-        }
+            }
 
         /// <summary>
         /// Called when an ACK packet is received and a round-trip time for a
