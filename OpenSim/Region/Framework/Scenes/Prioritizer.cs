@@ -199,15 +199,30 @@ namespace OpenSim.Region.Framework.Scenes
             float distancesq;
 
             // Use the camera position for local agents and avatar position for remote agents
-            Vector3 presencePos = (presence.IsChildAgent) ?
-                presence.AbsolutePosition :
-                presence.CameraPosition;
+//            Vector3 presencePos = (presence.IsChildAgent) ?
+//                presence.AbsolutePosition :
+//                presence.CameraPosition;
+
+            // Ubit..  crap use both if 2 distante
+            Vector3 presencePos = presence.AbsolutePosition;
+            Vector3 presenceCPos = presence.CameraPosition;  // crap C# 
+            float Cdistancesq =0;
+            bool checkcam = false;
+            if (!presence.IsChildAgent)
+                {
+//              presenceCPos = presence.CameraPosition;
+                if (Vector3.DistanceSquared(presencePos, presenceCPos) > 256) // 16m apart
+                    checkcam = true;
+                }
+            
 
             if (entity is SceneObjectGroup)
                 {
                 SceneObjectGroup group = (entity as SceneObjectGroup);
                 entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
                 distancesq = Vector3.DistanceSquared(presencePos, entityPos) - group.BSphereRadiusSQ;
+                if (checkcam)
+                    Cdistancesq = Vector3.DistanceSquared(presenceCPos, entityPos) - group.BSphereRadiusSQ;
                 }
             else if (entity is SceneObjectPart)
                 {
@@ -216,19 +231,28 @@ namespace OpenSim.Region.Framework.Scenes
                     {
                     SceneObjectGroup group = p.ParentGroup;
                     entityPos = group.AbsolutePosition + group.OOBoffset * group.GroupRotation;
-                    distancesq = Vector3.DistanceSquared(presencePos, entityPos) - group.BSphereRadiusSQ; 
+                    distancesq = Vector3.DistanceSquared(presencePos, entityPos) - group.BSphereRadiusSQ;
+                    if (checkcam)
+                        Cdistancesq = Vector3.DistanceSquared(presenceCPos, entityPos) - group.BSphereRadiusSQ;
                     }
                 else
                     {
-                    entityPos = p.AbsolutePosition + p.OOBoffset * p.GetWorldRotation();
+                    entityPos = p.GetWorldPosition() + p.OOBoffset * p.GetWorldRotation();
                     distancesq = p.clampedAABdistanceToSQ(presencePos) + 1.0f;
+                    if (checkcam)
+                        Cdistancesq = p.clampedAABdistanceToSQ(presenceCPos) + 1.0f;
                     }
                 }
             else
                 {
                 entityPos = entity.AbsolutePosition;
                 distancesq = Vector3.DistanceSquared(presencePos, entityPos);
+                if (checkcam)
+                    Cdistancesq = Vector3.DistanceSquared(presenceCPos, entityPos);;
                 }
+
+            if (checkcam) // if using cam use smaller distance
+                distancesq = (distancesq < Cdistancesq ? distancesq : Cdistancesq);
 
             if (distancesq < 0)
                 distancesq = 0;
@@ -250,6 +274,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (p < 0.0f) 
                     prio++;
             }
+
             return prio;
         }
     }
