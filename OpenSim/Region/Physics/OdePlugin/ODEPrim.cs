@@ -1561,6 +1561,7 @@ Console.WriteLine("changeadd 1");
                 {
                     if (Body == IntPtr.Zero)
                         enableBody();
+
                     //Prim auto disable after 20 frames,
                     //if you move it, re-enable the prim manually.
                     if (_parent != null)
@@ -1571,6 +1572,7 @@ Console.WriteLine("changeadd 1");
                             m_linkJoint = IntPtr.Zero;
                         }
                     }
+
                     if (Body != IntPtr.Zero)
                     {
                         d.BodySetPosition(Body, _position.X, _position.Y, _position.Z);
@@ -1634,7 +1636,6 @@ Console.WriteLine(" JointCreateFixed");
             float fy = 0;
             float fz = 0;
 
-                
             if (IsPhysical && (Body != IntPtr.Zero) && !m_isSelected && !childPrim)        // KF: Only move root prims.
             {
                 if (m_vehicle.Type != Vehicle.TYPE_NONE)
@@ -1853,7 +1854,6 @@ Console.WriteLine(" JointCreateFixed");
                         // 35x10 = 350n times the mass per second applied maximum.
                         float nmax = 35f * m_mass;
                         float nmin = -35f * m_mass;
-
                     
                         if (fx > nmax)
                             fx = nmax;
