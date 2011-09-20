@@ -774,10 +774,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
             // Ubit:
             //    float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*CAPSULE_LENGTH); well not really
-            //    float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*(1.3333333333f*CAPSULE_RADIUS + CAPSULE_LENGTH);
-            //    return m_density*AVvolume;
-            // but lets use the one we are using
-            return m_mass;
+                  float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*(1.3333333333f*CAPSULE_RADIUS + CAPSULE_LENGTH));
+                  return m_density*AVvolume;
             }
         }
         public override void link(PhysicsActor obj)
