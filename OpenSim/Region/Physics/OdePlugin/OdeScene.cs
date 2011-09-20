@@ -112,7 +112,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private const uint m_regionWidth = Constants.RegionSize;
         private const uint m_regionHeight = Constants.RegionSize;
 
-        private float ODE_STEPSIZE = 0.020f;
+        public float ODE_STEPSIZE = 0.020f; // make it visible
         private float metersInSpace = 29.9f;
         private float m_timeDilation = 1.0f;
 
@@ -151,8 +151,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         private float mAvatarObjectContactFriction = 75f;
         private float mAvatarObjectContactBounce = 0.1f;
 
-        private float avPIDD = 3200f;
-        private float avPIDP = 1400f;
+        public float avPIDD = 3200f; // make it visible
+        public float avPIDP = 1400f; // make it visible
         private float avCapRadius = 0.37f;
         private float avStandupTensor = 2000000f;
         private bool avCapsuleTilted = true; // true = old compatibility mode with leaning capsule; false = new corrected mode

@@ -179,7 +179,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             _parent_scene = parent_scene;
 
-            PID_D = pid_d;
+            PID_D = pid_d; 
             PID_P = pid_p;
             CAPSULE_RADIUS = capsule_radius;
             m_tensor = tensor;
@@ -657,7 +657,22 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.GeomSetCategoryBits(Shell, (int)m_collisionCategories);
             d.GeomSetCollideBits(Shell, (int)m_collisionFlags);
 
-            d.MassSetCapsuleTotal(out ShellMass, m_mass, 2, CAPSULE_RADIUS, CAPSULE_LENGTH);
+//            d.MassSetCapsuleTotal(out ShellMass, m_mass, 2, CAPSULE_RADIUS, CAPSULE_LENGTH);
+            d.MassSetCapsule(out ShellMass, m_density, 2, CAPSULE_RADIUS, CAPSULE_LENGTH);
+
+            m_mass = ShellMass.mass;  // update mass
+            // rescale PID parameters 
+            PID_D = _parent_scene.avPIDD;
+            PID_P = _parent_scene.avPIDP;
+
+            // rescale PID parameters so that this aren't affected by mass
+            // and so don't get unstable for some masses
+            // also scale by ode time step so you don't need to refix them
+
+            PID_D /= 50 * 80; //scale to original mass of around 80 and 50 ODE fps
+            PID_D *= m_mass / _parent_scene.ODE_STEPSIZE;
+            PID_P /= 50 * 80;
+            PID_P *= m_mass / _parent_scene.ODE_STEPSIZE;     
 
             Body = d.BodyCreate(_parent_scene.world);
 
