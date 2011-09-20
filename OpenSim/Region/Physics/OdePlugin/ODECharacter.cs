@@ -184,6 +184,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             CAPSULE_RADIUS = capsule_radius;
             m_tensor = tensor;
             m_density = density;
+            m_mass = 80f; // sure we have a default
             heightFudgeFactor = height_fudge_factor;
 
             walkDivisor = walk_divisor;
@@ -771,8 +772,12 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             get
             {
-                float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*CAPSULE_LENGTH);
-                return m_density*AVvolume;
+            // Ubit:
+            //    float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*CAPSULE_LENGTH); well not really
+            //    float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*(1.3333333333f*CAPSULE_RADIUS + CAPSULE_LENGTH);
+            //    return m_density*AVvolume;
+            // but lets use the one we are using
+            return m_mass;
             }
         }
         public override void link(PhysicsActor obj)
