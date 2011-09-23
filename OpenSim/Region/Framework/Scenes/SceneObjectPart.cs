@@ -1453,14 +1453,27 @@ namespace OpenSim.Region.Framework.Scenes
             m_updateFlag = 0;
         }
 
-        private void SendObjectPropertiesToClient(UUID AgentID)
+        /// <summary>
+        /// Send this part's properties (name, description, inventory serial, base mask, etc.) to a client
+        /// </summary>
+        /// <param name="client"></param>
+        public void SendPropertiesToClient(IClientAPI client)
+        {
+            client.SendObjectPropertiesReply(this);
+        }
+
+        /// <summary>
+        /// For the scene object group to which this part belongs, send that scene object's root part properties to a client.
+        /// </summary>
+        /// <param name="AgentID"></param>
+        private void SendRootPartPropertiesToClient(UUID AgentID)
         {
             m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
             {
                 // Ugly reference :(
                 if (avatar.UUID == AgentID)
                 {
-                    m_parentGroup.GetProperties(avatar.ControllingClient);
+                    m_parentGroup.SendPropertiesToClient(avatar.ControllingClient);
                 }
             });
         }
@@ -1992,25 +2005,6 @@ namespace OpenSim.Region.Framework.Scenes
                 m_log.WarnFormat(
                     "[SCENE OBJECT PART]: Part {0} {1} requested mesh/sculpt data for asset id {2} from asset service but received no data",
                     Name, LocalId, id);
-        }
-
-        public static SceneObjectPart Create()
-        {
-            SceneObjectPart part = new SceneObjectPart();
-            part.UUID = UUID.Random();
-
-            PrimitiveBaseShape shape = PrimitiveBaseShape.Create();
-            part.Shape = shape;
-
-            part.Name = "Primitive";
-            part._ownerID = UUID.Random();
-
-            part.ValidpartOOB = false;
-            part.m_validPoff = false;
-            part.m_validRoff = false;
-            part.m_curGRotVersion = 0;
-            part.m_curGPosVersion = 0;
-            return part;
         }
 
         /// <summary>
