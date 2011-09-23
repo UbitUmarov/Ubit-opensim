@@ -1845,7 +1845,7 @@ namespace OpenSim.Region.Framework.Scenes
                 ScenePresence avatar = m_scene.GetScenePresence(AttachedAvatar);
                 if (avatar != null)
                 {
-                    avatar.MoveToTarget(target, false, false);
+                    avatar.MoveToTarget(target, false);
                 }
             }
             else
@@ -1974,6 +1974,8 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         #endregion
+
+        #region Scheduling
 
         public override void Update()
         {
@@ -2125,14 +2127,7 @@ namespace OpenSim.Region.Framework.Scenes
                 parts[i].SendTerseUpdateToAllClients();
         }
 
-        /// <summary>
-        /// Send metadata about the root prim (name, description, sale price, etc.) to a client.
-        /// </summary>
-        /// <param name="client"></param>
-        public void SendPropertiesToClient(IClientAPI client)
-        {
-            m_rootPart.SendPropertiesToClient(client);
-        }
+        #endregion
 
         #region SceneGroupPart Methods
 
@@ -2241,6 +2236,9 @@ namespace OpenSim.Region.Framework.Scenes
             Quaternion oldRootRotation = linkPart.RotationOffset;
 
             linkPart.OffsetPosition = linkPart.GroupPosition - AbsolutePosition;
+
+            linkPart.ParentID = m_rootPart.LocalId;
+
             linkPart.GroupPosition = AbsolutePosition;
             Vector3 axPos = linkPart.OffsetPosition;
 
@@ -2252,7 +2250,6 @@ namespace OpenSim.Region.Framework.Scenes
             Quaternion newRot = Quaternion.Inverse(parentRot) * oldRot;
             linkPart.RotationOffset = newRot;
 
-            linkPart.ParentID = m_rootPart.LocalId;
             if (m_rootPart.LinkNum == 0)
                 m_rootPart.LinkNum = 1;
 
@@ -2619,6 +2616,15 @@ namespace OpenSim.Region.Framework.Scenes
                     //NonPhysicalSpinMovement(pos);
                 }
             }
+        }
+
+        /// <summary>
+        /// Return metadata about a prim (name, description, sale price, etc.)
+        /// </summary>
+        /// <param name="client"></param>
+        public void GetProperties(IClientAPI client)
+        {
+            m_rootPart.GetProperties(client);
         }
 
         /// <summary>
