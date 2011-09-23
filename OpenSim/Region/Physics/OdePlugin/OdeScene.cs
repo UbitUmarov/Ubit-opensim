@@ -616,10 +616,10 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.WorldSetGravity(world, gravityx, gravityy, gravityz);
             d.WorldSetContactSurfaceLayer(world, contactsurfacelayer);
 
-            d.WorldSetLinearDamping(world, 256f);
-            d.WorldSetAngularDamping(world, 256f);
-            d.WorldSetAngularDampingThreshold(world, 256f);
-            d.WorldSetLinearDampingThreshold(world, 256f);
+            d.WorldSetLinearDamping(world, 0.001f);
+            d.WorldSetAngularDamping(world, 0.001f);
+            d.WorldSetAngularDampingThreshold(world, 0f);
+            d.WorldSetLinearDampingThreshold(world, 0f);
             d.WorldSetMaxAngularSpeed(world, 256f);
 
             // Set how many steps we go without running collision testing
@@ -2122,92 +2122,24 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// </summary>
         /// <param name="prim"></param>
         public void RemovePrimThreadLocked(OdePrim prim)
-        {
-//Console.WriteLine("RemovePrimThreadLocked " +  prim.m_primName);
-            lock (prim)
             {
+            //Console.WriteLine("RemovePrimThreadLocked " +  prim.m_primName);
+            lock (prim)
+                {
                 RemoveCollisionEventReporting(prim);
                 lock (ode)
-                {
-                    if (prim.prim_geom != IntPtr.Zero)
                     {
-                        prim.ResetTaints();
+                    lock (_prims)
+                        _prims.Remove(prim);
 
-                        if (prim.IsPhysical)
+                    if (SupportsNINJAJoints)
                         {
-                            prim.disableBody();
-                            if (prim.childPrim)
-                            {
-                                prim.childPrim = false;
-                                prim.Body = IntPtr.Zero;
-                                prim.m_disabled = true;
-                                prim.IsPhysical = false;
-                            }
-
-
-                        }
-                        // we don't want to remove the main space
-
-                        // If the geometry is in the targetspace, remove it from the target space
-                        //m_log.Warn(prim.m_targetSpace);
-
-                        //if (prim.m_targetSpace != IntPtr.Zero)
-                        //{
-                        //if (d.SpaceQuery(prim.m_targetSpace, prim.prim_geom))
-                        //{
-
-                        //if (d.GeomIsSpace(prim.m_targetSpace))
-                        //{
-                        //waitForSpaceUnlock(prim.m_targetSpace);
-                        //d.SpaceRemove(prim.m_targetSpace, prim.prim_geom);
-                        prim.m_targetSpace = IntPtr.Zero;
-                        //}
-                        //else
-                        //{
-                        // m_log.Info("[Physics]: Invalid Scene passed to 'removeprim from scene':" +
-                        //((OdePrim)prim).m_targetSpace.ToString());
-                        //}
-
-                        //}
-                        //}
-                        //m_log.Warn(prim.prim_geom);
-
-                        if (!prim.RemoveGeom())
-                            m_log.Warn("[PHYSICS]: Unable to remove prim from physics scene");
-
-                        lock (_prims)
-                            _prims.Remove(prim);
-
-                        //If there are no more geometries in the sub-space, we don't need it in the main space anymore
-                        //if (d.SpaceGetNumGeoms(prim.m_targetSpace) == 0)
-                        //{
-                        //if (prim.m_targetSpace != null)
-                        //{
-                        //if (d.GeomIsSpace(prim.m_targetSpace))
-                        //{
-                        //waitForSpaceUnlock(prim.m_targetSpace);
-                        //d.SpaceRemove(space, prim.m_targetSpace);
-                        // free up memory used by the space.
-                        //d.SpaceDestroy(prim.m_targetSpace);
-                        //int[] xyspace = calculateSpaceArrayItemFromPos(prim.Position);
-                        //resetSpaceArrayItemToZero(xyspace[0], xyspace[1]);
-                        //}
-                        //else
-                        //{
-                        //m_log.Info("[Physics]: Invalid Scene passed to 'removeprim from scene':" +
-                        //((OdePrim) prim).m_targetSpace.ToString());
-                        //}
-                        //}
-                        //}
-
-                        if (SupportsNINJAJoints)
-                        {
-                            RemoveAllJointsConnectedToActorThreadLocked(prim);
+                        RemoveAllJointsConnectedToActorThreadLocked(prim);
                         }
                     }
+
                 }
             }
-        }
 
         #endregion
 
@@ -2699,16 +2631,8 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                         {
                             foreach (OdePrim prim in _taintedPrimL)
                             {
-                                if (prim.m_taintremove)
-                                {
-//                                    Console.WriteLine("Simulate calls RemovePrimThreadLocked for {0}", prim.Name);
+                                if(prim.ProcessTaints(timeStep))
                                     RemovePrimThreadLocked(prim);
-                                }
-                                else
-                                {
-//                                    Console.WriteLine("Simulate calls ProcessTaints for {0}", prim.Name);
-                                    prim.ProcessTaints(timeStep);
-                                }
 
                                 processedtaints = true;
                                 prim.m_collisionscore = 0;
@@ -2854,7 +2778,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                         {
                             if (actor.IsPhysical && (d.BodyIsEnabled(actor.Body) || !actor._zeroFlag))
                             {
-                                actor.UpdatePositionAndVelocity();
+                            actor.UpdatePositionAndVelocity((float)i * ODE_STEPSIZE);
 
                                 if (SupportsNINJAJoints)
                                     SimulateActorPendingJoints(actor);
@@ -3460,7 +3384,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
 
             const float scale = 1.0f;
             const float offset = 0.0f;
-            const float thickness = 0.2f;
+            const float thickness = 10f;
             const int wrap = 0;
 
             int regionsize = (int) Constants.RegionSize + 2;
