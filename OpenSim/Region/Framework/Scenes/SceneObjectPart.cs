@@ -824,41 +824,41 @@ namespace OpenSim.Region.Framework.Scenes
                         m_parentGroup.GPosVersionInc();
 
                     ValidpartOOB = false;
+                    }
 
-                    PhysicsActor actor = PhysActor;
-                    if (actor != null)
+                PhysicsActor actor = PhysActor;
+                if (actor != null)
+                    {
+                    try
                         {
-                        try
+                        // Root prim actually goes at Position
+                        if (_parentID == 0)
                             {
-                            // Root prim actually goes at Position
-                            if (_parentID == 0)
-                                {
-                                actor.Position = value;
-                                }
-                            else
-                                {
-                                // To move the child prim in respect to the group position and rotation we have to calculate
-                                actor.Position = GetWorldPosition();
-                                actor.Orientation = GetWorldRotation();
-                                }
+                            actor.Position = value;
+                            }
+                        else
+                            {
+                            // To move the child prim in respect to the group position and rotation we have to calculate
+                            actor.Position = GetWorldPosition();
+                            actor.Orientation = GetWorldRotation();
+                            }
 
-                            // Tell the physics engines that this prim changed.
-                            m_parentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
-                            }
-                        catch (Exception e)
-                            {
-                            m_log.Error("[SCENEOBJECTPART]: GROUP POSITION. " + e.Message);
-                            }
+                        // Tell the physics engines that this prim changed.
+                        m_parentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
                         }
-
-                    // TODO if we decide to do sitting in a more SL compatible way (multiple avatars per prim), this has to be fixed, too
-                    if (m_sitTargetAvatar != UUID.Zero)
+                    catch (Exception e)
                         {
-                        ScenePresence avatar;
-                        if (m_parentGroup.Scene.TryGetScenePresence(m_sitTargetAvatar, out avatar))
-                            {
-                            avatar.ParentPosition = GetWorldPosition();
-                            }
+                        m_log.Error("[SCENEOBJECTPART]: GROUP POSITION. " + e.Message);
+                        }
+                    }
+
+                // TODO if we decide to do sitting in a more SL compatible way (multiple avatars per prim), this has to be fixed, too
+                if (m_sitTargetAvatar != UUID.Zero)
+                    {
+                    ScenePresence avatar;
+                    if (m_parentGroup.Scene.TryGetScenePresence(m_sitTargetAvatar, out avatar))
+                        {
+                        avatar.ParentPosition = GetWorldPosition();
                         }
                     }
                 }
@@ -879,23 +879,23 @@ namespace OpenSim.Region.Framework.Scenes
                         ParentGroup.GPosVersionInc();
 
                     ValidpartOOB = false;
-
-                    if (ParentGroup != null && !ParentGroup.IsDeleted)
+                    }
+                if (ParentGroup != null && !ParentGroup.IsDeleted)
+                    {
+                    PhysicsActor actor = PhysActor;
+                    if (_parentID != 0 && actor != null)
                         {
-                        PhysicsActor actor = PhysActor;
-                        if (_parentID != 0 && actor != null)
-                            {
-                            actor.Position = GetWorldPosition();
-                            actor.Orientation = GetWorldRotation();
+                        actor.Position = GetWorldPosition();
+                        actor.Orientation = GetWorldRotation();
 
-                            // Tell the physics engines that this prim changed.
-                            if (m_parentGroup.Scene != null)
-                                m_parentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
-                            }
+                        // Tell the physics engines that this prim changed.
+                        if (m_parentGroup.Scene != null)
+                            m_parentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
                         }
                     }
                 }
             }
+            
 
         public Vector3 RelativePosition
         {
@@ -916,31 +916,31 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         public Quaternion RotationOffset
-        {
-            get
             {
+            get
+                {
                 // We don't want the physics engine mucking up the rotations in a linkset
                 PhysicsActor actor = PhysActor;
-                if (_parentID == 0 && (Shape.PCode != 9 || Shape.State == 0)  && actor != null)
-                {
+                if (_parentID == 0 && (Shape.PCode != 9 || Shape.State == 0) && actor != null)
+                    {
                     Quaternion tq = actor.Orientation; // Ubit: get a local copy
                     if (tq.X != 0f || tq.Y != 0f || tq.Z != 0f || tq.W != 0f) // this is a odd check.. 
-                    {
-                    if (tq != m_rotationOffset)
                         {
-                        m_rotationOffset = tq;
-                        m_parentGroup.GRotVersionInc();
-                        m_validRoff = false;
-                        ValidpartOOB = false;
+                        if (tq != m_rotationOffset)
+                            {
+                            m_rotationOffset = tq;
+                            m_parentGroup.GRotVersionInc();
+                            m_validRoff = false;
+                            ValidpartOOB = false;
+                            }
                         }
                     }
-                }
-                
+
                 return m_rotationOffset;
-            }
-            
+                }
+
             set
-            {
+                {
                 StoreUndoState();
                 if (value != m_rotationOffset)
                     {
@@ -949,38 +949,39 @@ namespace OpenSim.Region.Framework.Scenes
                     if (_parentID == 0 && ParentGroup != null)
                         ParentGroup.GRotVersionInc();
                     ValidpartOOB = false;
+                    }
 
-                    PhysicsActor actor = PhysActor;
-                    if (actor != null)
+                PhysicsActor actor = PhysActor;
+                if (actor != null)
+                    {
+                    try
                         {
-                        try
+                        // Root prim gets value directly
+                        if (_parentID == 0)
                             {
-                            // Root prim gets value directly
-                            if (_parentID == 0)
-                                {
-                                actor.Orientation = value;
-                                //m_log.Info("[PART]: RO1:" + actor.Orientation.ToString());
-                                }
-                            else
-                                {
-                                // Child prim we have to calculate it's world rotationwel
-                                Quaternion resultingrotation = GetWorldRotation();
-                                actor.Orientation = resultingrotation;
-                                //m_log.Info("[PART]: RO2:" + actor.Orientation.ToString());
-                                }
+                            actor.Orientation = value;
+                            //m_log.Info("[PART]: RO1:" + actor.Orientation.ToString());
+                            }
+                        else
+                            {
+                            // Child prim we have to calculate it's world rotationwel
+                            Quaternion resultingrotation = GetWorldRotation();
+                            actor.Orientation = resultingrotation;
+                            //m_log.Info("[PART]: RO2:" + actor.Orientation.ToString());
+                            }
 
-                            if (m_parentGroup != null)
-                                m_parentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
-                            //}
-                            }
-                        catch (Exception ex)
-                            {
-                            m_log.Error("[SCENEOBJECTPART]: ROTATIONOFFSET" + ex.Message);
-                            }
+                        if (m_parentGroup != null)
+                            m_parentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
+                        //}
+                        }
+                    catch (Exception ex)
+                        {
+                        m_log.Error("[SCENEOBJECTPART]: ROTATIONOFFSET" + ex.Message);
                         }
                     }
+                }
             }
-        }
+        
 
         /// <summary></summary>
         public Vector3 Velocity
@@ -1431,8 +1432,6 @@ namespace OpenSim.Region.Framework.Scenes
 
         #endregion Public Properties with only Get
 
-        #region Private Methods
-
         private uint ApplyMask(uint val, bool set, uint mask)
         {
             if (set)
@@ -1453,7 +1452,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_updateFlag = 0;
         }
 
-        /// <summary>
+       /// <summary>
         /// Send this part's properties (name, description, inventory serial, base mask, etc.) to a client
         /// </summary>
         /// <param name="client"></param>
@@ -1502,7 +1501,6 @@ namespace OpenSim.Region.Framework.Scenes
         //     }
         // }
 
-        #endregion Private Methods
         private void UpdateOOBfromOOBs()
             {
             // use a the basic box of base prim for now
@@ -2007,6 +2005,8 @@ namespace OpenSim.Region.Framework.Scenes
                     Name, LocalId, id);
         }
 
+
+
         /// <summary>
         /// Do a physics property update for a NINJA joint.
         /// </summary>
@@ -2322,9 +2322,9 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         public void GetProperties(IClientAPI client)
-        {
+            {
             client.SendObjectPropertiesReply(this);
-        }
+            }
 
         /// <summary>
         /// Method for a prim to get it's world position from the group.
@@ -3768,7 +3768,8 @@ namespace OpenSim.Region.Framework.Scenes
         {
             _groupID = groupID;
             if (client != null)
-                GetProperties(client);
+//                GetProperties(client);
+                SendPropertiesToClient(client);
             m_updateFlag = 2;
         }
 
@@ -4593,8 +4594,8 @@ namespace OpenSim.Region.Framework.Scenes
                 }
                 SendFullUpdateToAllClients();
 
-                SendObjectPropertiesToClient(AgentID);
-
+//                SendObjectPropertiesToClient(AgentID);
+                SendRootPartPropertiesToClient(AgentID);
             }
         }
 
