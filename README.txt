@@ -1,3 +1,14 @@
+This is a test version of opensim
+For the oficial and stable versions please visit  
+http://opensimulator.org/
+
+Ubit Umarov
+
+
+
+
+
+
 Welcome to OpenSim!
 
 ==================
