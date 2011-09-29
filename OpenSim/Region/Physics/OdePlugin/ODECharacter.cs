@@ -25,6 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+// Revision by Ubit 2011
+
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -69,7 +72,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private Vector3 _position;
-        private d.Vector3 _zeroPosition;
+        private Vector3 _zeroPosition;
         // private d.Matrix3 m_StandUpRotation;
         private bool _zeroFlag = false;
         private bool m_lastUpdateSent = false;
@@ -116,15 +119,10 @@ namespace OpenSim.Region.Physics.OdePlugin
         // private CollisionLocker ode;
 
         private string m_name = String.Empty;
-/* Ubit try other filter
-        private bool[] m_colliderarr = new bool[11];
-        private bool[] m_colliderGroundarr = new bool[11];
-*/
-        // the other filter control
+        // other filter control
         int m_colliderfilter = 0;
-        int m_colliderGroundfilter = 0;
+//        int m_colliderGroundfilter = 0;
         int m_colliderObjectfilter = 0;
-
 
         // Default we're a Character
         private CollisionCategories m_collisionCategories = (CollisionCategories.Character);
@@ -134,7 +132,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                                                         | CollisionCategories.Space
                                                         | CollisionCategories.Body
                                                         | CollisionCategories.Character
-                                                        | CollisionCategories.Land);
+                                                        );
+// we do land collisions not ode                                                       | CollisionCategories.Land);
         public IntPtr Body = IntPtr.Zero;
         private OdeScene _parent_scene;
         public IntPtr Shell = IntPtr.Zero;
@@ -190,15 +189,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             walkDivisor = walk_divisor;
             runDivisor = rundivisor;
 
-            // m_StandUpRotation =
-            //     new d.Matrix3(0.5f, 0.7071068f, 0.5f, -0.7071068f, 0f, 0.7071068f, 0.5f, -0.7071068f,
-            //                   0.5f);
-/*
-            for (int i = 0; i < 11; i++)
-            {
-                m_colliderarr[i] = false;
-            }
- */
             CAPSULE_LENGTH = (size.Z * 1.15f) - CAPSULE_RADIUS * 2.0f;
             //m_log.Info("[SIZE]: " + CAPSULE_LENGTH.ToString());
             m_tainted_CAPSULE_LENGTH = CAPSULE_LENGTH;
@@ -280,53 +270,9 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// </summary>
         public override bool IsColliding
         {
-            get { return m_iscolliding; }
+            get { return (m_iscolliding || m_iscollidingGround); }
             set
             {
-/* Ubit: replace this with a nicer filter
-                int i;
-                int truecount = 0;
-                int falsecount = 0;
-
-                if (m_colliderarr.Length >= 10)
-                {
-                    for (i = 0; i < 10; i++)
-                    {
-                        m_colliderarr[i] = m_colliderarr[i + 1];
-                    }
-                }
-                m_colliderarr[10] = value;
-
-                for (i = 0; i < 11; i++)
-                {
-                    if (m_colliderarr[i])
-                    {
-                        truecount++;
-                    }
-                    else
-                    {
-                        falsecount++;
-                    }
-                }
-
-                // Equal truecounts and false counts means we're colliding with something.
-
-                if (falsecount > 1.2*truecount)
-                {
-                    m_iscolliding = false;
-                }
-                else
-                {
-                    m_iscolliding = true;
-                }
-
-                if (m_wascolliding != m_iscolliding)
-                {
-                    //base.SendCollisionUpdate(new CollisionEventUpdate());
-                }
-
-                m_wascolliding = m_iscolliding;
- */
                 if (value)
                 {
                     m_colliderfilter += 2;
@@ -355,53 +301,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             get { return m_iscollidingGround; }
             set
             {
-                // Collisions against the ground are not really reliable
-                // So, to get a consistant value we have to average the current result over time
-                // Currently we use 1 second = 10 calls to this.
-
-/* Ubit another filter
-                int i;
-                int truecount = 0;
-                int falsecount = 0;
-
-                if (m_colliderGroundarr.Length >= 10)
-                {
-                    for (i = 0; i < 10; i++)
-                    {
-                        m_colliderGroundarr[i] = m_colliderGroundarr[i + 1];
-                    }
-                }
-                m_colliderGroundarr[10] = value;
-
-                for (i = 0; i < 11; i++)
-                {
-                    if (m_colliderGroundarr[i])
-                    {
-                        truecount++;
-                    }
-                    else
-                    {
-                        falsecount++;
-                    }
-                }
-
-                // Equal truecounts and false counts means we're colliding with something.
-
-                if (falsecount > 1.2*truecount)
-                {
-                    m_iscollidingGround = false;
-                }
-                else
-                {
-                    m_iscollidingGround = true;
-                }
-                if (m_wascollidingGround != m_iscollidingGround)
-                {
-                    //base.SendCollisionUpdate(new CollisionEventUpdate());
-                }
-                m_wascollidingGround = m_iscollidingGround;
- */
-
+/*  we now control this
                 if (value)
                     {
                     m_colliderGroundfilter += 2;
@@ -419,7 +319,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     m_iscollidingGround = false;
                 else
                     m_iscollidingGround = true;
+ */
             }
+ 
         }
 
         /// <summary>
@@ -549,7 +451,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
         }
-
+/* not in use
         private void AlignAvatarTiltWithCurrentDirectionOfMovement(Vector3 movementVector)
         {
 //Ubit: same check
@@ -623,7 +525,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, 0f);
             d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0f); // same as lowstop
         }
-
+*/
         /// <summary>
         /// This creates the Avatar's physical Surrogate at the position supplied
         /// </summary>
@@ -658,7 +560,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.GeomSetCategoryBits(Shell, (int)m_collisionCategories);
             d.GeomSetCollideBits(Shell, (int)m_collisionFlags);
 
-//            d.MassSetCapsuleTotal(out ShellMass, m_mass, 2, CAPSULE_RADIUS, CAPSULE_LENGTH);
             d.MassSetCapsule(out ShellMass, m_density, 2, CAPSULE_RADIUS, CAPSULE_LENGTH);
 
             m_mass = ShellMass.mass;  // update mass
@@ -677,14 +578,12 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             Body = d.BodyCreate(_parent_scene.world);
 
-
             d.BodySetPosition(Body, npositionX, npositionY, npositionZ);
             
             _position.X = npositionX;
             _position.Y = npositionY;
             _position.Z = npositionZ;
-
-            
+         
             m_taintPosition.X = npositionX;
             m_taintPosition.Y = npositionY;
             m_taintPosition.Z = npositionZ;
@@ -692,75 +591,46 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.BodySetMass(Body, ref ShellMass);
             d.Matrix3 m_caprot;
             // 90 Stand up on the cap of the capped cyllinder
-            if (_parent_scene.IsAvCapsuleTilted)
+
+//            if (_parent_scene.IsAvCapsuleTilted)
             {
-                d.RFromAxisAndAngle(out m_caprot, 1, 0, 1, (float)(Math.PI / 2));
+//                d.RFromAxisAndAngle(out m_caprot, 1, 0, 1, (float)(Math.PI / 2));
             }
-            else
+
+//            else
             {
                 d.RFromAxisAndAngle(out m_caprot, 0, 0, 1, (float)(Math.PI / 2));
             }
 
-
-//            d.GeomSetRotation(Shell, ref m_caprot);
-//            d.BodySetRotation(Body, ref m_caprot);
-
             d.GeomSetBody(Shell, Body);
-            d.GeomSetRotation(Shell, ref m_caprot); // sets both the right way
+            d.GeomSetRotation(Shell, ref m_caprot);
 
             // The purpose of the AMotor here is to keep the avatar's physical
             // surrogate from rotating while moving
             Amotor = d.JointCreateAMotor(_parent_scene.world, IntPtr.Zero);
             d.JointAttach(Amotor, Body, IntPtr.Zero);
             d.JointSetAMotorMode(Amotor, dAMotorEuler);
-            d.JointSetAMotorNumAxes(Amotor, 3);
+//            d.JointSetAMotorNumAxes(Amotor, 3);
             d.JointSetAMotorAxis(Amotor, 0, 0, 1, 0, 0);
-            d.JointSetAMotorAxis(Amotor, 1, 0, 0, 1, 0);
+//            d.JointSetAMotorAxis(Amotor, 1, 0, 0, 1, 0);
             d.JointSetAMotorAxis(Amotor, 2, 0, 0, 0, 1);
-            d.JointSetAMotorAngle(Amotor, 0, 0);
-            d.JointSetAMotorAngle(Amotor, 1, 0);
-            d.JointSetAMotorAngle(Amotor, 2, 0);
 
             // These lowstops and high stops are effectively (no wiggle room)
-            if (_parent_scene.IsAvCapsuleTilted)
-            {
-                d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, -0.000000000001f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, -0.000000000001f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, -0.000000000001f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.HiStop, 0.000000000001f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0.000000000001f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, 0.000000000001f);
-            }
-            else
-            {
-                #region Documentation of capsule motor LowStop and HighStop parameters
-                // Intentionally introduce some tilt into the capsule by setting
-                // the motor stops to small epsilon values. This small tilt prevents
-                // the capsule from falling into the terrain; a straight-up capsule
-                // (with -0..0 motor stops) falls into the terrain for reasons yet
-                // to be comprehended in their entirety.
-                #endregion
-// this return imediatly with this argument
-//                AlignAvatarTiltWithCurrentDirectionOfMovement(Vector3.Zero);
-                d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, 0.08f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, -0f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, 0.08f);
-                d.JointSetAMotorParam(Amotor, (int)dParam.HiStop,  0.08f); // must be same as lowstop, else a different, spurious tilt is introduced
-                d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0f); // same as lowstop
-                d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, 0.08f); // same as lowstop
-            }
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop, 0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, -0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, 0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, -0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, -0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0.0001f);
 
             // Fudge factor is 1f by default, we're setting it to 0.  We don't want it to Fudge or the
             // capped cyllinder will fall over
             d.JointSetAMotorParam(Amotor, (int)dParam.FudgeFactor, 0f);
             d.JointSetAMotorParam(Amotor, (int)dParam.FMax, tensor);
 
-            //d.Matrix3 bodyrotation = d.BodyGetRotation(Body);
-            //d.QfromR(
-            //d.Matrix3 checkrotation = new d.Matrix3(0.7071068,0.5, -0.7071068,
-            //
-            //m_log.Info("[PHYSICSAV]: Rotation: " + bodyrotation.M00 + " : " + bodyrotation.M01 + " : " + bodyrotation.M02 + " : " + bodyrotation.M10 + " : " + bodyrotation.M11 + " : " + bodyrotation.M12 + " : " + bodyrotation.M20 + " : " + bodyrotation.M21 + " : " + bodyrotation.M22);
-            //standupStraight();
+//            d.JointSetAMotorAngle(Amotor, 0, 0);
+//            d.JointSetAMotorAngle(Amotor, 1, 0);
+//            d.JointSetAMotorAngle(Amotor, 2, 0);
         }
 
         //
@@ -772,8 +642,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             get
             {
-            // Ubit:
-            //    float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*CAPSULE_LENGTH); well not really
                   float AVvolume = (float) (Math.PI*CAPSULE_RADIUS*CAPSULE_RADIUS*(1.3333333333f*CAPSULE_RADIUS + CAPSULE_LENGTH));
                   return m_density*AVvolume;
             }
@@ -1003,9 +871,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (!collidelock)
             {
                 d.BodyAddForce(Body, force.X, force.Y, force.Z);
-                //d.BodySetRotation(Body, ref m_StandUpRotation);
-                //standupStraight();
-
             }
         }
 
@@ -1029,16 +894,18 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (Body == IntPtr.Zero)
                 return;
 
+            d.Vector3 dtmp;
+            d.BodyCopyPosition(Body, out dtmp);
+            Vector3 localpos = new Vector3(dtmp.X, dtmp.Y, dtmp.Z);
+
             if (m_pidControllerActive == false)
-            {
-                _zeroPosition = d.BodyGetPosition(Body);
-            }
+                {
+                _zeroPosition = localpos;
+                }
             //PidStatus = true;
 
-            d.Vector3 localpos = d.BodyGetPosition(Body);
-            Vector3 localPos = new Vector3(localpos.X, localpos.Y, localpos.Z);
-            
-            if (!localPos.IsFinite())
+          
+            if (!localpos.IsFinite())
             {
 
                 m_log.Warn("[PHYSICS]: Avatar Position is non-finite!");
@@ -1075,18 +942,70 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             Vector3 vec = Vector3.Zero;
-            d.Vector3 vel = d.BodyGetLinearVel(Body);
+            dtmp = d.BodyGetLinearVel(Body);
+            Vector3 vel = new Vector3(dtmp.X, dtmp.Y, dtmp.Z);
 
             float movementdivisor = 1f;
-//Ubit change divisions into multiplications below
+            //Ubit change divisions into multiplications below
             if (!m_alwaysRun)
-            {
+                {
                 movementdivisor = 1 / walkDivisor;
-            }
+                }
             else
-            {
+                {
                 movementdivisor = 1 / runDivisor;
-            }
+                }
+
+            // colide with land
+
+            d.AABB aabb;
+            d.GeomGetAABB(Shell, out aabb);
+            float chrminZ = aabb.MinZ ;
+
+            Vector3 posch = localpos;
+
+            float ftmp;
+           
+            if (flying)
+                {
+                ftmp = 0.5f * timeStep;
+                posch.X += vel.X * ftmp;
+                posch.Y += vel.Y * ftmp;
+                }
+
+            float terrainheight = _parent_scene.GetTerrainHeightAtXY(posch.X, posch.Y);
+            if (chrminZ < terrainheight)
+                {
+                float depth = terrainheight - chrminZ;
+                if (!flying)
+                    {
+                    vec.Z = -vel.Z * PID_D * 1.5f + depth * PID_P * 50;
+                    }
+                else
+                    vec.Z = depth * PID_P * 50;
+
+                if (depth < 0.2f)
+                    {
+                    m_iscolliding = true;
+                    m_iscollidingGround = true;
+
+                    ContactPoint contact = new ContactPoint();
+                    contact.PenetrationDepth = depth;
+                    contact.Position.X = localpos.X;
+                    contact.Position.Y = localpos.Y;
+                    contact.Position.Z = chrminZ;
+                    contact.SurfaceNormal.X = 0f;
+                    contact.SurfaceNormal.Y = 0f;
+                    contact.SurfaceNormal.Z = -1f;
+                    AddCollisionEvent(0, contact);
+
+                    vec.Z *= 0.5f;
+                    }
+                
+                else
+                    m_iscollidingGround = false;
+                }
+
 
             //  if velocity is zero, use position control; otherwise, velocity control
             if (_target_velocity.X == 0.0f && _target_velocity.Y == 0.0f && _target_velocity.Z == 0.0f && m_iscolliding)
@@ -1095,7 +1014,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (!_zeroFlag)
                 {
                     _zeroFlag = true;
-                    _zeroPosition = d.BodyGetPosition(Body);
+                    _zeroPosition = localpos;
                 }
                 if (m_pidControllerActive)
                 {
@@ -1104,13 +1023,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                     // Avatar to Avatar collisions
                     // Prim to avatar collisions
 
-                    d.Vector3 pos = d.BodyGetPosition(Body);
-                    vec.X = (_target_velocity.X - vel.X) * (PID_D) + (_zeroPosition.X - pos.X) * (PID_P * 2);
-                    vec.Y = (_target_velocity.Y - vel.Y)*(PID_D) + (_zeroPosition.Y - pos.Y)* (PID_P * 2);
+                    vec.X = -vel.X * PID_D + (_zeroPosition.X - localpos.X) * (PID_P * 2);
+                    vec.Y = -vel.Y * PID_D + (_zeroPosition.Y - localpos.Y) * (PID_P * 2);
                     if (flying)
-                    {
-                        vec.Z = (_target_velocity.Z - vel.Z) * (PID_D) + (_zeroPosition.Z - pos.Z) * PID_P;
-                    }
+                        {
+                        vec.Z += -vel.Z * PID_D + (_zeroPosition.Z - localpos.Z) * PID_P;
+                        }
                 }
                 //PidStatus = true;
             }
@@ -1118,39 +1036,27 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 m_pidControllerActive = true;
                 _zeroFlag = false;
-//Ubit rearrange the ifs for the cpu and not us
+
                 if (m_iscolliding)
                     {
                     if (!flying)
                         {
-                        if(_target_velocity.Z > 0.0f)
+                        if (_target_velocity.Z > 0.0f)
                             {
                             // We're colliding with something and we're not flying but we're moving
-                            // This means we're walking or running.
-                            d.Vector3 pos = d.BodyGetPosition(Body);
-                            vec.Z = (_target_velocity.Z - vel.Z)*PID_D + (_zeroPosition.Z - pos.Z)*PID_P;
-                            if (_target_velocity.X > 0)
-                                {
-                                vec.X = ((_target_velocity.X - vel.X)/1.2f)*PID_D;
-                                }
-                            if (_target_velocity.Y > 0)
-                                {
-                                vec.Y = ((_target_velocity.Y - vel.Y)/1.2f)*PID_D;
-                                }
+                            // This means we're walking or running. JUMPING
+                            vec.Z += (_target_velocity.Z - vel.Z) * PID_D *1.2f ;// +(_zeroPosition.Z - localpos.Z) * PID_P;
                             }
-                        else
-                            {
-                            // We're standing on something
-                            vec.X = ((_target_velocity.X * movementdivisor) - vel.X) * (PID_D);
-                            vec.Y = ((_target_velocity.Y * movementdivisor) - vel.Y) * (PID_D);
-                            }
+                        // We're standing on something
+                        vec.X = ((_target_velocity.X * movementdivisor) - vel.X) * (PID_D);
+                        vec.Y = ((_target_velocity.Y * movementdivisor) - vel.Y) * (PID_D);
                         }
                     else
                         {
                         // We're flying and colliding with something
-                        vec.X = ((_target_velocity.X * movementdivisor) - vel.X) * (PID_D / 16);
-                        vec.Y = ((_target_velocity.Y * movementdivisor) - vel.Y) * (PID_D / 16);
-                        vec.Z = (_target_velocity.Z - vel.Z) * (PID_D);
+                        vec.X = ((_target_velocity.X * movementdivisor) - vel.X) * (PID_D * 0.0625f);
+                        vec.Y = ((_target_velocity.Y * movementdivisor) - vel.Y) * (PID_D * 0.0625f);
+                        vec.Z += (_target_velocity.Z - vel.Z) * (PID_D);
                         }
                     }
                 else // ie not colliding
@@ -1158,9 +1064,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     if (flying) //(!m_iscolliding && flying)
                         {
                         // we're in mid air suspended
-                        vec.X = ((_target_velocity.X * movementdivisor) - vel.X) * (PID_D / 6);
-                        vec.Y = ((_target_velocity.Y * movementdivisor) - vel.Y) * (PID_D / 6);
-                        vec.Z = (_target_velocity.Z - vel.Z) * (PID_D);
+                        vec.X = ((_target_velocity.X * movementdivisor) - vel.X) * (PID_D * 1.667f);
+                        vec.Y = ((_target_velocity.Y * movementdivisor) - vel.Y) * (PID_D * 1.667f);
+                        vec.Z += (_target_velocity.Z - vel.Z) * (PID_D);
                         }
 
                     else
@@ -1169,30 +1075,22 @@ namespace OpenSim.Region.Physics.OdePlugin
                         // m_iscolliding includes collisions with the ground.
 
                         // d.Vector3 pos = d.BodyGetPosition(Body);
-                        if (_target_velocity.X > 0)
-                            {
-                            vec.X = ((_target_velocity.X - vel.X) / 1.2f) * PID_D;
-                            }
-                        if (_target_velocity.Y > 0)
-                            {
-                            vec.Y = ((_target_velocity.Y - vel.Y) / 1.2f) * PID_D;
-                            }
+                        vec.X = (_target_velocity.X - vel.X) * PID_D * 0.833f;
+                        vec.Y = (_target_velocity.Y - vel.Y) * PID_D * 0.833f;
                         }
                     }
                 }
 
             if (flying)
             {
-            //                vec.Z += ((-1 * _parent_scene.gravityz)*m_mass);
                 vec.Z -= _parent_scene.gravityz * m_mass;
 
                 //Added for auto fly height. Kitto Flora
-                //d.Vector3 pos = d.BodyGetPosition(Body);
-                float target_altitude = _parent_scene.GetTerrainHeightAtXY(_position.X, _position.Y) + MinimumGroundFlightOffset;
-                
-                if (_position.Z < target_altitude)
+                float target_altitude = _parent_scene.GetTerrainHeightAtXY(localpos.X, localpos.Y) + MinimumGroundFlightOffset;
+
+                if (localpos.Z < target_altitude)
                 {
-                    vec.Z += (target_altitude - _position.Z) * PID_P * 5.0f;
+                    vec.Z += (target_altitude - localpos.Z) * PID_P * 5.0f;
                 }
                 // end add Kitto Flora
             }
@@ -1200,10 +1098,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (vec.IsFinite())
             {
                 doForce(vec);
+/*
                 if (!_zeroFlag)
                 {
                   AlignAvatarTiltWithCurrentDirectionOfMovement(vec);
                 }
+ */
             }
             else
             {
@@ -1247,7 +1147,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.Vector3 vec;
             try
             {
-                vec = d.BodyGetPosition(Body);
+                d.BodyCopyPosition(Body, out vec);
             }
             catch (NullReferenceException)
             {
@@ -1264,13 +1164,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             bool fixbody = false;
 
-            //  kluge to keep things in bounds.  ODE lets dead avatars drift away (they should be removed!)
-/* and why not let ode know about this?
-            if (vec.X < 0.0f) vec.X = 0.0f;
-            if (vec.Y < 0.0f) vec.Y = 0.0f;
-            if (vec.X > (int)_parent_scene.WorldExtents.X - 0.05f) vec.X = (int)_parent_scene.WorldExtents.X - 0.05f;
-            if (vec.Y > (int)_parent_scene.WorldExtents.Y - 0.05f) vec.Y = (int)_parent_scene.WorldExtents.Y - 0.05f;
-*/
             if (_position.X < 0.0f)
                 {
                 fixbody = true;
@@ -1335,6 +1228,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 _velocity.Y = (vec.Y);
                 _velocity.Z = (vec.Z);
 
+/* doesn't seem to be in use
                 if (_velocity.Z < -6 && !m_hackSentFall)
                 {
                     m_hackSentFall = true;
@@ -1350,6 +1244,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     m_hackSentFly = false;
                     m_hackSentFall = false;
                 }
+ */
             }
         }
 
@@ -1546,7 +1441,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     _position.Z = m_taintPosition.Z;
                 }
             }
-
         }
 
         internal void AddCollisionFrameTime(int p)

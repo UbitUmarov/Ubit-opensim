@@ -239,9 +239,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                 m_log.WarnFormat("[PHYSICS]: Got nonFinite Object create Position for {0}", Name);
             }
 
-            givefakepos = false;
             _position = pos;
             m_taintposition = pos;
+            givefakepos = false;
+
             PID_D = parent_scene.bodyPIDD;
             PID_G = parent_scene.bodyPIDG;
             m_density = parent_scene.geomDefaultDensity;
@@ -269,9 +270,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                 m_log.WarnFormat("[PHYSICS]: Got nonFinite Object create Rotation for {0}", Name);
             }
 
-            givefakeori = false;
             _orientation = rotation;
             m_taintrot = _orientation;
+            givefakeori = false;
+
             _pbs = pbs;
 
             _parent_scene = parent_scene;
@@ -1718,9 +1720,13 @@ Console.WriteLine("CreateGeom:");
                 fz += m_force.Z;
 
                 // impulse acumulator
+
                 fx += m_impulseacc.X;
                 fy += m_impulseacc.Y;
                 fz += m_impulseacc.Z;
+
+                m_impulseacc = Vector3.Zero;
+               
 
                 //m_log.Info("[OBJPID]: X:" + fx.ToString() + " Y:" + fy.ToString() + " Z:" + fz.ToString());
                 if (fx != 0 || fy != 0 || fz != 0)
@@ -1974,7 +1980,7 @@ Console.WriteLine("CreateGeom:");
                     if (IsPhysical)
                         {
                         d.BodyEnable(Body);
-                        m_impulseacc = m_taintimpulseacc;
+                        m_impulseacc += m_taintimpulseacc;
                         }
                     }
 
@@ -1982,8 +1988,10 @@ Console.WriteLine("CreateGeom:");
                 m_interpenetrationcount = 0;
                 }
             lock (this)
+                {
                 m_taintimpulseacc = Vector3.Zero;
-            m_hastaintimpulse = false;
+                m_hastaintimpulse = false;
+                }
         }
 
         public void changeSetTorque()
@@ -2351,7 +2359,7 @@ Console.WriteLine("CreateGeom:");
         {
             if (force.IsFinite())
             {
-                m_taintimpulseacc += force;
+                m_taintimpulseacc += force * 100f;
                 m_hastaintimpulse = true;
             }
             else

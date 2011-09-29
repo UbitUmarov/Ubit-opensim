@@ -211,6 +211,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         //private Dictionary<String, IntPtr> jointpart_name_map = new Dictionary<String,IntPtr>();
         private readonly Dictionary<String, List<PhysicsJoint>> joints_connecting_actor = new Dictionary<String, List<PhysicsJoint>>();
         private d.ContactGeom[] contacts;
+        private GCHandle contactsPinnedHandle;
+
         private readonly List<PhysicsJoint> requestedJointsToBeCreated = new List<PhysicsJoint>(); // lock only briefly. accessed by external code (to request new joints) and by OdeScene.Simulate() to move those joints into pending/active
         private readonly List<PhysicsJoint> pendingJoints = new List<PhysicsJoint>(); // can lock for longer. accessed only by OdeScene.
         private readonly List<PhysicsJoint> activeJoints = new List<PhysicsJoint>(); // can lock for longer. accessed only by OdeScene.
@@ -219,7 +221,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly Dictionary<String, PhysicsJoint> SOPName_to_activeJoint = new Dictionary<String, PhysicsJoint>();
         private readonly Dictionary<String, PhysicsJoint> SOPName_to_pendingJoint = new Dictionary<String, PhysicsJoint>();
         private readonly DoubleDictionary<Vector3, IntPtr, IntPtr> RegionTerrain = new DoubleDictionary<Vector3, IntPtr, IntPtr>();
-        private readonly Dictionary<IntPtr,float[]> TerrainHeightFieldHeights = new Dictionary<IntPtr, float[]>();
+        private readonly Dictionary<IntPtr, float[]> TerrainHeightFieldHeights = new Dictionary<IntPtr, float[]>();
+        private readonly Dictionary<IntPtr, GCHandle> TerrainHeightFieldHeightsHandlers = new Dictionary<IntPtr, GCHandle>();
 
         private d.Contact contact;
         private d.Contact TerrainContact;
@@ -445,6 +448,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             contacts = new d.ContactGeom[contactsPerCollision];
+            contactsPinnedHandle = GCHandle.Alloc(contacts, GCHandleType.Pinned);
 
             staticPrimspace = new IntPtr[(int)(300 / metersInSpace), (int)(300 / metersInSpace)];
 
@@ -460,7 +464,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             // Terrain contact friction and Bounce
             // This is the *non* moving version.   Use this when an avatar
             // isn't moving to keep it in place better
-            TerrainContact.surface.mode |= d.ContactFlags.SoftERP;
+//            TerrainContact.surface.mode |= d.ContactFlags.SoftERP;
             TerrainContact.surface.mu = nmTerrainContactFriction;
             TerrainContact.surface.bounce = nmTerrainContactBounce;
             TerrainContact.surface.soft_erp = nmTerrainContactERP;
@@ -480,7 +484,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             // Terrain contact friction bounce and various error correcting calculations
             // Use this when an avatar is in contact with the terrain and moving.
-            AvatarMovementTerrainContact.surface.mode |= d.ContactFlags.SoftERP;
+//            AvatarMovementTerrainContact.surface.mode |= d.ContactFlags.SoftERP;
             AvatarMovementTerrainContact.surface.mu = mTerrainContactFriction;
             AvatarMovementTerrainContact.surface.bounce = mTerrainContactBounce;
             AvatarMovementTerrainContact.surface.soft_erp = mTerrainContactERP;
@@ -626,7 +630,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             // This is in addition to the step size.
             // Essentially Steps * m_physicsiterations
             d.WorldSetQuickStepNumIterations(world, m_physicsiterations);
-            //d.WorldSetContactMaxCorrectingVel(world, 1000.0f);
+            d.WorldSetContactMaxCorrectingVel(world, 100.0f);
 
             for (int i = 0; i < staticPrimspace.GetLength(0); i++)
             {
@@ -668,10 +672,15 @@ namespace OpenSim.Region.Physics.OdePlugin
             // Test if we're colliding a geom with a space.
             // If so we have to drill down into the space recursively
 
+
+            // ubit this is commun to if and after it
+            if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
+                return;
+
             if (d.GeomIsSpace(g1) || d.GeomIsSpace(g2))
             {
-                if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
-                    return;
+//                if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
+//            return;
                 
                 // Separating static prim geometry spaces.
                 // We'll be calling near recursivly if one
@@ -689,13 +698,19 @@ namespace OpenSim.Region.Physics.OdePlugin
                 //Colliding a space or a geom with a space or a geom. so drill down
 
                 //Collide all geoms in each space..
-                //if (d.GeomIsSpace(g1)) d.SpaceCollide(g1, IntPtr.Zero, nearCallback);
-                //if (d.GeomIsSpace(g2)) d.SpaceCollide(g2, IntPtr.Zero, nearCallback);
+/* why where this comented out?
+ * ok bc spaces contain things that don't collide with others in same space
+
+                if (d.GeomIsSpace(g1))
+                    d.SpaceCollide(g1, IntPtr.Zero, nearCallback);
+                if (d.GeomIsSpace(g2))
+                    d.SpaceCollide(g2, IntPtr.Zero, nearCallback);
+ */
                 return;
             }
 
-            if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
-                return;
+//            if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
+//                return;
 
             IntPtr b1 = d.GeomGetBody(g1);
             IntPtr b2 = d.GeomGetBody(g2);
@@ -735,7 +750,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 lock (contacts)
                 {
-                    count = d.Collide(g1, g2, contacts.Length, contacts, d.ContactGeom.SizeOf);
+                    count = d.Collide(g1, g2, contacts.Length,(d.ContactGeom[]) contactsPinnedHandle.Target, d.ContactGeom.SizeOf);
                     if (count > contacts.Length)
                         m_log.Error("[PHYSICS]: Got " + count + " contacts when we asked for a maximum of " + contacts.Length);
                 }
@@ -765,12 +780,18 @@ namespace OpenSim.Region.Physics.OdePlugin
                 p2 = PANull;
             }
 
+
+            if (count == 0)
+                return;
+
             ContactPoint maxDepthContact = new ContactPoint();
-            if (p1.CollisionScore + count >= float.MaxValue)
+// how can this be?            if (p1.CollisionScore + count >= float.MaxValue)
+            if (p1.CollisionScore >= float.MaxValue - count)
                 p1.CollisionScore = 0;
             p1.CollisionScore += count;
 
-            if (p2.CollisionScore + count >= float.MaxValue)
+//            if (p2.CollisionScore + count >= float.MaxValue)
+            if (p2.CollisionScore >= float.MaxValue - count)
                 p2.CollisionScore = 0;
             p2.CollisionScore += count;
 
@@ -932,7 +953,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                     */
 #endregion
-                    if (curContact.depth >= 1.00f)
+/* not in use
+                   if (curContact.depth >= 1.00f)
                     {
                         //m_log.Info("[P]: " + contact.depth.ToString());
                         if ((p2.PhysicsActorType == (int) ActorTypes.Agent &&
@@ -947,12 +969,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                                     OdeCharacter character = (OdeCharacter) p2;
 
                                     //p2.CollidingObj = true;
+
                                     curContact.depth = 0.00000003f;
                                     p2.Velocity = p2.Velocity + new Vector3(0f, 0f, 0.5f);
                                     curContact.pos =
-                                        new d.Vector3(curContact.pos.X + (p1.Size.X/2),
-                                                      curContact.pos.Y + (p1.Size.Y/2),
-                                                      curContact.pos.Z + (p1.Size.Z/2));
+                                        new d.Vector3(curContact.pos.X + (p1.Size.X * 0.5f),
+                                                      curContact.pos.Y + (p1.Size.Y * 0.5f),
+                                                      curContact.pos.Z + (p1.Size.Z * 0.5f));
                                     character.SetPidStatus(true);
                                 }
                             }
@@ -964,17 +987,19 @@ namespace OpenSim.Region.Physics.OdePlugin
                                     OdeCharacter character = (OdeCharacter) p1;
 
                                     //p2.CollidingObj = true;
+
                                     curContact.depth = 0.00000003f;
                                     p1.Velocity = p1.Velocity + new Vector3(0f, 0f, 0.5f);
                                     curContact.pos =
-                                        new d.Vector3(curContact.pos.X + (p1.Size.X/2),
-                                                      curContact.pos.Y + (p1.Size.Y/2),
-                                                      curContact.pos.Z + (p1.Size.Z/2));
+                                        new d.Vector3(curContact.pos.X + (p1.Size.X * 0.5f),
+                                                      curContact.pos.Y + (p1.Size.Y * 0.5f),
+                                                      curContact.pos.Z + (p1.Size.Z * 0.5f));
                                     character.SetPidStatus(true);
                                 }
                             }
                         }
                     }
+ */
                 }
 
                 #endregion
@@ -1001,177 +1026,170 @@ namespace OpenSim.Region.Physics.OdePlugin
                 joint = IntPtr.Zero;
 
                 if (!skipThisContact)
-                {
+                    {
                     // If we're colliding against terrain
                     if (name1 == "Terrain" || name2 == "Terrain")
-                    {
-                        // If we're moving
-                        if ((p2.PhysicsActorType == (int) ActorTypes.Agent) &&
-                            (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f))
                         {
-                            // Use the movement terrain contact
-                            AvatarMovementTerrainContact.geom = curContact;
-                            _perloopContact.Add(curContact);
-                            if (m_global_contactcount < maxContactsbeforedeath)
+                        // avatar to ground
+                        /*  not done by ode
+                        if (p2.PhysicsActorType == (int)ActorTypes.Agent)
                             {
-                                joint = d.JointCreateContact(world, contactgroup, ref AvatarMovementTerrainContact);
-                                m_global_contactcount++;
-                            }
-                        }
-                        else
-                        {
-                            if (p2.PhysicsActorType == (int)ActorTypes.Agent)
-                            {
+                            // If we're moving
+                            if (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f)
+                                {
+                                // Use the movement terrain contact
+                                AvatarMovementTerrainContact.geom = curContact;
+                                _perloopContact.Add(curContact);
+                                if (m_global_contactcount < maxContactsbeforedeath)
+                                    {
+                                    joint = d.JointCreateContact(world, contactgroup, ref AvatarMovementTerrainContact);
+                                    m_global_contactcount++;
+                                    }
+                                }
+                            else
+                                {
                                 // Use the non moving terrain contact
                                 TerrainContact.geom = curContact;
                                 _perloopContact.Add(curContact);
                                 if (m_global_contactcount < maxContactsbeforedeath)
-                                {
+                                    {
                                     joint = d.JointCreateContact(world, contactgroup, ref TerrainContact);
                                     m_global_contactcount++;
-                                }
-                            }
-                            else
-                            {
-                                if (p2.PhysicsActorType == (int)ActorTypes.Prim && p1.PhysicsActorType == (int)ActorTypes.Prim)
-                                {
-                                    // prim prim contact
-                                    // int pj294950 = 0;
-                                    int movintYN = 0;
-                                    int material = (int) Material.Wood;
-                                    // prim terrain contact
-                                    if (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f)
-                                    {
-                                        movintYN = 1;
-                                    }
-
-                                    if (p2 is OdePrim)
-                                        material = ((OdePrim)p2).m_material;
-
-                                    //m_log.DebugFormat("Material: {0}", material);
-                                    m_materialContacts[material, movintYN].geom = curContact;
-                                    _perloopContact.Add(curContact);
-
-                                    if (m_global_contactcount < maxContactsbeforedeath)
-                                    {
-                                        joint = d.JointCreateContact(world, contactgroup, ref m_materialContacts[material, movintYN]);
-                                        m_global_contactcount++;
-                                    }
-                                }
-                                else
-                                {
-                                    int movintYN = 0;
-                                    // prim terrain contact
-                                    if (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f)
-                                    {
-                                        movintYN = 1;
-                                    }
-
-                                    int material = (int)Material.Wood;
-
-                                    if (p2 is OdePrim)
-                                        material = ((OdePrim)p2).m_material;
-                                    //m_log.DebugFormat("Material: {0}", material);
-                                    m_materialContacts[material, movintYN].geom = curContact;
-                                    _perloopContact.Add(curContact);
-
-                                    if (m_global_contactcount < maxContactsbeforedeath)
-                                    {
-                                        joint = d.JointCreateContact(world, contactgroup, ref m_materialContacts[material, movintYN]);
-                                        m_global_contactcount++;
                                     }
                                 }
                             }
-                        }
-                        //if (p2.PhysicsActorType == (int)ActorTypes.Prim)
-                        //{
-                        //m_log.Debug("[PHYSICS]: prim contacting with ground");
-                        //}
-                    }
-                    else if (name1 == "Water" || name2 == "Water")
-                    {
-                        /*
-                        if ((p2.PhysicsActorType == (int) ActorTypes.Prim))
-                        {
-                        }
                         else
-                        {
+                            */
+                        if (p2.PhysicsActorType == (int)ActorTypes.Prim)
+                            {
+                            // prim prim contact
+                            // int pj294950 = 0;
+                            int movintYN = 0;
+                            int material = (int)Material.Wood;
+                            // prim terrain contact
+                            if (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f)
+                                {
+                                movintYN = 1;
+                                }
+
+                            if (p2 is OdePrim)
+                                material = ((OdePrim)p2).m_material;
+
+                            //m_log.DebugFormat("Material: {0}", material);
+                            m_materialContacts[material, movintYN].geom = curContact;
+                            _perloopContact.Add(curContact);
+
+                            if (m_global_contactcount < maxContactsbeforedeath)
+                                {
+                                joint = d.JointCreateContact(world, contactgroup, ref m_materialContacts[material, movintYN]);
+                                m_global_contactcount++;
+                                }
+                            }
+                        else // hmm else what ??
+                            {
+                            int movintYN = 0;
+                            // prim terrain contact
+                            if (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f)
+                                {
+                                movintYN = 1;
+                                }
+
+                            int material = (int)Material.Wood;
+
+                            if (p2 is OdePrim)
+                                material = ((OdePrim)p2).m_material;
+                            //m_log.DebugFormat("Material: {0}", material);
+                            m_materialContacts[material, movintYN].geom = curContact;
+                            _perloopContact.Add(curContact);
+
+                            if (m_global_contactcount < maxContactsbeforedeath)
+                                {
+                                joint = d.JointCreateContact(world, contactgroup, ref m_materialContacts[material, movintYN]);
+                                m_global_contactcount++;
+                                }
+                            }
                         }
-                        */
-                        //WaterContact.surface.soft_cfm = 0.0000f;
-                        //WaterContact.surface.soft_erp = 0.00000f;
-                        if (curContact.depth > 0.1f)
+
+                        //if (p2.PhysicsActorType == (int)ActorTypes.Prim)
+                    //{
+                    //m_log.Debug("[PHYSICS]: prim contacting with ground");
+                    //}
+
+                    // collisions with water
+                    else if (name1 == "Water" || name2 == "Water")
                         {
+                         if (curContact.depth > 0.1f)
+                            {
                             curContact.depth *= 52;
                             //contact.normal = new d.Vector3(0, 0, 1);
                             //contact.pos = new d.Vector3(0, 0, contact.pos.Z - 5f);
-                        }
+                            }
                         WaterContact.geom = curContact;
                         _perloopContact.Add(curContact);
                         if (m_global_contactcount < maxContactsbeforedeath)
-                        {
+                            {
                             joint = d.JointCreateContact(world, contactgroup, ref WaterContact);
                             m_global_contactcount++;
-                        }
+                            }
                         //m_log.Info("[PHYSICS]: Prim Water Contact" + contact.depth);
-                    }
+                        }
                     else
-                    {
+                        {
                         // we're colliding with prim or avatar
                         // check if we're moving
                         if ((p2.PhysicsActorType == (int)ActorTypes.Agent))
-                        {
-                            if ((Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f))
                             {
+                            if ((Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f))
+                                {
                                 // Use the Movement prim contact
                                 AvatarMovementprimContact.geom = curContact;
                                 _perloopContact.Add(curContact);
                                 if (m_global_contactcount < maxContactsbeforedeath)
-                                {
+                                    {
                                     joint = d.JointCreateContact(world, contactgroup, ref AvatarMovementprimContact);
                                     m_global_contactcount++;
+                                    }
                                 }
-                            }
                             else
-                            {
+                                {
                                 // Use the non movement contact
                                 contact.geom = curContact;
                                 _perloopContact.Add(curContact);
 
                                 if (m_global_contactcount < maxContactsbeforedeath)
-                                {
+                                    {
                                     joint = d.JointCreateContact(world, contactgroup, ref contact);
                                     m_global_contactcount++;
+                                    }
                                 }
                             }
-                        }
                         else if (p2.PhysicsActorType == (int)ActorTypes.Prim)
-                        {
+                            {
                             //p1.PhysicsActorType
                             int material = (int)Material.Wood;
 
                             if (p2 is OdePrim)
                                 material = ((OdePrim)p2).m_material;
-                            
+
                             //m_log.DebugFormat("Material: {0}", material);
                             m_materialContacts[material, 0].geom = curContact;
                             _perloopContact.Add(curContact);
 
                             if (m_global_contactcount < maxContactsbeforedeath)
-                            {
+                                {
                                 joint = d.JointCreateContact(world, contactgroup, ref m_materialContacts[material, 0]);
                                 m_global_contactcount++;
 
+                                }
                             }
                         }
-                    }
 
                     if (m_global_contactcount < maxContactsbeforedeath && joint != IntPtr.Zero) // stack collide!
-                    {
+                        {
                         d.JointAttach(joint, b1, b2);
                         m_global_contactcount++;
+                        }
                     }
-                }
 
                 collision_accounting_events(p1, p2, maxDepthContact);
 
@@ -1203,9 +1221,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                     //if ((contact.g1 == contactGeom.g1 && contact.g2 == contactGeom.g2))
                     //{
                         // || (contact.g2 == contactGeom.g1 && contact.g1 == contactGeom.g2)
+                    
                     if (at == ActorTypes.Agent)
                     {
-                            if (((Math.Abs(contactGeom.normal.X - contact.normal.X) < 1.026f) && (Math.Abs(contactGeom.normal.Y - contact.normal.Y) < 0.303f) && (Math.Abs(contactGeom.normal.Z - contact.normal.Z) < 0.065f)) && contactGeom.g1 != LandGeom && contactGeom.g2 != LandGeom)
+                            if (((Math.Abs(contactGeom.normal.X - contact.normal.X) < 1.026f)
+                                && (Math.Abs(contactGeom.normal.Y - contact.normal.Y) < 0.303f)
+                                && (Math.Abs(contactGeom.normal.Z - contact.normal.Z) < 0.065f))
+                                && contactGeom.g1 != LandGeom && contactGeom.g2 != LandGeom)
                             {
                                 
                                 if (Math.Abs(contact.depth - contactGeom.depth) < 0.052f)
@@ -1235,9 +1257,14 @@ namespace OpenSim.Region.Physics.OdePlugin
                             //d.GeomGetAABB(contactGeom.g2, out aabb2);
                             //d.GeomGetAABB(contactGeom.g1, out aabb1);
                             //aabb1.
-                            if (((Math.Abs(contactGeom.normal.X - contact.normal.X) < 1.026f) && (Math.Abs(contactGeom.normal.Y - contact.normal.Y) < 0.303f) && (Math.Abs(contactGeom.normal.Z - contact.normal.Z) < 0.065f)) && contactGeom.g1 != LandGeom && contactGeom.g2 != LandGeom)
+                            if (((Math.Abs(contactGeom.normal.X - contact.normal.X) < 1.026f)
+                                && (Math.Abs(contactGeom.normal.Y - contact.normal.Y) < 0.303f)
+                                && (Math.Abs(contactGeom.normal.Z - contact.normal.Z) < 0.065f))
+                                && contactGeom.g1 != LandGeom && contactGeom.g2 != LandGeom)
                             {
-                                if (contactGeom.normal.X == contact.normal.X && contactGeom.normal.Y == contact.normal.Y && contactGeom.normal.Z == contact.normal.Z)
+                                if (contactGeom.normal.X == contact.normal.X
+                                    && contactGeom.normal.Y == contact.normal.Y
+                                    && contactGeom.normal.Z == contact.normal.Z)
                                 {
                                     if (Math.Abs(contact.depth - contactGeom.depth) < 0.272f)
                                     {
@@ -1470,7 +1497,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     
                     if (chr.Shell == IntPtr.Zero || chr.Body == IntPtr.Zero)
                         continue;
-                    
+
                     chr.IsColliding = false;
                     chr.CollidingGround = false;
                     chr.CollidingObj = false;
@@ -1488,12 +1515,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     {
                         m_log.Warn("[PHYSICS]: Unable to space collide");
                     }
-                    //float terrainheight = GetTerrainHeightAtXY(chr.Position.X, chr.Position.Y);
-                    //if (chr.Position.Z + (chr.Velocity.Z * timeStep) < terrainheight + 10)
-                    //{
-                    //chr.Position.Z = terrainheight + 10.0f;
-                    //forcedZ = true;
-                    //}
                 }
             }
 
@@ -1552,56 +1573,110 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
         // Recovered for use by fly height. Kitto Flora
+        //Ubit: interpolated for higher resolution
+        // assumes 1m size grid and constante size square region
+
         public float GetTerrainHeightAtXY(float x, float y)
         {
+            // region offset in mega position
+
             int offsetX = ((int)(x / (int)Constants.RegionSize)) * (int)Constants.RegionSize;
             int offsetY = ((int)(y / (int)Constants.RegionSize)) * (int)Constants.RegionSize;
 
             IntPtr heightFieldGeom = IntPtr.Zero;
 
-            if (RegionTerrain.TryGetValue(new Vector3(offsetX,offsetY,0), out heightFieldGeom))
+            // get region map
+            if (!RegionTerrain.TryGetValue(new Vector3(offsetX, offsetY, 0), out heightFieldGeom))
+                return 0f;
+
+            if (heightFieldGeom == IntPtr.Zero)
+                return 0f;
+
+            if (!TerrainHeightFieldHeights.ContainsKey(heightFieldGeom))
+                return 0f;
+
+            // TerrainHeightField for ODE as offset 1
+            x += 1f - offsetX;
+            y += 1f - offsetY;
+
+            // make position fit into array
+            if (x < 0) 
+                x = 0;
+            if (y < 0)
+                y = 0;
+
+            // integer indexs
+            int ix;
+            int iy;
+            //  interpolators offset
+            float dx;
+            float dy;
+
+            int regsize = (int)Constants.RegionSize + 2; // map size see setterrain
+
+            // we  still have square fixed size regions
+            // also flip x and y because of map is done for ODE fliped axis
+            // so ix,iy,dx and dy are inter exchanged
+            if (x < regsize - 1)
             {
-                if (heightFieldGeom != IntPtr.Zero)
-                {
-                    if (TerrainHeightFieldHeights.ContainsKey(heightFieldGeom))
-                    {
-
-                        int index;
-
-
-                        if ((int)x > WorldExtents.X || (int)y > WorldExtents.Y ||
-                            (int)x < 0.001f || (int)y < 0.001f)
-                            return 0;
-
-                        x = x - offsetX;
-                        y = y - offsetY;
-
-                        index = (int)((int)x * ((int)Constants.RegionSize + 2) + (int)y);
-
-                        if (index < TerrainHeightFieldHeights[heightFieldGeom].Length)
-                        {
-                            //m_log.DebugFormat("x{0} y{1} = {2}", x, y, (float)TerrainHeightFieldHeights[heightFieldGeom][index]);
-                            return (float)TerrainHeightFieldHeights[heightFieldGeom][index];
-                        }
-                            
-                        else
-                            return 0f;
-                    }
-                    else
-                    {
-                        return 0f;
-                    }
-
-                }
-                else
-                {
-                    return 0f;
-                }
-
+                iy = (int)x;
+                dy = x - (float)iy;
+            }
+            else // out world use external height
+            {
+                iy = regsize - 1; 
+                dy = 0;
+            }
+            if (y < regsize - 1)
+            {
+                ix = (int)y;
+                dx = y - (float)ix;
             }
             else
             {
-                return 0f;
+                ix = regsize - 1;
+                dx = 0;
+            }
+
+            float h0;
+            float h1;
+            float h2;
+
+            iy *= regsize;
+
+            float [] Heights = TerrainHeightFieldHeights[heightFieldGeom];
+
+            if ((dx + dy) <= 1.0f)
+            {
+                h0 = ((float)Heights[iy + ix]);
+
+                if (dx > 0)
+                    h1 = (((float)Heights[iy + ix + 1]) - h0) * dx;
+                else
+                    h1 = 0;
+
+                if (dy > 0)
+                    h2 = (((float)Heights[iy + regsize + ix]) - h0) * dy;
+                else
+                    h2 = 0;
+
+                return h0 + h1 + h2;
+            }
+            else
+            {
+                h0 = ((float)Heights[iy + regsize + ix + 1]);
+
+                if (dx > 0)
+                    h1 = (((float)Heights[iy + ix + 1]) - h0) * (1 - dy);
+                else
+                    h1 = 0;
+
+                if (dy > 0)
+                    h2 = (((float)Heights[iy + regsize + ix]) - h0) * (1 - dx);
+                else
+                    h2 = 0;
+
+                return h0 + h1 + h2;
             }
         } 
 // End recovered. Kitto Flora
@@ -3347,18 +3422,9 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
         }
 
         public void SetTerrain(float[] heightMap, Vector3 pOffset)
-        {
-            // this._heightmap[i] = (double)heightMap[i];
-            // dbm (danx0r) -- creating a buffer zone of one extra sample all around
-            //_origheightmap = heightMap;
-           
+            {
+
             float[] _heightmap;
-
-            // zero out a heightmap array float array (single dimension [flattened]))
-            //if ((int)Constants.RegionSize == 256)
-            //    _heightmap = new float[514 * 514];
-            //else
-
             _heightmap = new float[(((int)Constants.RegionSize + 2) * ((int)Constants.RegionSize + 2))];
 
             uint heightmapWidth = Constants.RegionSize + 1;
@@ -3367,20 +3433,9 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
             uint heightmapWidthSamples;
 
             uint heightmapHeightSamples;
-
-            //if (((int)Constants.RegionSize) == 256)
-            //{
-            //    heightmapWidthSamples = 2 * (uint)Constants.RegionSize + 2;
-            //    heightmapHeightSamples = 2 * (uint)Constants.RegionSize + 2;
-            //    heightmapWidth++;
-            //    heightmapHeight++;
-            //}
-            //else
-            //{
-
-                heightmapWidthSamples = (uint)Constants.RegionSize + 1;
-                heightmapHeightSamples = (uint)Constants.RegionSize + 1;
-            //}
+ 
+            heightmapWidthSamples = (uint)Constants.RegionSize + 1;
+            heightmapHeightSamples = (uint)Constants.RegionSize + 1;
 
             const float scale = 1.0f;
             const float offset = 0.0f;
@@ -3388,33 +3443,43 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
             const int wrap = 0;
 
             int regionsize = (int) Constants.RegionSize + 2;
-            //Double resolution
-            //if (((int)Constants.RegionSize) == 256)
-            //    heightMap = ResizeTerrain512Interpolation(heightMap);
-
-
-           // if (((int)Constants.RegionSize) == 256 && (int)Constants.RegionSize == 256)
-           //     regionsize = 512;
-
-            float hfmin = 2000;
-            float hfmax = -2000;
+ 
+            float hfmin = float.MaxValue;
+            float hfmax = float.MinValue;
+            float val;
+            int xx;
+            int yy;
             
-            for (int x = 0; x < heightmapWidthSamples; x++)
-            {
-                for (int y = 0; y < heightmapHeightSamples; y++)
-                {
-                    int xx = Util.Clip(x - 1, 0, regionsize - 1);
-                    int yy = Util.Clip(y - 1, 0, regionsize - 1);
-                    
-                    
-                    float val= heightMap[yy * (int)Constants.RegionSize + xx];
-                     _heightmap[x * ((int)Constants.RegionSize + 2) + y] = val;
-                    
-                    hfmin = (val < hfmin) ? val : hfmin;
-                    hfmax = (val > hfmax) ? val : hfmax;
-                }
-            }
+            // flipping map adding one margin all around so avas don't fall in edges
 
+            int xt = 0;
+
+            for (int x = 0; x < heightmapWidthSamples; x++)
+                {
+                xx = x - 1;
+                if (xx < 0)
+                    xx = 0;
+                else if (xx > regionsize - 1)
+                    xx = regionsize - 1;
+
+                yy = 0;
+                for (int y = 0; y < heightmapHeightSamples; y++)
+                    {                                      
+                    val= heightMap[yy + xx];
+//                    ODElandMap[xt + y] = val;
+                    _heightmap[xt + y] = val;
+
+                    if (hfmin > val)
+                        hfmin = val;
+                    if (hfmax < val)
+                        hfmax = val;
+
+                    if (y > 0 && y < regionsize)
+                        yy += (int)Constants.RegionSize;
+                    }
+
+                xt += regionsize;
+                }
             lock (OdeLock)
             {
                 IntPtr GroundGeom = IntPtr.Zero;
@@ -3424,18 +3489,25 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                     if (GroundGeom != IntPtr.Zero)
                     {
                         if (TerrainHeightFieldHeights.ContainsKey(GroundGeom))
-                        {
+                            {
+                            TerrainHeightFieldHeightsHandlers[GroundGeom].Free();
+                            TerrainHeightFieldHeightsHandlers.Remove(GroundGeom);
                             TerrainHeightFieldHeights.Remove(GroundGeom);
-                        }
+                            }
                         d.SpaceRemove(space, GroundGeom);
                         d.GeomDestroy(GroundGeom);
                     }
 
                 }
                 IntPtr HeightmapData = d.GeomHeightfieldDataCreate();
-                d.GeomHeightfieldDataBuildSingle(HeightmapData, _heightmap, 0, heightmapWidth + 1, heightmapHeight + 1,
+
+                GCHandle _heightmaphandler = GCHandle.Alloc(_heightmap, GCHandleType.Pinned);
+
+                d.GeomHeightfieldDataBuildSingle(HeightmapData, _heightmaphandler.AddrOfPinnedObject(), 0, heightmapWidth + 1, heightmapHeight + 1,
+//                d.GeomHeightfieldDataBuildSingle(HeightmapData, _heightmap, 0, heightmapWidth + 1, heightmapHeight + 1,
                                                  (int)heightmapWidthSamples + 1, (int)heightmapHeightSamples + 1, scale,
                                                  offset, thickness, wrap);
+
                 d.GeomHeightfieldDataSetBounds(HeightmapData, hfmin - 1, hfmax + 1);
                 GroundGeom = d.CreateHeightfield(space, HeightmapData, 1);
                 if (GroundGeom != IntPtr.Zero)
@@ -3450,24 +3522,27 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
 
                 Quaternion q1 = Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 1.5707f);
                 Quaternion q2 = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), 1.5707f);
-                //Axiom.Math.Quaternion q3 = Axiom.Math.Quaternion.FromAngleAxis(3.14f, new Axiom.Math.Vector3(0, 0, 1));
+                
 
                 q1 = q1 * q2;
-                //q1 = q1 * q3;
+                
                 Vector3 v3;
                 float angle;
                 q1.GetAxisAngle(out v3, out angle);
 
                 d.RFromAxisAndAngle(out R, v3.X, v3.Y, v3.Z, angle);
                 d.GeomSetRotation(GroundGeom, ref R);
-                d.GeomSetPosition(GroundGeom, (pOffset.X + ((int)Constants.RegionSize * 0.5f)) - 1, (pOffset.Y + ((int)Constants.RegionSize * 0.5f)) - 1, 0);
+                d.GeomSetPosition(GroundGeom, (pOffset.X + ((int)Constants.RegionSize * 0.5f)), (pOffset.Y + ((int)Constants.RegionSize * 0.5f)), 0);
                 IntPtr testGround = IntPtr.Zero;
                 if (RegionTerrain.TryGetValue(pOffset, out testGround))
                 {
                     RegionTerrain.Remove(pOffset);
                 }
                 RegionTerrain.Add(pOffset, GroundGeom, GroundGeom);
-                TerrainHeightFieldHeights.Add(GroundGeom,_heightmap);
+//                TerrainHeightFieldHeights.Add(GroundGeom, ODElandMap);
+                TerrainHeightFieldHeights.Add(GroundGeom, _heightmap);
+                TerrainHeightFieldHeightsHandlers.Add(GroundGeom, _heightmaphandler);
+               
             }
         }
 
