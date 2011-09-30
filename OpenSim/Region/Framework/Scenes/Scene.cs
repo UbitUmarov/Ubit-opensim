@@ -149,8 +149,14 @@ namespace OpenSim.Region.Framework.Scenes
             protected set;
         }
 
-        protected float m_timespan = 0.089f;
-        protected DateTime m_lastupdate = DateTime.UtcNow;
+//        protected float m_timespan = 0.089f;
+
+
+        protected Stopwatch MyWatch;
+        protected float m_simframetime = 0.022f;  // simulation loop period
+        protected float m_simphysframetime = 0.022f; // physics simulation period must be >= simframetime
+
+        protected TimeSpan m_lastphysupdate = TimeSpan.Zero;
 
         // TODO: Possibly stop other classes being able to manipulate this directly.
         private SceneGraph m_sceneGraph;
@@ -173,15 +179,15 @@ namespace OpenSim.Region.Framework.Scenes
 //        private int m_update_land = 1;
         private int m_update_coarse_locations = 50;
 
-        private int frameMS;
-        private int physicsMS2;
-        private int physicsMS;
-        private int otherMS;
-        private int tempOnRezMS;
-        private int eventMS;
-        private int backupMS;
-        private int terrainMS;
-        private int landMS;
+        private TimeSpan frameMS;
+        private TimeSpan physicsMS2;
+        private TimeSpan physicsMS;
+        private TimeSpan otherMS;
+        private TimeSpan tempOnRezMS;
+        private TimeSpan eventMS;
+        private TimeSpan backupMS;
+        private TimeSpan terrainMS;
+        private TimeSpan landMS;
         private int lastCompletedFrame;
 
         private bool m_physics_enabled = true;
@@ -436,15 +442,15 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_capsModule; }
         }
 
-        public int MonitorFrameTime { get { return frameMS; } }
-        public int MonitorPhysicsUpdateTime { get { return physicsMS; } }
-        public int MonitorPhysicsSyncTime { get { return physicsMS2; } }
-        public int MonitorOtherTime { get { return otherMS; } }
-        public int MonitorTempOnRezTime { get { return tempOnRezMS; } }
-        public int MonitorEventTime { get { return eventMS; } } // This may need to be divided into each event?
-        public int MonitorBackupTime { get { return backupMS; } }
-        public int MonitorTerrainTime { get { return terrainMS; } }
-        public int MonitorLandTime { get { return landMS; } }
+        public int MonitorFrameTime { get { return (int)frameMS.TotalMilliseconds; } }
+        public int MonitorPhysicsUpdateTime { get { return (int)physicsMS.TotalMilliseconds; } }
+        public int MonitorPhysicsSyncTime { get { return (int)physicsMS2.TotalMilliseconds; } }
+        public int MonitorOtherTime { get { return (int)otherMS.TotalMilliseconds; } }
+        public int MonitorTempOnRezTime { get { return (int)tempOnRezMS.TotalMilliseconds; } }
+        public int MonitorEventTime { get { return (int)eventMS.TotalMilliseconds; } } // This may need to be divided into each event?
+        public int MonitorBackupTime { get { return (int)backupMS.TotalMilliseconds; } }
+        public int MonitorTerrainTime { get { return (int)terrainMS.TotalMilliseconds; } }
+        public int MonitorLandTime { get { return (int)landMS.TotalMilliseconds; } }
         public int MonitorLastFrameTick { get { return lastCompletedFrame; } }
 
         public UpdatePrioritizationSchemes UpdatePrioritizationScheme { get { return m_priorityScheme; } }
@@ -739,6 +745,22 @@ namespace OpenSim.Region.Framework.Scenes
 
                 m_defaultScriptEngine = startupConfig.GetString("DefaultScriptEngine", "XEngine");
 
+
+                float fps = startupConfig.GetFloat("SimulationFPS", 45f);
+                m_simframetime = 1000.0f / fps;
+                // limit it from 10 to 50fps
+                if(m_simframetime < 22.0)
+                    m_simframetime = 22.0f;
+                else if(m_simframetime > 100f)
+                    m_simframetime = 100f;
+
+                fps = startupConfig.GetFloat("PhysicsSimulationFPS", 45f);
+                // limit it from  2fps to SimulationFPS
+                m_simphysframetime = 1000.0f / fps;
+                if (m_simphysframetime <= m_simframetime)
+                    m_simphysframetime = m_simframetime - 2; // the 2 is bc of my bad coding in timing control
+                else if (m_simphysframetime > 500f)
+                    m_simphysframetime = 500f;
                 IConfig packetConfig = m_config.Configs["PacketPool"];
                 if (packetConfig != null)
                 {
@@ -1191,9 +1213,14 @@ namespace OpenSim.Region.Framework.Scenes
 
             try
             {
+                MyWatch = new Stopwatch();
+                MyWatch.Start();
+                m_lastphysupdate = MyWatch.Elapsed;
+ 
                 while (!shuttingdown)
                     Update();
 
+                MyWatch.Stop();
                 m_lastUpdate = Util.EnvironmentTickCount();
                 m_firstHeartbeat = false;
             }
@@ -1210,18 +1237,16 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         public override void Update()
-        {        
-            TimeSpan SinceLastFrame = DateTime.UtcNow - m_lastupdate;
+            {
+            TimeSpan Now;
+            TimeSpan Start = MyWatch.Elapsed;
+            tempOnRezMS = eventMS = backupMS = terrainMS = landMS = TimeSpan.Zero;
             float physicsFPS = 0f;
-
-            int maintc = Util.EnvironmentTickCount();
-            int tmpFrameMS = maintc;
-            tempOnRezMS = eventMS = backupMS = terrainMS = landMS = 0;
 
             // Increment the frame counter
             ++Frame;
             try
-            {
+                {
                 // Check if any objects have reached their targets
                 CheckAtTargets();
 
@@ -1237,21 +1262,21 @@ namespace OpenSim.Region.Framework.Scenes
 
                 // Coarse locations relate to positions of green dots on the mini-map (on a SecondLife client)
                 if (Frame % m_update_coarse_locations == 0)
-                {
+                    {
                     List<Vector3> coarseLocations;
                     List<UUID> avatarUUIDs;
                     SceneGraph.GetCoarseLocations(out coarseLocations, out avatarUUIDs, 60);
                     // Send coarse locations to clients 
                     ForEachScenePresence(delegate(ScenePresence presence)
-                    {
+                        {
                         presence.SendCoarseLocations(coarseLocations, avatarUUIDs);
-                    });
-                }
+                        });
+                    }   
 
-                int tmpPhysicsMS2 = Util.EnvironmentTickCount();
+                physicsMS2 = MyWatch.Elapsed;
                 if ((Frame % m_update_physics == 0) && m_physics_enabled)
                     m_sceneGraph.UpdatePreparePhysics();
-                physicsMS2 = Util.EnvironmentTickCountSubtract(tmpPhysicsMS2);
+                physicsMS2 = MyWatch.Elapsed - physicsMS2;
 
                 // Apply any pending avatar force input to the avatar's velocity
                 if (Frame % m_update_entitymovement == 0)
@@ -1259,47 +1284,60 @@ namespace OpenSim.Region.Framework.Scenes
 
                 // Perform the main physics update.  This will do the actual work of moving objects and avatars according to their
                 // velocity
-                int tmpPhysicsMS = Util.EnvironmentTickCount();
-                if (Frame % m_update_physics == 0)
-                {
-                    if (m_physics_enabled)
-                        physicsFPS = m_sceneGraph.UpdatePhysics(Math.Max(SinceLastFrame.TotalSeconds, m_timespan));
-                    if (SynchronizeScene != null)
-                        SynchronizeScene(this);
-                }
-                physicsMS = Util.EnvironmentTickCountSubtract(tmpPhysicsMS);
+
+                if (m_physics_enabled)
+                    {
+                    Now = MyWatch.Elapsed;
+                    TimeSpan SincePhysUpdate = Now - m_lastphysupdate;
+                    if (SincePhysUpdate.Milliseconds >= m_simphysframetime)
+                        {
+                        // we must tell physics real time since last frame, so it can try to keep time sync
+                        physicsFPS = m_sceneGraph.UpdatePhysics(SincePhysUpdate.TotalSeconds);
+                        m_lastphysupdate = Now;
+                        // ignore number of ode loops that's engine specific
+                        // other engines may have other internal timings
+                        // so count the calls above since that's the physics simulation update rate
+                        // the adding in reporter will do the average
+                        physicsFPS = 1.0f;
+                        StatsReporter.AddPhysicsFPS(physicsFPS);
+
+                        if (SynchronizeScene != null)
+                            SynchronizeScene(this);
+                        }
+                    physicsMS = MyWatch.Elapsed - Now;
+                    }
 
                 // Delete temp-on-rez stuff
                 if (Frame % 1000 == 0 && !m_cleaningTemps)
-                {
-                    int tmpTempOnRezMS = Util.EnvironmentTickCount();
+                    {
+                    tempOnRezMS = MyWatch.Elapsed;
                     m_cleaningTemps = true;
                     Util.FireAndForget(delegate { CleanTempObjects(); m_cleaningTemps = false;  });
-                    tempOnRezMS = Util.EnvironmentTickCountSubtract(tmpTempOnRezMS);
-                }
+                    tempOnRezMS = MyWatch.Elapsed - tempOnRezMS;
+                    }
 
                 if (RegionStatus != RegionStatus.SlaveScene)
-                {
-                    if (Frame % m_update_events == 0)
                     {
-                        int evMS = Util.EnvironmentTickCount();
+                    if (Frame % m_update_events == 0)
+                        {
+                        eventMS = MyWatch.Elapsed;
                         UpdateEvents();
-                        eventMS = Util.EnvironmentTickCountSubtract(evMS); ;
-                    }
+                        eventMS = MyWatch.Elapsed - eventMS;
+                        }
 
                     if (Frame % m_update_backup == 0)
-                    {
-                        int backMS = Util.EnvironmentTickCount();
+                        {
+                        backupMS = MyWatch.Elapsed;
                         UpdateStorageBackup();
-                        backupMS = Util.EnvironmentTickCountSubtract(backMS);
-                    }
+                        backupMS = MyWatch.Elapsed - backupMS;
+                        }
 
                     if (Frame % m_update_terrain == 0)
-                    {
-                        int terMS = Util.EnvironmentTickCount();
+                        {
+                        terrainMS = MyWatch.Elapsed;
                         UpdateTerrain();
-                        terrainMS = Util.EnvironmentTickCountSubtract(terMS);
-                    }
+                        terrainMS = MyWatch.Elapsed - terrainMS;
+                        }
 
                     //if (Frame % m_update_land == 0)
                     //{
@@ -1308,28 +1346,27 @@ namespace OpenSim.Region.Framework.Scenes
                     //    landMS = Util.EnvironmentTickCountSubtract(ldMS);
                     //}
 
-                    frameMS = Util.EnvironmentTickCountSubtract(tmpFrameMS);
+                    frameMS = MyWatch.Elapsed - Start;
                     otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
                     lastCompletedFrame = Util.EnvironmentTickCount();
 
                     // if (Frame%m_update_avatars == 0)
                     //   UpdateInWorldTime();
-                    StatsReporter.AddPhysicsFPS(physicsFPS);
                     StatsReporter.AddTimeDilation(TimeDilation);
                     StatsReporter.AddFPS(1);
                     StatsReporter.SetRootAgents(m_sceneGraph.GetRootAgentCount());
                     StatsReporter.SetChildAgents(m_sceneGraph.GetChildAgentCount());
                     StatsReporter.SetObjects(m_sceneGraph.GetTotalObjectsCount());
                     StatsReporter.SetActiveObjects(m_sceneGraph.GetActiveObjectsCount());
-                    StatsReporter.addFrameMS(frameMS);
-                    StatsReporter.addPhysicsMS(physicsMS + physicsMS2);
-                    StatsReporter.addOtherMS(otherMS);
+                    StatsReporter.addFrameMS((float)frameMS.TotalMilliseconds);
+                    StatsReporter.addPhysicsMS((float)(physicsMS.TotalMilliseconds + physicsMS2.TotalMilliseconds));
+                    StatsReporter.addOtherMS((float)otherMS.TotalMilliseconds);
                     StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
                     StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
-                }
+                    }
 
                 if (LoginsDisabled && Frame == 20)
-                {
+                    {
                     // In 99.9% of cases it is a bad idea to manually force garbage collection. However,
                     // this is a rare case where we know we have just went through a long cycle of heap
                     // allocations, and there is no more work to be done until someone logs in
@@ -1337,29 +1374,29 @@ namespace OpenSim.Region.Framework.Scenes
 
                     IConfig startupConfig = m_config.Configs["Startup"];
                     if (startupConfig == null || !startupConfig.GetBoolean("StartDisabled", false))
-                    {
+                        {
                         // This handles a case of a region having no scripts for the RegionReady module
                         if (m_sceneGraph.GetActiveScriptsCount() == 0)
-                        {
+                            {
                             // need to be able to tell these have changed in RegionReady
                             LoginLock = false;
                             EventManager.TriggerLoginsEnabled(RegionInfo.RegionName);
-                        }
+                            }
                         m_log.DebugFormat("[REGION]: Enabling logins for {0}", RegionInfo.RegionName);
                         // For RegionReady lockouts
                         if( LoginLock == false)
-                        {
+                            {
                             LoginsDisabled = false;
-                        }
+                            }
                         m_sceneGridService.InformNeighborsThatRegionisUp(RequestModuleInterface<INeighbourService>(), RegionInfo);
-                    }
+                        }
                     else
-                    {
+                        {
                         StartDisabled = true;
                         LoginsDisabled = true;
+                        }
                     }
                 }
-            }
             catch (NotImplementedException)
             {
                 throw;
@@ -1382,11 +1419,13 @@ namespace OpenSim.Region.Framework.Scenes
             }
             finally
             {
-                m_lastupdate = DateTime.UtcNow;
+//                m_lastupdate = DateTime.UtcNow;
             }
 
-            maintc = Util.EnvironmentTickCountSubtract(maintc);
-            maintc = (int)(m_timespan * 1000) - maintc;
+            TimeSpan looptime = MyWatch.Elapsed - Start;
+            int maintc = (int)m_simframetime - looptime.Milliseconds;
+
+
 
             if (maintc > 0)
                 Thread.Sleep(maintc);
@@ -1394,7 +1433,6 @@ namespace OpenSim.Region.Framework.Scenes
             // Tell the watchdog that this thread is still alive
             Watchdog.UpdateThread();
         }        
-
         public void AddGroupTarget(SceneObjectGroup grp)
         {
             lock (m_groupsWithTargets)

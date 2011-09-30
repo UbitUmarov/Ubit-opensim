@@ -86,12 +86,12 @@ namespace OpenSim.Region.Framework.Scenes
         private float m_pfps = 0;
         private int m_agentUpdates = 0;
 
-        private int m_frameMS = 0;
+        private float m_frameMS = 0;
         private int m_netMS = 0;
         private int m_agentMS = 0;
-        private int m_physicsMS = 0;
+        private float m_physicsMS = 0;
         private int m_imageMS = 0;
-        private int m_otherMS = 0;
+        private float m_otherMS = 0;
 
 //Ckrinke: (3-21-08) Comment out to remove a compiler warning. Bring back into play when needed.
 //Ckrinke        private int m_scriptMS = 0;
@@ -146,6 +146,9 @@ namespace OpenSim.Region.Framework.Scenes
             SimStatsPacket.StatBlock[] sb = new SimStatsPacket.StatBlock[21];
             SimStatsPacket.RegionBlock rb = new SimStatsPacket.RegionBlock();
             
+            float factorByframe;
+            float factor;
+
             // Know what's not thread safe in Mono... modifying timers.
             // m_log.Debug("Firing Stats Heart Beat");
             lock (m_report)
@@ -167,36 +170,24 @@ namespace OpenSim.Region.Framework.Scenes
 
                 // Our FPS is actually 10fps, so multiplying by 5 to get the amount that people expect there
                 // 0-50 is pretty close to 0-45
-                float simfps = (int) ((m_fps * 5));
+ // show real
+                float simfps = (int) ((m_fps));
+
+                // factor to convert things to per second
+                factor = 1 / statsUpdateFactor;
+                // factor to convert things for time per frame need because how acumulators work
+                factorByframe = factor / simfps;
+                				
                 // save the reported value so there is something available for llGetRegionFPS 
-                lastReportedSimFPS = (float)simfps / statsUpdateFactor;
+                lastReportedSimFPS = simfps * factor;
 
-                //if (simfps > 45)
-                //simfps = simfps - (simfps - 45);
-                //if (simfps < 0)
-                //simfps = 0;
-
-                //
-                float physfps = ((m_pfps / 1000));
-
-                //if (physfps > 600)
-                //physfps = physfps - (physfps - 600);
+                float physfps = ((m_pfps));
 
                 if (physfps < 0)
                     physfps = 0;
 
 #endregion
                 
-                //Our time dilation is 0.91 when we're running a full speed,
-                // therefore to make sure we get an appropriate range,
-                // we have to factor in our error.   (0.10f * statsUpdateFactor)
-                // multiplies the fix for the error times the amount of times it'll occur a second
-                // / 10 divides the value by the number of times the sim heartbeat runs (10fps)
-                // Then we divide the whole amount by the amount of seconds pass in between stats updates.
-
-                // 'statsUpdateFactor' is how often stats packets are sent in seconds. Used below to change
-                // values to X-per-second values.
-
                 for (int i = 0; i<21;i++)
                 {
                     sb[i] = new SimStatsPacket.StatBlock();
@@ -206,13 +197,13 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[0].StatValue = (Single.IsNaN(m_timeDilation)) ? 0.1f : m_timeDilation ; //((((m_timeDilation + (0.10f * statsUpdateFactor)) /10)  / statsUpdateFactor));
 
                 sb[1].StatID = (uint) Stats.SimFPS;
-                sb[1].StatValue = simfps/statsUpdateFactor;
-
+                sb[1].StatValue = simfps * factor;
+				
                 sb[2].StatID = (uint) Stats.PhysicsFPS;
-                sb[2].StatValue = physfps / statsUpdateFactor;
+                sb[2].StatValue = physfps * factor;
 
                 sb[3].StatID = (uint) Stats.AgentUpdates;
-                sb[3].StatValue = (m_agentUpdates / statsUpdateFactor);
+                sb[3].StatValue = (m_agentUpdates * factor);
 
                 sb[4].StatID = (uint) Stats.Agents;
                 sb[4].StatValue = m_rootAgents;
@@ -227,31 +218,31 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[7].StatValue = m_activePrim;
 
                 sb[8].StatID = (uint)Stats.FrameMS;
-                sb[8].StatValue = m_frameMS / statsUpdateFactor;
+                sb[8].StatValue = m_frameMS * factorByframe;
 
                 sb[9].StatID = (uint)Stats.NetMS;
-                sb[9].StatValue = m_netMS / statsUpdateFactor;
+                sb[9].StatValue = m_netMS * factorByframe;
 
                 sb[10].StatID = (uint)Stats.PhysicsMS;
-                sb[10].StatValue = m_physicsMS / statsUpdateFactor;
+                sb[10].StatValue = m_physicsMS * factorByframe;
 
                 sb[11].StatID = (uint)Stats.ImageMS ;
-                sb[11].StatValue = m_imageMS / statsUpdateFactor;
+                sb[11].StatValue = m_imageMS * factorByframe;
 
                 sb[12].StatID = (uint)Stats.OtherMS;
-                sb[12].StatValue = m_otherMS / statsUpdateFactor;
+                sb[12].StatValue = m_otherMS * factorByframe;
 
                 sb[13].StatID = (uint)Stats.InPacketsPerSecond;
-                sb[13].StatValue = (m_inPacketsPerSecond / statsUpdateFactor);
+                sb[13].StatValue = (m_inPacketsPerSecond * factor);
 
                 sb[14].StatID = (uint)Stats.OutPacketsPerSecond;
-                sb[14].StatValue = (m_outPacketsPerSecond / statsUpdateFactor);
+                sb[14].StatValue = (m_outPacketsPerSecond * factor);
 
                 sb[15].StatID = (uint)Stats.UnAckedBytes;
                 sb[15].StatValue = m_unAckedBytes;
 
                 sb[16].StatID = (uint)Stats.AgentMS;
-                sb[16].StatValue = m_agentMS / statsUpdateFactor;
+                sb[16].StatValue = m_agentMS * factorByframe;
 
                 sb[17].StatID = (uint)Stats.PendingDownloads;
                 sb[17].StatValue = m_pendingDownloads;
@@ -263,7 +254,7 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[19].StatValue = m_activeScripts;
 
                 sb[20].StatID = (uint)Stats.ScriptLinesPerSecond;
-                sb[20].StatValue = m_scriptLinesPerSecond / statsUpdateFactor;
+                sb[20].StatValue = m_scriptLinesPerSecond * factor;
                 
                 for (int i = 0; i < 21; i++)
                 {
@@ -391,7 +382,7 @@ namespace OpenSim.Region.Framework.Scenes
             if (m_unAckedBytes < 0) m_unAckedBytes = 0;
         }
 
-        public void addFrameMS(int ms)
+        public void addFrameMS(float ms)
         {
             m_frameMS += ms;
         }
@@ -403,7 +394,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             m_agentMS += ms;
         }
-        public void addPhysicsMS(int ms)
+        public void addPhysicsMS(float ms)
         {
             m_physicsMS += ms;
         }
@@ -411,7 +402,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             m_imageMS += ms;
         }
-        public void addOtherMS(int ms)
+        public void addOtherMS(float ms)
         {
             m_otherMS += ms;
         }

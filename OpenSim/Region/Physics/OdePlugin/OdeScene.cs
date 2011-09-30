@@ -2617,8 +2617,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
 
             framecount++;
 
-            float fps = 0;
-            //m_log.Info(timeStep.ToString());
+            // acumulate time so we can reduce error
             step_time += timeStep;
             
             // If We're loaded down by something else,
@@ -2626,59 +2625,53 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
             // skip a few frames to catch up gracefully.
             // without shooting the physicsactors all over the place
 
+            if (step_time < ODE_STEPSIZE)
+                return 1;
+
             if (step_time >= m_SkipFramesAtms)
-            {
-                // Instead of trying to catch up, it'll do 5 physics frames only
-                step_time = ODE_STEPSIZE;
+                {
+                // if in trouble reduce step resolution
+//                step_time = ODE_STEPSIZE; forget this, limite the number of loops below
                 m_physicsiterations = 5;
-            }
+                }
             else
-            {
+                {
                 m_physicsiterations = 10;
-            }
+                }
 
             if (SupportsNINJAJoints)
-            {
+                {
                 DeleteRequestedJoints(); // this must be outside of the lock (OdeLock) to avoid deadlocks
                 CreateRequestedJoints(); // this must be outside of the lock (OdeLock) to avoid deadlocks
-            }
+                }
 
             lock (OdeLock)
-            {
+                {
                 // Process 10 frames if the sim is running normal..
                 // process 5 frames if the sim is running slow
-                //try
-                //{
-                    //d.WorldSetQuickStepNumIterations(world, m_physicsiterations);
-                //}
-                //catch (StackOverflowException)
-                //{
-                   // m_log.Error("[PHYSICS]: The operating system wasn't able to allocate enough memory for the simulation.  Restarting the sim.");
-                   // ode.drelease(world);
-                    //base.TriggerPhysicsBasedRestart();
-                //}
+                // as above
+                try
+                    {
+                    d.WorldSetQuickStepNumIterations(world, m_physicsiterations);
+                    }
+                catch (StackOverflowException)
+                    {
+                    m_log.Error("[PHYSICS]: The operating system wasn't able to allocate enough memory for the simulation.  Restarting the sim.");
+                    ode.drelease(world);
+                   base.TriggerPhysicsBasedRestart();
+                    }
 
-                int i = 0;
+                int nodeframes = 0;
 
                 // Figure out the Frames Per Second we're going at.
                 //(step_time == 0.004f, there's 250 of those per second.   Times the step time/step size
 
-                fps = (step_time / ODE_STEPSIZE) * 1000;
-                // HACK: Using a time dilation of 1.0 to debug rubberbanding issues
-                //m_timeDilation = Math.Min((step_time / ODE_STEPSIZE) / (0.09375f / ODE_STEPSIZE), 1.0f);
+                // this is not frames per second. Just average number of ODE frames we are asked to do in this call
 
-                step_time = 0.09375f;
-
-                while (step_time > 0.0f)
-                {
-                    //lock (ode)
-                    //{
-                        //if (!ode.lockquery())
-                        //{
-                           // ode.dlock(world);
-
-                    try
+                while (step_time > 0.0f && nodeframes < 10) // limit to about 200ms of simulation
                     {
+                    try
+                        {
                         // Insert, remove Characters
                         bool processedtaints = false;
 
@@ -2688,7 +2681,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                             {
                                 foreach (OdeCharacter character in _taintedActors)
                                 {
-                                    character.ProcessTaints(timeStep);
+                                    character.ProcessTaints(ODE_STEPSIZE);
 
                                     processedtaints = true;
                                     //character.m_collisionscore = 0;
@@ -2706,7 +2699,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                         {
                             foreach (OdePrim prim in _taintedPrimL)
                             {
-                                if(prim.ProcessTaints(timeStep))
+                                if (prim.ProcessTaints(ODE_STEPSIZE))
                                     RemovePrimThreadLocked(prim);
 
                                 processedtaints = true;
@@ -2737,7 +2730,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                             foreach (OdeCharacter actor in _characters)
                             {
                                 if (actor != null)
-                                    actor.Move(timeStep, defects);
+                                    actor.Move(ODE_STEPSIZE, defects);
                             }
                             if (0 != defects.Count)
                             {
@@ -2754,7 +2747,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                             foreach (OdePrim prim in _activeprims)
                             {
                                 prim.m_collisionscore = 0;
-                                prim.Move(timeStep);
+                                prim.Move(ODE_STEPSIZE);
                             }
                         }
 
@@ -2764,7 +2757,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                         //int RayCastTimeMS = m_rayCastManager.ProcessQueuedRequests();
                         m_rayCastManager.ProcessQueuedRequests();
 
-                        collision_optimized(timeStep);
+                        collision_optimized(ODE_STEPSIZE);
 
                         lock (_collisionEventPrim)
                         {
@@ -2809,7 +2802,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                     }
 
                     step_time -= ODE_STEPSIZE;
-                    i++;
+                    nodeframes++;
                         //}
                         //else
                         //{
@@ -2853,7 +2846,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                         {
                             if (actor.IsPhysical && (d.BodyIsEnabled(actor.Body) || !actor._zeroFlag))
                             {
-                            actor.UpdatePositionAndVelocity((float)i * ODE_STEPSIZE);
+                            actor.UpdatePositionAndVelocity((float)nodeframes * ODE_STEPSIZE);
 
                                 if (SupportsNINJAJoints)
                                     SimulateActorPendingJoints(actor);
@@ -2883,6 +2876,7 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                     d.WorldExportDIF(world, fname, physics_logging_append_existing_logfile, prefix);
                 }
 
+/*
                 latertickcount = Util.EnvironmentTickCount() - tickCountFrameRun;
 
                 // OpenSimulator above does 10 fps.  10 fps = means that the main thread loop and physics
@@ -2901,9 +2895,20 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
                 }
 
                 tickCountFrameRun = Util.EnvironmentTickCount();
-            }
+ */
+// think time dilation is now a physics issue alone..  but ok let's fake something
+                if (step_time < 0) // we did the required loops
+                    m_timeDilation = 1.0f;
+                else
+                    { // we didn't forget the lost ones and let user know something
+                    m_timeDilation = 1 - step_time / timeStep;
+                    if(m_timeDilation <0)
+                        m_timeDilation=0;
+                    step_time = 0;
+                    }
+            }           
 
-            return fps;
+            return 1;
         }
 
         /// <summary>
