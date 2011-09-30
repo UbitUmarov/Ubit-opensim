@@ -1849,7 +1849,7 @@ namespace OpenSim.Region.Framework.Scenes
                 ScenePresence avatar = m_scene.GetScenePresence(AttachedAvatar);
                 if (avatar != null)
                 {
-                    avatar.MoveToTarget(target, false);
+                    avatar.MoveToTarget(target, false,false);
                 }
             }
             else
@@ -2132,6 +2132,15 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         #endregion
+
+        /// <summary>
+        /// Send metadata about the root prim (name, description, sale price, etc.) to a client.
+        /// </summary>
+        /// <param name="client"></param>
+        public void SendPropertiesToClient(IClientAPI client)
+            {
+            m_rootPart.SendPropertiesToClient(client);
+            }
 
         #region SceneGroupPart Methods
 
