@@ -2452,6 +2452,7 @@ namespace OpenSim.Region.Framework.Scenes
         // vars to support reduced update frequency when velocity is unchanged
         private Vector3 lastVelocitySentToAllClients = Vector3.Zero;
         private Vector3 lastPositionSentToAllClients = Vector3.Zero;
+        private Quaternion lastRotationSentToAllClients = Quaternion.Identity;
         private int lastTerseUpdateToAllClientsTick = Util.EnvironmentTickCount();
 
         /// <summary>
@@ -2459,42 +2460,78 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public void SendTerseUpdateToAllClients()
         {
-            int currentTick = Util.EnvironmentTickCount();
+        //Ubit: this is just rubber banding code
+        /*
+                    int currentTick = Util.EnvironmentTickCount();
 
-            // Decrease update frequency when avatar is moving but velocity is
-            // not changing.
-            // If there is a mismatch between distance travelled and expected
-            // distance based on last velocity sent and velocity hasnt changed,
-            // then send a new terse update
+                    // Decrease update frequency when avatar is moving but velocity is
+                    // not changing.
+                    // If there is a mismatch between distance travelled and expected
+                    // distance based on last velocity sent and velocity hasnt changed,
+                    // then send a new terse update
 
-            float timeSinceLastUpdate = (currentTick - lastTerseUpdateToAllClientsTick) * 0.001f;
+                    float timeSinceLastUpdate = (currentTick - lastTerseUpdateToAllClientsTick) * 0.001f;
 
-            Vector3 expectedPosition = lastPositionSentToAllClients + lastVelocitySentToAllClients * timeSinceLastUpdate;
+                    Vector3 expectedPosition = lastPositionSentToAllClients + lastVelocitySentToAllClients * timeSinceLastUpdate;
 
-            float distanceError = Vector3.Distance(OffsetPosition, expectedPosition);
+                    float distanceError = Vector3.Distance(OffsetPosition, expectedPosition);
 
-            float speed = Velocity.Length();
-            float velocidyDiff = Vector3.Distance(lastVelocitySentToAllClients, Velocity);
+                    float speed = Velocity.Length();
+                    float velocidyDiff = Vector3.Distance(lastVelocitySentToAllClients, Velocity);
 
-            // assuming 5 ms. worst case precision for timer, use 2x that 
-            // for distance error threshold
-            float distanceErrorThreshold = speed * 0.01f;
+                    // assuming 5 ms. worst case precision for timer, use 2x that 
+                    // for distance error threshold
+                    float distanceErrorThreshold = speed * 0.01f;
 
-            if (speed < 0.01f // allow rotation updates if avatar position is unchanged
-                || Math.Abs(distanceError) > distanceErrorThreshold
-                || velocidyDiff > 0.01f) // did velocity change from last update?
+                    if (speed < 0.01f // allow rotation updates if avatar position is unchanged
+                        || Math.Abs(distanceError) > distanceErrorThreshold
+                        || velocidyDiff > 0.01f) // did velocity change from last update?
+                        {
+                        m_perfMonMS = currentTick;
+                        lastVelocitySentToAllClients = Velocity;
+                        lastTerseUpdateToAllClientsTick = currentTick;
+                        lastPositionSentToAllClients = OffsetPosition;
+
+                        m_scene.ForEachClient(SendTerseUpdateToClient);
+
+                        m_scene.StatsReporter.AddAgentTime(Util.EnvironmentTickCountSubtract(m_perfMonMS));
+                        }
+         */
+        // let's try another way
+
+        Vector3 curvel = Velocity;
+        Vector3 curpos = OffsetPosition;
+        Quaternion currot = Rotation;
+        int curtick = Util.EnvironmentTickCount();
+
+// a big if but faster than those math.sqrt hidden in above code
+        if (Math.Abs(curpos.X - lastPositionSentToAllClients.X) < 5f // didn't moved a lot ?
+            && Math.Abs(curpos.Y - lastPositionSentToAllClients.Y) < 5f
+            && Math.Abs(curpos.Z - lastPositionSentToAllClients.Z) < 5f
+            && Math.Abs(curvel.X - lastVelocitySentToAllClients.X) < 0.001f // not about change move ?
+            && Math.Abs(curvel.Y - lastVelocitySentToAllClients.Y) < 0.001f
+            && Math.Abs(curvel.Z - lastVelocitySentToAllClients.Z) < 0.01f
+            && Math.Abs(currot.X - lastRotationSentToAllClients.X) < 0.001f // not about change rotation ?
+            && Math.Abs(currot.Y - lastRotationSentToAllClients.Y) < 0.001f 
+            && Math.Abs(currot.Z - lastRotationSentToAllClients.Z) < 0.001f 
+            && Math.Abs(currot.W - lastRotationSentToAllClients.W) < 0.001f
+            && curtick - lastTerseUpdateToAllClientsTick < 200 // not long ago ?
+            )
             {
-                m_perfMonMS = currentTick;
-                lastVelocitySentToAllClients = Velocity;
-                lastTerseUpdateToAllClientsTick = currentTick;
-                lastPositionSentToAllClients = OffsetPosition;
-
-                m_scene.ForEachClient(SendTerseUpdateToClient);
-
-                m_scene.StatsReporter.AddAgentTime(Util.EnvironmentTickCountSubtract(m_perfMonMS));
+            return;
             }
-        }
 
+// ok send update
+        lastVelocitySentToAllClients = curvel;
+        lastTerseUpdateToAllClientsTick = curtick;
+        lastPositionSentToAllClients = curpos;
+        lastRotationSentToAllClients = currot;
+
+        m_scene.ForEachClient(SendTerseUpdateToClient);
+// guess this is also wrong
+        m_scene.StatsReporter.AddAgentTime(Util.EnvironmentTickCountSubtract(m_perfMonMS));
+        m_perfMonMS = curtick;
+        }
         public void SendCoarseLocations(List<Vector3> coarseLocations, List<UUID> avatarUUIDs)
         {
             SendCourseLocationsMethod d = m_sendCourseLocationsMethod;
