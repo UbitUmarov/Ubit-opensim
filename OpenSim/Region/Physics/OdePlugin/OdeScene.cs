@@ -193,10 +193,12 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly HashSet<OdeCharacter> _characters = new HashSet<OdeCharacter>();
         private readonly HashSet<OdePrim> _prims = new HashSet<OdePrim>();
         private readonly HashSet<OdePrim> _activeprims = new HashSet<OdePrim>();
-        private readonly HashSet<OdePrim> _taintedPrimH = new HashSet<OdePrim>();
         private readonly Object _taintedPrimLock = new Object();
-        private readonly List<OdePrim> _taintedPrimL = new List<OdePrim>();
-        private readonly HashSet<OdeCharacter> _taintedActors = new HashSet<OdeCharacter>();
+        private readonly HashSet<OdePrim> _taintedPrimH = new HashSet<OdePrim>(); // faster verification of repeated prim taints
+        private readonly Queue<OdePrim> _taintedPrimQ = new Queue<OdePrim>(); // prims taints
+        private readonly Object _taintedCharacterLock = new Object();
+        private readonly HashSet<OdeCharacter> _taintedCharacterH = new HashSet<OdeCharacter>(); // faster verification of repeated character taints
+        private readonly Queue<OdeCharacter> _taintedCharacterQ = new Queue<OdeCharacter>(); // character taints
         private readonly List<d.ContactGeom> _perloopContact = new List<d.ContactGeom>();
 
         /// <summary>
@@ -484,7 +486,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             // Terrain contact friction bounce and various error correcting calculations
             // Use this when an avatar is in contact with the terrain and moving.
-//            AvatarMovementTerrainContact.surface.mode |= d.ContactFlags.SoftERP;
+            AvatarMovementTerrainContact.surface.mode |= d.ContactFlags.SoftERP;
             AvatarMovementTerrainContact.surface.mu = mTerrainContactFriction;
             AvatarMovementTerrainContact.surface.bounce = mTerrainContactBounce;
             AvatarMovementTerrainContact.surface.soft_erp = mTerrainContactERP;
@@ -666,79 +668,48 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// <param name="g1">a geometry or space</param>
         /// <param name="g2">another geometry or space</param>
         private void near(IntPtr space, IntPtr g1, IntPtr g2)
-        {
+            {
             //  no lock here!  It's invoked from within Simulate(), which is thread-locked
 
             // Test if we're colliding a geom with a space.
             // If so we have to drill down into the space recursively
 
 
-            // ubit this is commun to if and after it
             if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
                 return;
 
             if (d.GeomIsSpace(g1) || d.GeomIsSpace(g2))
-            {
-//                if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
-//            return;
-                
+                {
                 // Separating static prim geometry spaces.
                 // We'll be calling near recursivly if one
                 // of them is a space to find all of the
                 // contact points in the space
                 try
-                {
+                    {
                     d.SpaceCollide2(g1, g2, IntPtr.Zero, nearCallback);
-                }
+                    }
                 catch (AccessViolationException)
-                {
+                    {
                     m_log.Warn("[PHYSICS]: Unable to collide test a space");
                     return;
-                }
-                //Colliding a space or a geom with a space or a geom. so drill down
-
-                //Collide all geoms in each space..
-/* why where this comented out?
- * ok bc spaces contain things that don't collide with others in same space
-
-                if (d.GeomIsSpace(g1))
-                    d.SpaceCollide(g1, IntPtr.Zero, nearCallback);
-                if (d.GeomIsSpace(g2))
-                    d.SpaceCollide(g2, IntPtr.Zero, nearCallback);
- */
+                    }
+                //here one should check collisions of geoms inside a space
+                // but on each space we only should have geoms that not colide amoung each other
+                // so we don't dig inside spaces
                 return;
-            }
+                }
 
-//            if (g1 == IntPtr.Zero || g2 == IntPtr.Zero)
-//                return;
-
+            // get geom bodies
             IntPtr b1 = d.GeomGetBody(g1);
             IntPtr b2 = d.GeomGetBody(g2);
 
             // d.GeomClassID id = d.GeomGetClass(g1);
 
-            String name1 = null;
-            String name2 = null;
-
-            if (!geom_name_map.TryGetValue(g1, out name1))
-            {
-                name1 = "null";
-            }
-            if (!geom_name_map.TryGetValue(g2, out name2))
-            {
-                name2 = "null";
-            }
-
-            //if (id == d.GeomClassId.TriMeshClass)
-            //{
-                //               m_log.InfoFormat("near: A collision was detected between {1} and {2}", 0, name1, name2);
-                //m_log.Debug("near: A collision was detected between {1} and {2}", 0, name1, name2);
-            //}
 
             // Figure out how many contact points we have
             int count = 0;
             try
-            {
+                {
                 // Colliding Geom To Geom
                 // This portion of the function 'was' blatantly ripped off from BoxStack.cs
 
@@ -749,88 +720,98 @@ namespace OpenSim.Region.Physics.OdePlugin
                     return;
 
                 lock (contacts)
-                {
-                    count = d.Collide(g1, g2, contacts.Length,(d.ContactGeom[]) contactsPinnedHandle.Target, d.ContactGeom.SizeOf);
+                    {
+                    count = d.Collide(g1, g2, contacts.Length, (d.ContactGeom[])contactsPinnedHandle.Target, d.ContactGeom.SizeOf);
                     if (count > contacts.Length)
                         m_log.Error("[PHYSICS]: Got " + count + " contacts when we asked for a maximum of " + contacts.Length);
+                    }
                 }
-            }
             catch (SEHException)
-            {
+                {
                 m_log.Error("[PHYSICS]: The Operating system shut down ODE because of corrupt memory.  This could be a result of really irregular terrain.  If this repeats continuously, restart using Basic Physics and terrain fill your terrain.  Restarting the sim.");
                 ode.drelease(world);
                 base.TriggerPhysicsBasedRestart();
-            }
+                }
             catch (Exception e)
-            {
+                {
                 m_log.WarnFormat("[PHYSICS]: Unable to collide test an object: {0}", e.Message);
                 return;
-            }
+                }
 
+            // no contacts so done
+            if (count == 0)
+                return;
+
+            // try get physical actors 
             PhysicsActor p1;
             PhysicsActor p2;
 
             if (!actor_name_map.TryGetValue(g1, out p1))
-            {
+                {
                 p1 = PANull;
-            }
+                }
 
             if (!actor_name_map.TryGetValue(g2, out p2))
-            {
+                {
                 p2 = PANull;
-            }
+                }
 
-
-            if (count == 0)
-                return;
-
-            ContactPoint maxDepthContact = new ContactPoint();
-// how can this be?            if (p1.CollisionScore + count >= float.MaxValue)
+            // update actors collision score
             if (p1.CollisionScore >= float.MaxValue - count)
                 p1.CollisionScore = 0;
             p1.CollisionScore += count;
 
-//            if (p2.CollisionScore + count >= float.MaxValue)
             if (p2.CollisionScore >= float.MaxValue - count)
                 p2.CollisionScore = 0;
             p2.CollisionScore += count;
 
+            // get geoms names
+            String name1 = null;
+            String name2 = null;
+
+            if (!geom_name_map.TryGetValue(g1, out name1))
+                {
+                name1 = "null";
+                }
+            if (!geom_name_map.TryGetValue(g2, out name2))
+                {
+                name2 = "null";
+                }
+
+            ContactPoint maxDepthContact = new ContactPoint();
+
             for (int i = 0; i < count; i++)
-            {
+                {
                 d.ContactGeom curContact = contacts[i];
 
                 if (curContact.depth > maxDepthContact.PenetrationDepth)
-                {
+                    {
                     maxDepthContact = new ContactPoint(
                         new Vector3(curContact.pos.X, curContact.pos.Y, curContact.pos.Z),
                         new Vector3(curContact.normal.X, curContact.normal.Y, curContact.normal.Z),
                         curContact.depth
-                    );
-                }
+                        );
+                    }
 
-                //m_log.Warn("[CCOUNT]: " + count);
                 IntPtr joint;
-                // If we're colliding with terrain, use 'TerrainContact' instead of contact.
-                // allows us to have different settings
-                
-                // We only need to test p2 for 'jump crouch purposes'
-                if (p2 is OdeCharacter && p1.PhysicsActorType == (int)ActorTypes.Prim)
-                {
-                    // Testing if the collision is at the feet of the avatar
 
-                    //m_log.DebugFormat("[PHYSICS]: {0} - {1} - {2} - {3}", curContact.pos.Z, p2.Position.Z, (p2.Position.Z - curContact.pos.Z), (p2.Size.Z * 0.6f));
+                // inform actors about colision
+
+                // We only need to test p2 for 'jump crouch purposes'
+
+                if (p2 is OdeCharacter && p1.PhysicsActorType == (int)ActorTypes.Prim)
+                    {
+                    // Testing if the collision is at the feet of the avatar
                     if ((p2.Position.Z - curContact.pos.Z) > (p2.Size.Z * 0.6f))
                         p2.IsColliding = true;
-                }
+                    }
                 else
-                {
+                    {
                     p2.IsColliding = true;
-                }
-                
-                //if ((framecount % m_returncollisions) == 0)
+                    }
 
                 switch (p1.PhysicsActorType)
-                {
+                    {
                     case (int)ActorTypes.Agent:
                         p2.CollidingObj = true;
                         break;
@@ -844,170 +825,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                     default:
                         p2.CollidingGround = true;
                         break;
-                }
+                    }
 
                 // we don't want prim or avatar to explode
+                // not in use section, so removed  see older commits if needed
 
-                #region InterPenetration Handling - Unintended physics explosions
-# region disabled code1
-
-                if (curContact.depth >= 0.08f)
-                {
-                    //This is disabled at the moment only because it needs more tweaking
-                    //It will eventually be uncommented
-                    /*
-                    if (contact.depth >= 1.00f)
-                    {
-                        //m_log.Debug("[PHYSICS]: " + contact.depth.ToString());
-                    }
-
-                    //If you interpenetrate a prim with an agent
-                    if ((p2.PhysicsActorType == (int) ActorTypes.Agent &&
-                         p1.PhysicsActorType == (int) ActorTypes.Prim) ||
-                        (p1.PhysicsActorType == (int) ActorTypes.Agent &&
-                         p2.PhysicsActorType == (int) ActorTypes.Prim))
-                    {
-                        
-                        //contact.depth = contact.depth * 4.15f;
-                        /*
-                        if (p2.PhysicsActorType == (int) ActorTypes.Agent)
-                        {
-                            p2.CollidingObj = true;
-                            contact.depth = 0.003f;
-                            p2.Velocity = p2.Velocity + new PhysicsVector(0, 0, 2.5f);
-                            OdeCharacter character = (OdeCharacter) p2;
-                            character.SetPidStatus(true);
-                            contact.pos = new d.Vector3(contact.pos.X + (p1.Size.X / 2), contact.pos.Y + (p1.Size.Y / 2), contact.pos.Z + (p1.Size.Z / 2));
-
-                        }
-                        else
-                        {
-
-                            //contact.depth = 0.0000000f;
-                        }
-                        if (p1.PhysicsActorType == (int) ActorTypes.Agent)
-                        {
-
-                            p1.CollidingObj = true;
-                            contact.depth = 0.003f;
-                            p1.Velocity = p1.Velocity + new PhysicsVector(0, 0, 2.5f);
-                            contact.pos = new d.Vector3(contact.pos.X + (p2.Size.X / 2), contact.pos.Y + (p2.Size.Y / 2), contact.pos.Z + (p2.Size.Z / 2));
-                            OdeCharacter character = (OdeCharacter)p1;
-                            character.SetPidStatus(true);
-                        }
-                        else
-                        {
-
-                            //contact.depth = 0.0000000f;
-                        }
-                          
-                        
-                     
-                    }
-*/
-                    // If you interpenetrate a prim with another prim
-                /*
-                    if (p1.PhysicsActorType == (int) ActorTypes.Prim && p2.PhysicsActorType == (int) ActorTypes.Prim)
-                    {
-                        #region disabledcode2
-                        //OdePrim op1 = (OdePrim)p1;
-                        //OdePrim op2 = (OdePrim)p2;
-                        //op1.m_collisionscore++;
-                        //op2.m_collisionscore++;
-
-                        //if (op1.m_collisionscore > 8000 || op2.m_collisionscore > 8000)
-                        //{
-                            //op1.m_taintdisable = true;
-                            //AddPhysicsActorTaint(p1);
-                            //op2.m_taintdisable = true;
-                            //AddPhysicsActorTaint(p2);
-                        //}
-
-                        //if (contact.depth >= 0.25f)
-                        //{
-                            // Don't collide, one or both prim will expld.
-
-                            //op1.m_interpenetrationcount++;
-                            //op2.m_interpenetrationcount++;
-                            //interpenetrations_before_disable = 200;
-                            //if (op1.m_interpenetrationcount >= interpenetrations_before_disable)
-                            //{
-                                //op1.m_taintdisable = true;
-                                //AddPhysicsActorTaint(p1);
-                            //}
-                            //if (op2.m_interpenetrationcount >= interpenetrations_before_disable)
-                            //{
-                               // op2.m_taintdisable = true;
-                                //AddPhysicsActorTaint(p2);
-                            //}
-
-                            //contact.depth = contact.depth / 8f;
-                            //contact.normal = new d.Vector3(0, 0, 1);
-                        //}
-                        //if (op1.m_disabled || op2.m_disabled)
-                        //{
-                            //Manually disabled objects stay disabled
-                            //contact.depth = 0f;
-                        //}
-                        #endregion
-                    }
-                    */
-#endregion
-/* not in use
-                   if (curContact.depth >= 1.00f)
-                    {
-                        //m_log.Info("[P]: " + contact.depth.ToString());
-                        if ((p2.PhysicsActorType == (int) ActorTypes.Agent &&
-                             p1.PhysicsActorType == (int) ActorTypes.Unknown) ||
-                            (p1.PhysicsActorType == (int) ActorTypes.Agent &&
-                             p2.PhysicsActorType == (int) ActorTypes.Unknown))
-                        {
-                            if (p2.PhysicsActorType == (int) ActorTypes.Agent)
-                            {
-                                if (p2 is OdeCharacter)
-                                {
-                                    OdeCharacter character = (OdeCharacter) p2;
-
-                                    //p2.CollidingObj = true;
-
-                                    curContact.depth = 0.00000003f;
-                                    p2.Velocity = p2.Velocity + new Vector3(0f, 0f, 0.5f);
-                                    curContact.pos =
-                                        new d.Vector3(curContact.pos.X + (p1.Size.X * 0.5f),
-                                                      curContact.pos.Y + (p1.Size.Y * 0.5f),
-                                                      curContact.pos.Z + (p1.Size.Z * 0.5f));
-                                    character.SetPidStatus(true);
-                                }
-                            }
-
-                            if (p1.PhysicsActorType == (int) ActorTypes.Agent)
-                            {
-                                if (p1 is OdeCharacter)
-                                {
-                                    OdeCharacter character = (OdeCharacter) p1;
-
-                                    //p2.CollidingObj = true;
-
-                                    curContact.depth = 0.00000003f;
-                                    p1.Velocity = p1.Velocity + new Vector3(0f, 0f, 0.5f);
-                                    curContact.pos =
-                                        new d.Vector3(curContact.pos.X + (p1.Size.X * 0.5f),
-                                                      curContact.pos.Y + (p1.Size.Y * 0.5f),
-                                                      curContact.pos.Z + (p1.Size.Z * 0.5f));
-                                    character.SetPidStatus(true);
-                                }
-                            }
-                        }
-                    }
- */
-                }
-
-                #endregion
-
-                // Logic for collision handling
-                // Note, that if *all* contacts are skipped (VolumeDetect)
-                // The prim still detects (and forwards) collision events but 
-                // appears to be phantom for the world
+                // skip actors with volumeDetect
                 Boolean skipThisContact = false;
 
                 if ((p1 is OdePrim) && (((OdePrim)p1).m_isVolumeDetect))
@@ -1110,15 +933,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                             }
                         }
 
-                        //if (p2.PhysicsActorType == (int)ActorTypes.Prim)
-                    //{
-                    //m_log.Debug("[PHYSICS]: prim contacting with ground");
-                    //}
-
                     // collisions with water
                     else if (name1 == "Water" || name2 == "Water")
                         {
-                         if (curContact.depth > 0.1f)
+                        if (curContact.depth > 0.1f)
                             {
                             curContact.depth *= 52;
                             //contact.normal = new d.Vector3(0, 0, 1);
@@ -1190,21 +1008,19 @@ namespace OpenSim.Region.Physics.OdePlugin
                         m_global_contactcount++;
                         }
                     }
-
-                collision_accounting_events(p1, p2, maxDepthContact);
-
-                if (count > geomContactPointsStartthrottle)
-                {
-                    // If there are more then 3 contact points, it's likely
-                    // that we've got a pile of objects, so ...
-                    // We don't want to send out hundreds of terse updates over and over again
-                    // so lets throttle them and send them again after it's somewhat sorted out.
-                    p2.ThrottleUpdates = true;
                 }
-                //m_log.Debug(count.ToString());
-                //m_log.Debug("near: A collision was detected between {1} and {2}", 0, name1, name2);
-            }
-        }
+            // this was inside above loop ?
+            collision_accounting_events(p1, p2, maxDepthContact);
+
+            if (count > geomContactPointsStartthrottle)
+                {
+                // If there are more then 3 contact points, it's likely
+                // that we've got a pile of objects, so ...
+                // We don't want to send out hundreds of terse updates over and over again
+                // so lets throttle them and send them again after it's somewhat sorted out.
+                p2.ThrottleUpdates = true;
+                }
+            }            
 
         private bool checkDupe(d.ContactGeom contactGeom, int atype)
         {
@@ -2566,37 +2382,35 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// </summary>
         /// <param name="prim"></param>
         public override void AddPhysicsActorTaint(PhysicsActor prim)
-        {
-            if (prim is OdePrim)
             {
+            if (prim is OdePrim)
+                {
                 OdePrim taintedprim = ((OdePrim) prim);
                 lock (_taintedPrimLock)
-                {
+                    {
                     if (!(_taintedPrimH.Contains(taintedprim))) 
-                    {
-#if SPAM
-Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
-#endif
+                        {
                         _taintedPrimH.Add(taintedprim);                    // HashSet for searching
-                        _taintedPrimL.Add(taintedprim);                    // List for ordered readout
+                        _taintedPrimQ.Enqueue(taintedprim);                    // List for ordered readout
+                        }
                     }
-                }
                 return;
-            }
+                }
             else if (prim is OdeCharacter)
-            {
-                OdeCharacter taintedchar = ((OdeCharacter)prim);
-                lock (_taintedActors)
                 {
-                    if (!(_taintedActors.Contains(taintedchar)))
+                OdeCharacter taintedchar = ((OdeCharacter)prim);
+                lock (_taintedCharacterLock)
                     {
-                        _taintedActors.Add(taintedchar);
+                    if (!(_taintedCharacterH.Contains(taintedchar)))
+                        {
+                        _taintedCharacterH.Add(taintedchar);
+                        _taintedCharacterQ.Enqueue(taintedchar);
                         if (taintedchar.bad)
                             m_log.DebugFormat("[PHYSICS]: Added BAD actor {0} to tainted actors", taintedchar.m_uuid);
+                        }
                     }
                 }
             }
-        }
 
         /// <summary>
         /// This is our main simulate loop
@@ -2612,31 +2426,20 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
             if (framecount >= int.MaxValue)
                 framecount = 0;
 
-            //if (m_worldOffset != Vector3.Zero)
-            //    return 0;
-
             framecount++;
 
             // acumulate time so we can reduce error
             step_time += timeStep;
             
-            // If We're loaded down by something else,
-            // or debugging with the Visual Studio project on pause
-            // skip a few frames to catch up gracefully.
-            // without shooting the physicsactors all over the place
-
             if (step_time < ODE_STEPSIZE)
                 return 1;
+
+            int curphysiteractions = m_physicsiterations;
 
             if (step_time >= m_SkipFramesAtms)
                 {
                 // if in trouble reduce step resolution
-//                step_time = ODE_STEPSIZE; forget this, limite the number of loops below
-                m_physicsiterations = 5;
-                }
-            else
-                {
-                m_physicsiterations = 10;
+                curphysiteractions /= 2;
                 }
 
             if (SupportsNINJAJoints)
@@ -2647,12 +2450,10 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
 
             lock (OdeLock)
                 {
-                // Process 10 frames if the sim is running normal..
-                // process 5 frames if the sim is running slow
-                // as above
+                // adjust number of iterations per step
                 try
                     {
-                    d.WorldSetQuickStepNumIterations(world, m_physicsiterations);
+                    d.WorldSetQuickStepNumIterations(world, curphysiteractions);
                     }
                 catch (StackOverflowException)
                     {
@@ -2663,91 +2464,71 @@ Console.WriteLine("AddPhysicsActorTaint to " + taintedprim.Name);
 
                 int nodeframes = 0;
 
-                // Figure out the Frames Per Second we're going at.
-                //(step_time == 0.004f, there's 250 of those per second.   Times the step time/step size
-
-                // this is not frames per second. Just average number of ODE frames we are asked to do in this call
-
-                while (step_time > 0.0f && nodeframes < 10) // limit to about 200ms of simulation
+                while (step_time > 0.0f && nodeframes < 10) //limit number of steps so we don't say here for ever
                     {
                     try
                         {
-                        // Insert, remove Characters
-                        bool processedtaints = false;
-
-                        lock (_taintedActors)
-                        {
-                            if (_taintedActors.Count > 0)
+                        // do characters requested changes
+                        OdeCharacter character;
+                        int numtaints;
+                        lock (_taintedCharacterLock)
                             {
-                                foreach (OdeCharacter character in _taintedActors)
+                            numtaints = _taintedCharacterQ.Count;
+                            if (numtaints > 50)
+                                numtaints = 50;
+                            while (numtaints > 0)
                                 {
-                                    character.ProcessTaints(ODE_STEPSIZE);
-
-                                    processedtaints = true;
-                                    //character.m_collisionscore = 0;
+                                character = _taintedCharacterQ.Dequeue();
+                                character.ProcessTaints(ODE_STEPSIZE);
+                                _taintedCharacterH.Remove(character);
+                                numtaints--;
                                 }
-
-                                if (processedtaints)
-                                    _taintedActors.Clear();
                             }
-                        }
-
-                        // Modify other objects in the scene.
-                        processedtaints = false;
-
+                        // do other objects requested changes
+                        OdePrim prim;
                         lock (_taintedPrimLock)
-                        {
-                            foreach (OdePrim prim in _taintedPrimL)
                             {
-                                if (prim.ProcessTaints(ODE_STEPSIZE))
+                            numtaints = _taintedPrimQ.Count;
+                            if (numtaints > 100)
+                                numtaints = 100;
+                            while (numtaints > 0)
+                                {
+                                prim = _taintedPrimQ.Dequeue();
+                                if (prim.ProcessTaints(ODE_STEPSIZE)) // hack odeprim returns true if the prim is to be removed
                                     RemovePrimThreadLocked(prim);
-
-                                processedtaints = true;
-                                prim.m_collisionscore = 0;
-
-                                // This loop can block up the Heartbeat for a very long time on large regions.
-                                // We need to let the Watchdog know that the Heartbeat is not dead
-                                // NOTE: This is currently commented out, but if things like OAR loading are
-                                // timing the heartbeat out we will need to uncomment it
-                                //Watchdog.UpdateThread();
-                            }
+                                _taintedPrimH.Remove(prim);
+                                numtaints--;
+                                }
 
                             if (SupportsNINJAJoints)
                                 SimulatePendingNINJAJoints();
-
-                            if (processedtaints)
-                            {
-//Console.WriteLine("Simulate calls Clear of _taintedPrim list");
-                                _taintedPrimH.Clear();
-                                _taintedPrimL.Clear();
                             }
-                        }
 
                         // Move characters
                         lock (_characters)
-                        {
+                            {
                             List<OdeCharacter> defects = new List<OdeCharacter>();
                             foreach (OdeCharacter actor in _characters)
-                            {
+                                {
                                 if (actor != null)
                                     actor.Move(ODE_STEPSIZE, defects);
-                            }
-                            if (0 != defects.Count)
-                            {
-                                foreach (OdeCharacter defect in defects)
+                                }
+                            if (defects.Count != 0)
                                 {
+                                foreach (OdeCharacter defect in defects)
+                                    {
                                     RemoveCharacter(defect);
+                                    }
                                 }
                             }
-                        }
 
                         // Move other active objects
                         lock (_activeprims)
                         {
-                            foreach (OdePrim prim in _activeprims)
+                            foreach (OdePrim aprim in _activeprims)
                             {
-                                prim.m_collisionscore = 0;
-                                prim.Move(ODE_STEPSIZE);
+                                aprim.m_collisionscore = 0;
+                                aprim.Move(ODE_STEPSIZE);
                             }
                         }
 

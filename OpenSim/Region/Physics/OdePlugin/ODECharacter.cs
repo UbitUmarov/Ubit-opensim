@@ -451,81 +451,53 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
         }
-/* not in use
+
+// this is also need for collisions with basic cubes
+
         private void AlignAvatarTiltWithCurrentDirectionOfMovement(Vector3 movementVector)
-        {
-//Ubit: same check
-//                        float magnitude = (float)Math.Sqrt((double)(movementVector.X * movementVector.X + movementVector.Y * movementVector.Y));
-//                        if (magnitude < 0.1f) return;
+            {
             if((movementVector.X * movementVector.X + movementVector.Y * movementVector.Y) < 0.01f)
                 return;
-
-            movementVector.Z = 0f;
-
-            // why normalize if we are going to change it?
-
-            // normalize the velocity vector
-//                        float invMagnitude = 1.0f / magnitude;
-//                        movementVector.X *= invMagnitude;
-//                        movementVector.Y *= invMagnitude;
-          
-           
 
             // if we change the capsule heading too often, the capsule can fall down
             // therefore we snap movement vector to just 1 of 4 predefined directions (ne, nw, se, sw),
             // meaning only 4 possible capsule tilt orientations
-            float sqr2 = 1.41421356f;
 
-            if (movementVector.X > 0)
-            {
-                // east
-                if (movementVector.Y > 0)
+            // northeast is default
+
+            float xTiltComponent = -1.41421356f * m_tiltMagnitudeWhenProjectedOnXYPlane;
+            float yTiltComponent = -1.41421356f * m_tiltMagnitudeWhenProjectedOnXYPlane;
+
+            if (movementVector.X >= 0)
                 {
-                    // northeast
-                    movementVector.X = sqr2;
-                    movementVector.Y = sqr2;
-                }
-                else
-                {
+                if (movementVector.Y < 0)
                     // southeast
-                    movementVector.X = sqr2;
-                    movementVector.Y = -sqr2;
+                    yTiltComponent *= -1;
                 }
-            }
             else
-            {
+                {
                 // west
-                if (movementVector.Y > 0)
-                {
+                if (movementVector.Y >= 0)
+                    {
                     // northwest
-                    movementVector.X = -sqr2;
-                    movementVector.Y = sqr2;
-                }
+                xTiltComponent *= -1;
+                    }
                 else
-                {
+                    {
                     // southwest
-                    movementVector.X = -sqr2;
-                    movementVector.Y = -sqr2;
+                    xTiltComponent *= -1;
+                    yTiltComponent *= -1;
+                    }
                 }
-            }
 
-
-            // movementVector.Z is zero
-
-            // calculate tilt components based on desired amount of tilt and current (snapped) heading.
-            // the "-" sign is to force the tilt to be OPPOSITE the direction of movement.
-            float xTiltComponent = -movementVector.X * m_tiltMagnitudeWhenProjectedOnXYPlane;
-            float yTiltComponent = -movementVector.Y * m_tiltMagnitudeWhenProjectedOnXYPlane;
-
-            //m_log.Debug("[PHYSICS] changing avatar tilt");
             d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, xTiltComponent);
             d.JointSetAMotorParam(Amotor, (int)dParam.HiStop, xTiltComponent); // must be same as lowstop, else a different, spurious tilt is introduced
             d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, yTiltComponent);
             d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, yTiltComponent); // same as lowstop
-            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, 0f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0f); // same as lowstop
+//            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, 0f);
+//            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0f); // same as lowstop
         }
-*/
+
         /// <summary>
         /// This creates the Avatar's physical Surrogate at the position supplied
         /// </summary>
@@ -968,7 +940,7 @@ namespace OpenSim.Region.Physics.OdePlugin
            
             if (flying)
                 {
-                ftmp = 0.5f * timeStep;
+                ftmp = timeStep;
                 posch.X += vel.X * ftmp;
                 posch.Y += vel.Y * ftmp;
                 }
@@ -983,6 +955,26 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 else
                     vec.Z = depth * PID_P * 50;
+
+/*
+                Vector3 vtmp;
+                vtmp.X = _target_velocity.X * timeStep;
+                vtmp.Y = _target_velocity.Y * timeStep;
+                // fake and avoid squares
+                float k = (Math.Abs(vtmp.X) + Math.Abs(vtmp.Y));
+                if (k > 0)
+                    {
+                    posch.X += vtmp.X;
+                    posch.Y += vtmp.Y;
+                    terrainheight -= _parent_scene.GetTerrainHeightAtXY(posch.X, posch.Y);
+                    k = 1 + Math.Abs(terrainheight) / k;
+                    movementdivisor /= k;
+
+                    if (k < 1)
+                        k = 1;
+                    }
+*/
+
 
                 if (depth < 0.2f)
                     {
@@ -1098,12 +1090,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (vec.IsFinite())
             {
                 doForce(vec);
-/*
+
                 if (!_zeroFlag)
                 {
                   AlignAvatarTiltWithCurrentDirectionOfMovement(vec);
                 }
- */
+
             }
             else
             {
