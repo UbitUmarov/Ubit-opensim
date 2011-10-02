@@ -979,6 +979,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (depth < 0.2f)
                     {
                     m_iscolliding = true;
+                    m_colliderfilter = 2;
                     m_iscollidingGround = true;
 
                     ContactPoint contact = new ContactPoint();
@@ -993,10 +994,12 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                     vec.Z *= 0.5f;
                     }
-                
+
                 else
                     m_iscollidingGround = false;
                 }
+            else
+                m_iscollidingGround = false;
 
 
             //  if velocity is zero, use position control; otherwise, velocity control

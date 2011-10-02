@@ -1315,7 +1315,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         continue;
 
                     chr.IsColliding = false;
-                    chr.CollidingGround = false;
+//                    chr.CollidingGround = false; not done here
                     chr.CollidingObj = false;
                     
                     // test the avatar's geometry for collision with the space
