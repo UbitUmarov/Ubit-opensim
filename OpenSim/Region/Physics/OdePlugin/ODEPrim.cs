@@ -157,8 +157,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private bool m_hastaintaddangularforce = false;
 
         private Vector3 m_force;
-        private Vector3 m_impulseacc;
-        private Vector3 m_angularimpulseacc;
         private Vector3 m_taintimpulseacc;
         private Vector3 m_taintangularimpulseacc;
 
@@ -293,8 +291,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             m_force = Vector3.Zero;
-            m_impulseacc = Vector3.Zero;
-            m_angularimpulseacc = Vector3.Zero;
 
             m_taintadd = true;
             _parent_scene.AddPhysicsActorTaint(this);
@@ -1737,16 +1733,7 @@ Console.WriteLine("CreateGeom:");
                 // constant force
                 fx += m_force.X;
                 fy += m_force.Y;
-                fz += m_force.Z;
-
-                // impulse acumulator
-
-                fx += m_impulseacc.X;
-                fy += m_impulseacc.Y;
-                fz += m_impulseacc.Z;
-
-                m_impulseacc = Vector3.Zero;
-               
+                fz += m_force.Z;            
 
                 //m_log.Info("[OBJPID]: X:" + fx.ToString() + " Y:" + fy.ToString() + " Z:" + fz.ToString());
                 if (fx != 0 || fy != 0 || fz != 0)
@@ -1781,10 +1768,6 @@ Console.WriteLine("CreateGeom:");
                 Vector3 trq;
 
                 trq = _torque;
-                trq += m_angularimpulseacc;
-
-                m_angularimpulseacc = Vector3.Zero;
-
                 if (trq.X != 0
                     || trq.Y != 0
                     || trq.Z != 0)
@@ -1990,6 +1973,19 @@ Console.WriteLine("CreateGeom:");
             }
         }
 
+        public void changeSetTorque()
+            {
+            if (!m_isSelected)
+                {
+                if (IsPhysical && Body != IntPtr.Zero)
+                    {
+                    _torque = m_taintTorque;
+                    }
+                }
+
+            m_taintTorque = Vector3.Zero;
+            }
+
         public void changeAddImpulse()
         {
             if (!m_isSelected)
@@ -2000,31 +1996,16 @@ Console.WriteLine("CreateGeom:");
                     if (IsPhysical)
                         {
                         d.BodyEnable(Body);
-                        m_impulseacc += m_taintimpulseacc;
+                        d.BodyAddForce(Body, m_taintimpulseacc.X,m_taintimpulseacc.Y,m_taintimpulseacc.Z);
                         }
+                    m_taintimpulseacc = Vector3.Zero;
                     }
 
                 m_collisionscore = 0;
                 m_interpenetrationcount = 0;
                 }
-            lock (this)
-                {
-                m_taintimpulseacc = Vector3.Zero;
-                m_hastaintimpulse = false;
-                }
-        }
 
-        public void changeSetTorque()
-        {
-            if (!m_isSelected)
-            {
-                if (IsPhysical && Body != IntPtr.Zero)
-                {
-                _torque = m_taintTorque;
-                }
-            }
-
-            m_taintTorque = Vector3.Zero;
+            m_hastaintimpulse = false;
         }
 
         public void changeAddAngularForce()
@@ -2033,13 +2014,17 @@ Console.WriteLine("CreateGeom:");
                 {
                 lock (this)
                     {
-                    m_angularimpulseacc = m_taintangularimpulseacc;
-                    m_collisionscore = 0;
-                    m_interpenetrationcount = 0;
+                    if (IsPhysical)
+                        {
+                        d.BodyEnable(Body);
+                        d.BodyAddTorque(Body, m_taintangularimpulseacc.X, m_taintangularimpulseacc.Y, m_taintangularimpulseacc.Z);
+                        }
+                    m_taintangularimpulseacc = Vector3.Zero;
                     }
+                m_collisionscore = 0;
+                m_interpenetrationcount = 0;
                 }
-            lock (this)
-                m_taintangularimpulseacc = Vector3.Zero;
+                
             m_hastaintaddangularforce = false;
             }
 
@@ -2917,11 +2902,10 @@ Console.WriteLine("ZProcessTaints for " + Name);
                 if (m_taintPhysics && !m_isphysical) // change undo physical first
                     changePhysicsStatus();
 
-                if (!m_isSelected && m_taintselected) // do changes not to selected first
+                if (!m_isSelected && m_taintselected) // do change to not selected first
                     changeSelectedStatus();
 
-                if (m_taintdisable)
-                    changedisable();
+
 
                 if (m_taintshape)
                     changeshape();
@@ -2934,6 +2918,18 @@ Console.WriteLine("ZProcessTaints for " + Name);
 
                 if (m_taintparent != _parent)
                     changelink();
+
+                if (m_taintCollidesWater != m_collidesWater)
+                    changefloatonwater();
+
+                if (!m_taintPhysics && m_isphysical) // change to physical 
+                    changePhysicsStatus();
+
+                if (!m_taintselected && m_isSelected)  // do change to selected
+                    changeSelectedStatus();
+
+                if (m_taintdisable)
+                    changedisable();
 
                 if (!m_taintVelocity.ApproxEquals(Vector3.Zero, 0.001f))
                     changevelocity();
@@ -2950,15 +2946,6 @@ Console.WriteLine("ZProcessTaints for " + Name);
                 if (!m_taintTorque.ApproxEquals(Vector3.Zero, 0.001f))
                     changeSetTorque();
 
-                if (m_taintCollidesWater != m_collidesWater)
-                    changefloatonwater();
-
-
-                if (!m_taintPhysics && m_isphysical) // change to physical last
-                    changePhysicsStatus();
-
-                if (!m_taintselected && m_isSelected)  // do change not to selected last
-                    changeSelectedStatus();
                 }
             else
                 {

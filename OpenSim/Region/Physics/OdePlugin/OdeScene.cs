@@ -2539,6 +2539,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
 
+            if (forceSimplePrimMeshing)
+                return true;
+
             if (pbs.ProfileHollow != 0)
                 iPropertiesNotSupportedDefault++;
 
