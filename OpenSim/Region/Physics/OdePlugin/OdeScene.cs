@@ -818,6 +818,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             ContactPoint maxDepthContact = new ContactPoint();
 
+            int notskipedcount = 0;
             for (int i = 0; i < count; i++)
                 {
                 d.ContactGeom curContact = contacts[i];
@@ -914,6 +915,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 if (!skipThisContact)
                     {
+                    notskipedcount++;
                     // If we're colliding against terrain
                     if (name1 == "Terrain")
                         {
@@ -972,6 +974,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 m_global_contactcount++;
                                 }
                             }
+/* don't know use of this so.. out
                         else // hmm else what ??
                             {
                             int movintYN = 0;
@@ -995,7 +998,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 m_global_contactcount++;
                                 }
                             }
+ */
                         }
+ 
                     else if (name2 == "Terrain")
                         {
                         // avatar to ground
@@ -1041,7 +1046,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 }
 
                             if (p1 is OdePrim)
-                                material = ((OdePrim)p2).m_material;
+                                material = ((OdePrim)p1).m_material;
 
                             //m_log.DebugFormat("Material: {0}", material);
                             m_materialContacts[material, movintYN].geom = curContact;
@@ -1053,6 +1058,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 m_global_contactcount++;
                                 }
                             }
+/*
                         else // hmm else what ??
                             {
                             int movintYN = 0;
@@ -1076,6 +1082,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 m_global_contactcount++;
                                 }
                             }
+ */
                         }
 
                     // collisions with water
@@ -1251,15 +1258,21 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 }
             // this was inside above loop ?
-            collision_accounting_events(p1, p2, maxDepthContact);
+            if (notskipedcount > 0)
+                collision_accounting_events(p1, p2, maxDepthContact);
 
-            if (count > geomContactPointsStartthrottle)
+            if (notskipedcount > geomContactPointsStartthrottle)
                 {
                 // If there are more then 3 contact points, it's likely
                 // that we've got a pile of objects, so ...
                 // We don't want to send out hundreds of terse updates over and over again
                 // so lets throttle them and send them again after it's somewhat sorted out.
-                p2.ThrottleUpdates = true;
+/* this needs checking so out for now
+                if (b1 != IntPtr.Zero)
+                    p1.ThrottleUpdates = true;
+                if (b2 != IntPtr.Zero)
+                    p2.ThrottleUpdates = true;
+ */
                 }
             }            
 
@@ -2316,7 +2329,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 //{
                 //int adfadf = 0;
                 //}
-                if (d.SpaceQuery(currentspace, geom) && currentspace != IntPtr.Zero)
+                if (currentspace != IntPtr.Zero && d.SpaceQuery(currentspace, geom))
                     {
                     if (d.GeomIsSpace(currentspace))
                         {

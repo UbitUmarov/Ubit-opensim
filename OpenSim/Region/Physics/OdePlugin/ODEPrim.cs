@@ -358,7 +358,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public void SetInStaticSpace(OdePrim prim)
             {
             // remove it from active space if it was there
-            if (prim.m_targetSpace == prim._parent_scene.ActiveSpace)
+            if (prim.prim_geom != IntPtr.Zero && prim.m_targetSpace == prim._parent_scene.ActiveSpace)
                 {
                 prim._parent_scene.waitForSpaceUnlock(prim.m_targetSpace);
                 if (d.SpaceQuery(prim.m_targetSpace, prim.prim_geom))
