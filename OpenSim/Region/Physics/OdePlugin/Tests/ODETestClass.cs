@@ -101,7 +101,7 @@ namespace OpenSim.Region.Physics.OdePlugin.Tests
                 Assert.That(oprim.m_targetSpace != (IntPtr)0);
 
                 //Assert.That(oprim.m_targetSpace == pscene.space);
-                m_log.Info("TargetSpace: " + oprim.m_targetSpace + " - SceneMainSpace: " + pscene.space);
+                m_log.Info("TargetSpace: " + oprim.m_targetSpace + " - SceneMainSpace: " + pscene.TopSpace);
 
                 Assert.That(!oprim.m_taintadd);
                 m_log.Info("Prim Position (" + oprim.m_localID + "): " + prim.Position.ToString());

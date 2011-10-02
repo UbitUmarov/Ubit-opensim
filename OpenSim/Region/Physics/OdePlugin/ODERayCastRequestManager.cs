@@ -173,11 +173,11 @@ namespace OpenSim.Region.Physics.OdePlugin
         private void RayCast(ODERayCastRequest req)
         {
             // Create the ray
-            IntPtr ray = d.CreateRay(m_scene.space, req.length);
+            IntPtr ray = d.CreateRay(m_scene.TopSpace, req.length);
             d.GeomRaySet(ray, req.Origin.X, req.Origin.Y, req.Origin.Z, req.Normal.X, req.Normal.Y, req.Normal.Z);
 
             // Collide test
-            d.SpaceCollide2(m_scene.space, ray, IntPtr.Zero, nearCallback);
+            d.SpaceCollide2(m_scene.TopSpace, ray, IntPtr.Zero, nearCallback);
 
             // Remove Ray
             d.GeomDestroy(ray);
@@ -219,11 +219,11 @@ namespace OpenSim.Region.Physics.OdePlugin
         private void RayCast(ODERayRequest req)
         {
             // Create the ray
-            IntPtr ray = d.CreateRay(m_scene.space, req.length);
+            IntPtr ray = d.CreateRay(m_scene.TopSpace, req.length);
             d.GeomRaySet(ray, req.Origin.X, req.Origin.Y, req.Origin.Z, req.Normal.X, req.Normal.Y, req.Normal.Z);
 
             // Collide test
-            d.SpaceCollide2(m_scene.space, ray, IntPtr.Zero, nearCallback);
+            d.SpaceCollide2(m_scene.TopSpace, ray, IntPtr.Zero, nearCallback);
 
             // Remove Ray
             d.GeomDestroy(ray);

@@ -289,7 +289,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 // If we're physical, we need to be in the master space for now.
                 // linksets *should* be in a space together..  but are not currently
                 if (IsPhysical)
-                    m_targetSpace = _parent_scene.space;
+                    m_targetSpace = _parent_scene.ActiveSpace;
             }
 
             m_force = Vector3.Zero;
@@ -353,6 +353,28 @@ namespace OpenSim.Region.Physics.OdePlugin
                     disableBodySoft();
             }
         }
+
+        //sets non physical prim m_targetSpace to right space in spaces grid for static prims
+        public void SetInStaticSpace(OdePrim prim)
+            {
+            // remove it from active space if it was there
+            if (prim.m_targetSpace == prim._parent_scene.ActiveSpace)
+                {
+                prim._parent_scene.waitForSpaceUnlock(prim.m_targetSpace);
+                if (d.SpaceQuery(prim.m_targetSpace, prim.prim_geom))
+                    d.SpaceRemove(prim.m_targetSpace, prim.prim_geom);
+                }
+
+            int[] iprimspaceArrItem = _parent_scene.calculateSpaceArrayItemFromPos(prim._position);
+            IntPtr targetspace = _parent_scene.calculateSpaceForGeom(prim._position);
+
+            if (targetspace == IntPtr.Zero)
+                targetspace = _parent_scene.createprimspace(iprimspaceArrItem[0], iprimspaceArrItem[1]);
+
+            prim.m_targetSpace = targetspace;
+            }
+
+
 
         /// <summary>
         /// Set a new geometry for this prim.
@@ -563,13 +585,13 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_interpenetrationcount = 0;
             m_collisionscore = 0;
 
-            if (m_targetSpace != _parent_scene.space)
+            if (m_targetSpace != _parent_scene.ActiveSpace)
                 {
                 _parent_scene.waitForSpaceUnlock(m_targetSpace);
                 if (d.SpaceQuery(m_targetSpace, prim_geom))
                     d.SpaceRemove(m_targetSpace, prim_geom);
 
-                m_targetSpace = _parent_scene.space;
+                m_targetSpace = _parent_scene.ActiveSpace;
                 d.SpaceAdd(m_targetSpace, prim_geom);
                 }
 
@@ -594,13 +616,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                     prm.m_collisionscore = 0;
                     _parent_scene.addActivePrim(prm);
 
-                    if (prm.m_targetSpace != _parent_scene.space)
+                    if (prm.m_targetSpace != _parent_scene.ActiveSpace)
                         {
                         _parent_scene.waitForSpaceUnlock(m_targetSpace);
                         if (d.SpaceQuery(prm.m_targetSpace, prm.prim_geom))
                             d.SpaceRemove(prm.m_targetSpace, prm.prim_geom);
 
-                        prm.m_targetSpace = _parent_scene.space;
+                        prm.m_targetSpace = _parent_scene.ActiveSpace;
                         d.SpaceAdd(m_targetSpace, prm.prim_geom);
                         }
                     }
@@ -634,6 +656,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.GeomSetCategoryBits(prim_geom, (int)m_collisionCategories);
                     d.GeomSetCollideBits(prim_geom, (int)m_collisionFlags);
                     UpdateDataFromGeom();
+                    SetInStaticSpace(this);
                     }
                 if (!childPrim)
                     {
@@ -649,6 +672,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 prm.UpdateDataFromGeom();
                                 d.GeomSetCategoryBits(prm.prim_geom, (int)m_collisionCategories);
                                 d.GeomSetCollideBits(prm.prim_geom, (int)m_collisionFlags);
+                                SetInStaticSpace(prm);
                                 }
                             prm._mass = prm.primMass;
                             prm.Body = IntPtr.Zero;
@@ -1388,15 +1412,11 @@ Console.WriteLine("CreateGeom:");
                 }
             }
 
+
         public void changeadd ()
             {
-            int[] iprimspaceArrItem = _parent_scene.calculateSpaceArrayItemFromPos(_position);
-            IntPtr targetspace = _parent_scene.calculateSpaceForGeom (_position);
 
-            if (targetspace == IntPtr.Zero)
-                targetspace = _parent_scene.createprimspace(iprimspaceArrItem[0], iprimspaceArrItem[1]);
-
-            m_targetSpace = targetspace;
+            SetInStaticSpace(this);
 
             IMesh mesh = null;
             if (_parent_scene.needsMeshing (_pbs))
