@@ -1316,7 +1316,6 @@ namespace OpenSim.Region.Framework.Scenes
                     tempOnRezMS = MyWatch.Elapsed - tempOnRezMS;
                     }
 
-<<<<<<< HEAD
                 if (RegionStatus != RegionStatus.SlaveScene)
                     {
                     if (Frame % m_update_events == 0)
@@ -1339,23 +1338,14 @@ namespace OpenSim.Region.Framework.Scenes
                         UpdateTerrain();
                         terrainMS = MyWatch.Elapsed - terrainMS;
                         }
-=======
-                if (Frame % m_update_events == 0)
-                {
-                    int evMS = Util.EnvironmentTickCount();
-                    UpdateEvents();
-                    eventMS = Util.EnvironmentTickCountSubtract(evMS); ;
-                }
->>>>>>> bfa405e6f70ee31510a20f708327c1c254398926
 
-                if (Frame % m_update_backup == 0)
-                {
-                    int backMS = Util.EnvironmentTickCount();
-                    UpdateStorageBackup();
-                    backupMS = Util.EnvironmentTickCountSubtract(backMS);
-                }
+                    //if (Frame % m_update_land == 0)
+                    //{
+                    //    int ldMS = Util.EnvironmentTickCount();
+                    //    UpdateLand();
+                    //    landMS = Util.EnvironmentTickCountSubtract(ldMS);
+                    //}
 
-<<<<<<< HEAD
                     frameMS = MyWatch.Elapsed - Start;
                     otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
                     lastCompletedFrame = Util.EnvironmentTickCount();
@@ -1374,40 +1364,6 @@ namespace OpenSim.Region.Framework.Scenes
                     StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
                     StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
                     }
-=======
-                if (Frame % m_update_terrain == 0)
-                {
-                    int terMS = Util.EnvironmentTickCount();
-                    UpdateTerrain();
-                    terrainMS = Util.EnvironmentTickCountSubtract(terMS);
-                }
->>>>>>> bfa405e6f70ee31510a20f708327c1c254398926
-
-                //if (Frame % m_update_land == 0)
-                //{
-                //    int ldMS = Util.EnvironmentTickCount();
-                //    UpdateLand();
-                //    landMS = Util.EnvironmentTickCountSubtract(ldMS);
-                //}
-
-                frameMS = Util.EnvironmentTickCountSubtract(tmpFrameMS);
-                otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
-                lastCompletedFrame = Util.EnvironmentTickCount();
-
-                // if (Frame%m_update_avatars == 0)
-                //   UpdateInWorldTime();
-                StatsReporter.AddPhysicsFPS(physicsFPS);
-                StatsReporter.AddTimeDilation(TimeDilation);
-                StatsReporter.AddFPS(1);
-                StatsReporter.SetRootAgents(m_sceneGraph.GetRootAgentCount());
-                StatsReporter.SetChildAgents(m_sceneGraph.GetChildAgentCount());
-                StatsReporter.SetObjects(m_sceneGraph.GetTotalObjectsCount());
-                StatsReporter.SetActiveObjects(m_sceneGraph.GetActiveObjectsCount());
-                StatsReporter.addFrameMS(frameMS);
-                StatsReporter.addPhysicsMS(physicsMS + physicsMS2);
-                StatsReporter.addOtherMS(otherMS);
-                StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
-                StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
 
                 if (LoginsDisabled && Frame == 20)
                     {
@@ -2533,7 +2489,7 @@ namespace OpenSim.Region.Framework.Scenes
                     RootPrim.RemFlag(PrimFlags.TemporaryOnRez);
                     
                     if (AttachmentsModule != null)
-                        AttachmentsModule.AttachObject(sp, grp, 0, false);
+                        AttachmentsModule.AttachObject(sp.ControllingClient, grp, 0, false);
                 }
                 else
                 {
