@@ -37,6 +37,9 @@ namespace OpenSim.Region.Framework.Scenes
 {
     public class SimStatsReporter
     {
+//        private static readonly log4net.ILog m_log
+//            = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         public delegate void SendStatResult(SimStats stats);
 
         public delegate void YourStatsAreWrong();
@@ -188,7 +191,7 @@ namespace OpenSim.Region.Framework.Scenes
 
 #endregion
                 
-                for (int i = 0; i<21;i++)
+                for (int i = 0; i < 21; i++)
                 {
                     sb[i] = new SimStatsPacket.StatBlock();
                 }
@@ -263,7 +266,8 @@ namespace OpenSim.Region.Framework.Scenes
               
                 SimStats simStats 
                     = new SimStats(
-                        ReportingRegion.RegionLocX, ReportingRegion.RegionLocY, regionFlags, (uint)m_objectCapacity, rb, sb, m_scene.RegionInfo.originRegionID);
+                        ReportingRegion.RegionLocX, ReportingRegion.RegionLocY, regionFlags, (uint)m_objectCapacity,
+                        rb, sb, m_scene.RegionInfo.originRegionID);
 
                 handlerSendStatResult = OnSendStatsResult;
                 if (handlerSendStatResult != null)
@@ -386,10 +390,12 @@ namespace OpenSim.Region.Framework.Scenes
         {
             m_frameMS += ms;
         }
+
         public void addNetMS(int ms)
         {
             m_netMS += ms;
         }
+
         public void addAgentMS(int ms)
         {
             m_agentMS += ms;
@@ -398,6 +404,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             m_physicsMS += ms;
         }
+
         public void addImageMS(int ms)
         {
             m_imageMS += ms;
@@ -406,9 +413,6 @@ namespace OpenSim.Region.Framework.Scenes
         {
             m_otherMS += ms;
         }
-
-//        private static readonly log4net.ILog m_log
-//            = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
         public void AddPendingDownloads(int count)
         {
@@ -445,12 +449,6 @@ namespace OpenSim.Region.Framework.Scenes
             AddInPackets(inPackets);
             AddOutPackets(outPackets);
             AddunAckedBytes(unAckedBytes);
-        }
-        
-        public void AddAgentTime(int ms)
-        {
-            addFrameMS(ms);
-            addAgentMS(ms);
         }
 
         #endregion

@@ -55,6 +55,17 @@ namespace OpenSim.Services.Interfaces
             Created = Util.UnixTimeSinceEpoch();
         }
 
+        public UserAccount(UUID scopeID, UUID principalID, string firstName, string lastName, string email)
+        {
+            PrincipalID = principalID;
+            ScopeID = scopeID;
+            FirstName = firstName;
+            LastName = lastName;
+            Email = email;
+            ServiceURLs = new Dictionary<string, object>();
+            Created = Util.UnixTimeSinceEpoch();
+        }
+
         public string FirstName;
         public string LastName;
         public string Email;
