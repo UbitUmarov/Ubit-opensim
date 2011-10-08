@@ -277,6 +277,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             _parent_scene = parent_scene;
             m_targetSpace = (IntPtr)0;
 
+            m_taintPhysics = false; // must review this
             if (pos.Z < 0)
             {
                 IsPhysical = false;
@@ -284,10 +285,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             else
             {
                 IsPhysical = pisPhysical;
-                // If we're physical, we need to be in the master space for now.
-                // linksets *should* be in a space together..  but are not currently
-                if (IsPhysical)
-                    m_targetSpace = _parent_scene.ActiveSpace;
             }
 
             m_force = Vector3.Zero;
@@ -353,26 +350,11 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
         //sets non physical prim m_targetSpace to right space in spaces grid for static prims
+        // should only be called for non physical prims unless they are becoming non physical
         public void SetInStaticSpace(OdePrim prim)
-        {
-            // remove it from active space if it was there
-            if (prim.prim_geom != IntPtr.Zero && prim.m_targetSpace == prim._parent_scene.ActiveSpace)
-            {
-                prim._parent_scene.waitForSpaceUnlock(prim.m_targetSpace);
-                if (d.SpaceQuery(prim.m_targetSpace, prim.prim_geom))
-                    d.SpaceRemove(prim.m_targetSpace, prim.prim_geom);
-            }
-
-            int[] iprimspaceArrItem = _parent_scene.calculateSpaceArrayItemFromPos(prim._position);
-            IntPtr targetSpace = _parent_scene.calculateSpaceForGeom(prim._position);
-
-            if (targetSpace == IntPtr.Zero)
-                targetSpace = _parent_scene.createprimspace(iprimspaceArrItem[0], iprimspaceArrItem[1]);
-
+        {        
+            IntPtr targetSpace = _parent_scene.MoveGeomToStaticSpace(prim.prim_geom, prim._position, prim.m_targetSpace);
             prim.m_targetSpace = targetSpace;
-            _parent_scene.waitForSpaceUnlock(targetSpace);
-            d.SpaceAdd(targetSpace, prim.prim_geom);
-
         }
 
 
@@ -394,15 +376,15 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 _parent_scene.geom_name_map[prim_geom] = Name;
                 _parent_scene.actor_name_map[prim_geom] = this;
-            }
 
-            if (childPrim)
-            {
-                if (_parent != null && _parent is OdePrim)
+                if (childPrim)
                 {
-                    OdePrim parent = (OdePrim)_parent;
-                    //Console.WriteLine("SetGeom calls ChildSetGeom");
-                    parent.ChildSetGeom(this);
+                    if (_parent != null && _parent is OdePrim)
+                    {
+                        OdePrim parent = (OdePrim)_parent;
+                        //Console.WriteLine("SetGeom calls ChildSetGeom");
+                        parent.ChildSetGeom(this);
+                    }
                 }
             }
             //m_log.Warn("Setting Geom to: " + prim_geom);
@@ -423,7 +405,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 catch (System.AccessViolationException)
                 {
                     prim_geom = IntPtr.Zero;
-                    m_log.ErrorFormat("[PHYSICS]: PrimGeom dead for {0}", Name);
+                    m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction failed for {0}", Name);
 
                     return false;
                 }
@@ -470,6 +452,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (childPrim)  // child prims don't get bodies;
                 return;
 
+            if (prim_geom == IntPtr.Zero)
+            {
+                m_log.Warn("[PHYSICS]: Unable to link the linkset.  Root has no geom yet");
+                return;
+            }
+
             if (Body != IntPtr.Zero)
             {
                 d.BodyDestroy(Body);
@@ -512,6 +500,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                 {
                     foreach (OdePrim prm in childrenPrim)
                     {
+                        if (prm.prim_geom == IntPtr.Zero)
+                        {
+                            m_log.Warn("[PHYSICS]: Unable to link one of the linkset elements, skipping it.  No geom yet");
+                            continue;
+                        }
+
                         DMassCopy(ref prm.primdMass, ref tmpdmass);
 
                         // apply prim current rotation to inertia
@@ -535,11 +529,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                         d.MassAdd(ref objdmass, ref tmpdmass); // add to total object inertia
                         // fix prim colision cats
-                        if (prm.prim_geom == IntPtr.Zero)
-                        {
-                            m_log.Warn("[PHYSICS]: Unable to link one of the linkset elements.  No geom yet");
-                            continue;
-                        }
 
                         d.GeomClearOffset(prm.prim_geom);
                         d.GeomSetBody(prm.prim_geom, Body);
@@ -548,11 +537,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
 
-            if (prim_geom == IntPtr.Zero)
-            {
-                m_log.Warn("[PHYSICS]: Unable to link the linkset.  Root has no geom yet");
-                return;
-            }
             d.GeomClearOffset(prim_geom); // make sure we don't have a hidden offset
             // associate root geom with body
             d.GeomSetBody(prim_geom, Body);
@@ -756,7 +740,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                     break;
 
                                 case HollowShape.Circle:
-                                    hollowVolume *= 0.78539816339f; ;
+                                    hollowVolume *= 0.78539816339f;
                                     break;
 
                                 case HollowShape.Triangle:
@@ -1254,7 +1238,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             MakeBody();
         }
 
-        private void ChildRemove(OdePrim odePrim)
+        private void ChildRemove(OdePrim odePrim, bool reMakeBody)
         {
             // Okay, we have a delinked child.. destroy all body and remake
             if (odePrim != this && !childrenPrim.Contains(odePrim))
@@ -1295,8 +1279,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                     odePrim._parent = null;
                 }
             }
-
-            MakeBody();
+            if (reMakeBody)
+                MakeBody();
         }
 
         private void changeSelectedStatus()
@@ -1371,7 +1355,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// </summary>
         /// <param name="m_targetSpace"></param>
         /// <param name="mesh">If null, then a mesh is used that is based on the profile shape data.</param>
-        public void CreateGeom(IntPtr m_targetSpace, IMesh _mesh)
+        public void CreateGeom(IntPtr targetSpace, IMesh _mesh)
         {
 #if SPAM
 Console.WriteLine("CreateGeom:");
@@ -1385,10 +1369,10 @@ Console.WriteLine("CreateGeom:");
                 if (_pbs.ProfileShape == ProfileShape.HalfCircle && _pbs.PathCurve == (byte)Extrusion.Curve1
                     && _size.X == _size.Y && _size.Y == _size.Z)
                 { // it's a sphere
-                    _parent_scene.waitForSpaceUnlock(m_targetSpace);
+                    _parent_scene.waitForSpaceUnlock(targetSpace);
                     try
                     {
-                        SetGeom(d.CreateSphere(m_targetSpace, _size.X * 0.5f));
+                        SetGeom(d.CreateSphere(targetSpace, _size.X * 0.5f));
                     }
                     catch (AccessViolationException)
                     {
@@ -1398,11 +1382,11 @@ Console.WriteLine("CreateGeom:");
                 }
                 else
                 {// do it as a box
-                    _parent_scene.waitForSpaceUnlock(m_targetSpace);
+                    _parent_scene.waitForSpaceUnlock(targetSpace);
                     try
                     {
                         //Console.WriteLine("  CreateGeom 4");
-                        SetGeom(d.CreateBox(m_targetSpace, _size.X, _size.Y, _size.Z));
+                        SetGeom(d.CreateBox(targetSpace, _size.X, _size.Y, _size.Z));
                     }
                     catch (AccessViolationException)
                     {
@@ -1416,9 +1400,6 @@ Console.WriteLine("CreateGeom:");
 
         public void changeadd()
         {
-
-            
-
             IMesh mesh = null;
             if (_parent_scene.needsMeshing(_pbs))
             {
@@ -1523,12 +1504,7 @@ Console.WriteLine("CreateGeom:");
                         d.GeomSetPosition(prim_geom, m_taintposition.X, m_taintposition.Y, m_taintposition.Z);
                         _position = m_taintposition;
 
-                        _parent_scene.waitForSpaceUnlock(m_targetSpace);
-                        IntPtr tempspace = _parent_scene.recalculateSpaceForGeom(prim_geom, _position, m_targetSpace);
-                        m_targetSpace = tempspace;
-
-                        _parent_scene.waitForSpaceUnlock(m_targetSpace);
-                        d.SpaceAdd(m_targetSpace, prim_geom);
+                        m_targetSpace = _parent_scene.MoveGeomToStaticSpace(prim_geom, _position, m_targetSpace);
                     }
                 }
             }
@@ -1880,7 +1856,7 @@ Console.WriteLine("CreateGeom:");
                 catch (System.AccessViolationException)
                 {
                     prim_geom = IntPtr.Zero;
-                    m_log.Error("[PHYSICS]: PrimGeom dead");
+                    m_log.Error("[PHYSICS]: PrimGeom destruction failed");
                 }
                 prim_geom = IntPtr.Zero;
             }
@@ -2890,9 +2866,9 @@ Console.WriteLine("ZProcessTaints for " + Name);
             {
                 ResetTaints();
                 if (_parent != null)
-                    (_parent as OdePrim).ChildRemove(this);
+                    (_parent as OdePrim).ChildRemove(this,false);
                 else
-                    ChildRemove(this);
+                    ChildRemove(this,false);
 
                 m_targetSpace = IntPtr.Zero;
                 if (!RemoveGeom())
