@@ -1423,7 +1423,7 @@ Console.WriteLine("CreateGeom:");
                     myrot.Z = _orientation.Z;
                     myrot.W = _orientation.W;
                     d.GeomSetQuaternion(prim_geom, ref myrot);
-                    _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
+//                    _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
                     SetInStaticSpace(this);
                 }
             }
@@ -1906,7 +1906,7 @@ Console.WriteLine("CreateGeom:");
                         d.GeomSetQuaternion(prim_geom, ref myrot);
                     }
 
-                    _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
+//                    _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
                 }
             }
 

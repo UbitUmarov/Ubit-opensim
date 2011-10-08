@@ -122,11 +122,11 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private float contactsurfacelayer = 0.001f;
 
-        private int worldHashspaceLow = -4;
-        private int worldHashspaceHigh = 128;
+//        private int worldHashspaceLow = -4;
+//        private int worldHashspaceHigh = 128;
 
-        private int smallHashspaceLow = -4;
-        private int smallHashspaceHigh = 66;
+//        private int smallHashspaceLow = -4;
+//        private int smallHashspaceHigh = 66;
 
         private float waterlevel = 0f;
         private int framecount = 0;
@@ -200,7 +200,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly Object _taintedCharacterLock = new Object();
         private readonly HashSet<OdeCharacter> _taintedCharacterH = new HashSet<OdeCharacter>(); // faster verification of repeated character taints
         private readonly Queue<OdeCharacter> _taintedCharacterQ = new Queue<OdeCharacter>(); // character taints
-        private readonly List<d.ContactGeom> _perloopContact = new List<d.ContactGeom>();
+//        private readonly List<d.ContactGeom> _perloopContact = new List<d.ContactGeom>();
 
         /// <summary>
         /// A list of actors that should receive collision events.
@@ -335,9 +335,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     // i must RtC#FM 
                     }
 
-                d.HashSpaceSetLevels(TopSpace, 0, 10); // cell sizes from 1 to 1024 ?? need check what this really does
-                d.HashSpaceSetLevels(ActiveSpace, 0, 10);
-                d.HashSpaceSetLevels(StaticSpace, 0, 10);
+                d.HashSpaceSetLevels(TopSpace, -2, 8); // cell sizes from .25 to 256 ?? need check what this really does
+                d.HashSpaceSetLevels(ActiveSpace, -2, 8);
+                d.HashSpaceSetLevels(StaticSpace, -2, 8);
 
                 // demote to second level
                 d.SpaceSetSublevel(ActiveSpace, 1);
@@ -355,9 +355,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             _watermap = new float[258 * 258];
-
-            // Zero out the prim spaces array (we split our space into smaller spaces so
-            // we can hit test less.
         }
 
 #if USE_DRAWSTUFF
@@ -406,12 +403,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                     gravityy = physicsconfig.GetFloat("world_gravityy", 0f);
                     gravityz = physicsconfig.GetFloat("world_gravityz", -9.8f);
 
-                    worldHashspaceLow = physicsconfig.GetInt("world_hashspace_size_low", -4);
-                    worldHashspaceHigh = physicsconfig.GetInt("world_hashspace_size_high", 128);
+//                    worldHashspaceLow = physicsconfig.GetInt("world_hashspace_size_low", -4);
+//                    worldHashspaceHigh = physicsconfig.GetInt("world_hashspace_size_high", 128);
 
                     metersInSpace = physicsconfig.GetFloat("meters_in_small_space", 29.9f);
-                    smallHashspaceLow = physicsconfig.GetInt("small_hashspace_size_low", -4);
-                    smallHashspaceHigh = physicsconfig.GetInt("small_hashspace_size_high", 66);
+//                    smallHashspaceLow = physicsconfig.GetInt("small_hashspace_size_low", -4);
+//                    smallHashspaceHigh = physicsconfig.GetInt("small_hashspace_size_high", 66);
 
                     contactsurfacelayer = physicsconfig.GetFloat("world_contact_surface_layer", 0.001f);
 
@@ -667,7 +664,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             spaceGridMaxX = (int)(300 * spacesPerMeter);
             spaceGridMaxY = (int)(300 * spacesPerMeter);
 
-            staticPrimspace = new IntPtr[spaceGridMaxX, spaceGridMaxX];
+            staticPrimspace = new IntPtr[spaceGridMaxX, spaceGridMaxY];
 
             // create all spaces now
             int i, j;
@@ -679,7 +676,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.GeomSetCategoryBits(newspace, (int)CollisionCategories.Space);
                     waitForSpaceUnlock(newspace);
                     d.SpaceSetSublevel(newspace, 2);
-                    d.HashSpaceSetLevels(newspace, 0, 9);
+                    d.HashSpaceSetLevels(newspace, -2, 8);
                     staticPrimspace[i, j] = newspace;
                 }
             // let this now be real maximum values
@@ -715,7 +712,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             if (d.GeomIsSpace(g1) || d.GeomIsSpace(g2))
             {
-                // Separating static prim geometry spaces.
                 // We'll be calling near recursivly if one
                 // of them is a space to find all of the
                 // contact points in the space
@@ -823,6 +819,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             for (int i = 0; i < count; i++)
             {
                 d.ContactGeom curContact = contacts[i];
+
+
+//for debug                d.Quaternion qtmp = d.BodyGetQuaternion(b1);
 
                 if (curContact.depth > maxDepthContact.PenetrationDepth)
                 {
@@ -967,7 +966,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                             //m_log.DebugFormat("Material: {0}", material);
                             m_materialContacts[material, movintYN].geom = curContact;
-                            _perloopContact.Add(curContact);
+//                            _perloopContact.Add(curContact);
 
                             if (m_global_contactcount < maxContactsbeforedeath)
                             {
@@ -1051,7 +1050,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                             //m_log.DebugFormat("Material: {0}", material);
                             m_materialContacts[material, movintYN].geom = curContact;
-                            _perloopContact.Add(curContact);
+//                            _perloopContact.Add(curContact);
 
                             if (m_global_contactcount < maxContactsbeforedeath)
                             {
@@ -1096,7 +1095,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             //contact.pos = new d.Vector3(0, 0, contact.pos.Z - 5f);
                         }
                         WaterContact.geom = curContact;
-                        _perloopContact.Add(curContact);
+//                        _perloopContact.Add(curContact);
                         if (m_global_contactcount < maxContactsbeforedeath)
                         {
                             joint = d.JointCreateContact(world, contactgroup, ref WaterContact);
@@ -1115,7 +1114,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the Movement prim contact
                                 AvatarMovementprimContact.geom = curContact;
-                                _perloopContact.Add(curContact);
+//                                _perloopContact.Add(curContact);
                                 if (m_global_contactcount < maxContactsbeforedeath)
                                 {
                                     joint = d.JointCreateContact(world, contactgroup, ref AvatarMovementprimContact);
@@ -1126,7 +1125,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the non movement contact
                                 contact.geom = curContact;
-                                _perloopContact.Add(curContact);
+//                                _perloopContact.Add(curContact);
 
                                 if (m_global_contactcount < maxContactsbeforedeath)
                                 {
@@ -1141,7 +1140,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the Movement prim contact
                                 AvatarMovementprimContact.geom = curContact;
-                                _perloopContact.Add(curContact);
+//                                _perloopContact.Add(curContact);
                                 if (m_global_contactcount < maxContactsbeforedeath)
                                 {
                                     joint = d.JointCreateContact(world, contactgroup, ref AvatarMovementprimContact);
@@ -1152,7 +1151,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the non movement contact
                                 contact.geom = curContact;
-                                _perloopContact.Add(curContact);
+//                                _perloopContact.Add(curContact);
 
                                 if (m_global_contactcount < maxContactsbeforedeath)
                                 {
@@ -1168,7 +1167,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the Movement prim contact
                                 AvatarMovementprimContact.geom = curContact;
-                                _perloopContact.Add(curContact);
+//                                _perloopContact.Add(curContact);
                                 if (m_global_contactcount < maxContactsbeforedeath)
                                 {
                                     joint = d.JointCreateContact(world, contactgroup, ref AvatarMovementprimContact);
@@ -1179,7 +1178,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the non movement contact
                                 contact.geom = curContact;
-                                _perloopContact.Add(curContact);
+//                                _perloopContact.Add(curContact);
 
                                 if (m_global_contactcount < maxContactsbeforedeath)
                                 {
@@ -1200,7 +1199,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                             //m_log.DebugFormat("Material: {0}", material);
                             m_materialContacts[material, 0].geom = curContact;
-                            _perloopContact.Add(curContact);
+//                            _perloopContact.Add(curContact);
 
                             if (m_global_contactcount < maxContactsbeforedeath)
                             {
@@ -1220,7 +1219,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                             //m_log.DebugFormat("Material: {0}", material);
                             m_materialContacts[material, 0].geom = curContact;
-                            _perloopContact.Add(curContact);
+//                            _perloopContact.Add(curContact);
 
                             if (m_global_contactcount < maxContactsbeforedeath)
                             {
@@ -1240,7 +1239,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                             //m_log.DebugFormat("Material: {0}", material);
                             m_materialContacts[material, 0].geom = curContact;
-                            _perloopContact.Add(curContact);
+//                            _perloopContact.Add(curContact);
 
                             if (m_global_contactcount < maxContactsbeforedeath)
                             {
@@ -1276,7 +1275,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                  */
             }
         }            
-
+/* not in use
         private bool checkDupe(d.ContactGeom contactGeom, int atype)
         {
             bool result = false;
@@ -1356,7 +1355,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             return result;
         }
-
+*/
         private void collision_accounting_events(PhysicsActor p1, PhysicsActor p2, ContactPoint contact)
             {
             // obj1LocalID = 0;
@@ -1364,7 +1363,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             obj2LocalID = 0;
             //ctype = 0;
             //cStartStop = 0;
-            if (!p2.SubscribedEvents() && !p1.SubscribedEvents())
+            if (!(p2.SubscribedEvents() || p1.SubscribedEvents()))
                 return;
 
             switch ((ActorTypes)p1.PhysicsActorType)
@@ -1386,7 +1385,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 {
                                 cp2 = (OdePrim)p2;
                                 obj2LocalID = cp2.m_localID;
-                                cp2.AddCollisionEvent(cc1.m_localID, contact);
+                                if (p2.SubscribedEvents())
+                                    cp2.AddCollisionEvent(cc1.m_localID, contact);
                                 }
                             break;
 
@@ -1582,9 +1582,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
                     }
         */
-        _perloopContact.Clear();
+//        _perloopContact.Clear();
 // clear characts IsColliding until we do it some other way
-// put the crap indentation readable
+
             lock (_characters)
                 {
                 foreach (OdeCharacter chr in _characters)
@@ -1624,7 +1624,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 m_log.Warn("[PHYSICS]: Unable to Active to static space collide");
                 }
 
-            _perloopContact.Clear();
+//            _perloopContact.Clear();
         }
 
         #endregion
