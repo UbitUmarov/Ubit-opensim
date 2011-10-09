@@ -83,25 +83,29 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
+        private Quaternion m_lastorientation = new Quaternion();
+        private Quaternion _orientation;
+        private Quaternion m_taintrot;
+
         private Vector3 _position;
         private Vector3 _velocity;
         private Vector3 _torque;
         private Vector3 m_lastVelocity;
         private Vector3 m_lastposition;
-        private Quaternion m_lastorientation = new Quaternion();
         private Vector3 m_rotationalVelocity;
         private Vector3 _size;
         private Vector3 _acceleration;
-        // private d.Vector3 _zeroPosition = new d.Vector3(0.0f, 0.0f, 0.0f);
-        private Quaternion _orientation;
         private Vector3 m_taintposition;
         private Vector3 m_taintsize;
         private Vector3 m_taintVelocity;
         private Vector3 m_taintTorque;
-        private Quaternion m_taintrot;
         private Vector3 m_angularlock = Vector3.One;
         private Vector3 m_taintAngularLock = Vector3.One;
         private IntPtr Amotor = IntPtr.Zero;
+
+        private Vector3 m_force;
+        private Vector3 m_taintimpulseacc;
+        private Vector3 m_taintangularimpulseacc;
 
         private Vector3 m_PIDTarget;
         private float m_PIDTau;
@@ -156,9 +160,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private bool m_hastaintimpulse = false;
         private bool m_hastaintaddangularforce = false;
 
-        private Vector3 m_force;
-        private Vector3 m_taintimpulseacc;
-        private Vector3 m_taintangularimpulseacc;
 
         private PrimitiveBaseShape _pbs;
         private OdeScene _parent_scene;
@@ -200,12 +201,13 @@ namespace OpenSim.Region.Physics.OdePlugin
         private Vector3 _target_velocity;
 
         public Vector3 primOOBsize; // prim real dimensions from mesh 
-        public Vector3 primOOBoffset; // is centroid
+        public Vector3 primOOBoffset; // is centroid out of mesh or rest aabb
         public float primOOBradiusSQ;
         public d.Mass primdMass; // prim inertia information on it's own referencial
         float primMass; // prim own mass
         float _mass; // object mass acording to case
         public d.Mass objectpMass; // object last computed inertia
+        private bool hasOOBoffsetFromMesh = false; // if true we did compute it form mesh centroid, else from aabb
 
         public bool givefakepos = false;
         private Vector3 fakepos;
@@ -289,6 +291,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             m_force = Vector3.Zero;
 
+            hasOOBoffsetFromMesh = false;
+            _triMeshData = IntPtr.Zero;
             m_taintadd = true;
             _parent_scene.AddPhysicsActorTaint(this);
             //  don't do .add() here; old geoms get recycled with the same hash
@@ -400,6 +404,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                     _parent_scene.actor_name_map.Remove(prim_geom);
                     d.GeomDestroy(prim_geom);
                     prim_geom = IntPtr.Zero;
+                    if (_triMeshData != IntPtr.Zero)
+                        d.GeomTriMeshDataDestroy(_triMeshData);
+                    _triMeshData = IntPtr.Zero;
+                    hasOOBoffsetFromMesh = false;
                     CalcPrimBodyData();
                 }
                 catch (System.AccessViolationException)
@@ -981,9 +989,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                 primOOBsize.X = (AABB.MaxX - AABB.MinX);
                 primOOBsize.Y = (AABB.MaxY - AABB.MinY);
                 primOOBsize.Z = (AABB.MaxZ - AABB.MinZ);
-                primOOBoffset.X = (AABB.MaxX + AABB.MinX) * 0.5f;
-                primOOBoffset.Y = (AABB.MaxY + AABB.MinY) * 0.5f;
-                primOOBoffset.Z = (AABB.MaxZ + AABB.MinZ) * 0.5f;
+                if (!hasOOBoffsetFromMesh)
+                {
+                    primOOBoffset.X = (AABB.MaxX + AABB.MinX) * 0.5f;
+                    primOOBoffset.Y = (AABB.MaxY + AABB.MinY) * 0.5f;
+                    primOOBoffset.Z = (AABB.MaxZ + AABB.MinZ) * 0.5f;
+                }
             }
 
             // also its own inertia and mass
@@ -1000,7 +1011,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             primOOBradiusSQ = primOOBsize.LengthSquared();
         }
 
-        private static Dictionary<IMesh, IntPtr> m_MeshToTriMeshMap = new Dictionary<IMesh, IntPtr>();
+//        private static Dictionary<IMesh, IntPtr> m_MeshToTriMeshMap = new Dictionary<IMesh, IntPtr>();
 
         public void setMesh(OdeScene parent_scene, IMesh mesh)
         {
@@ -1022,32 +1033,55 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
 
+            hasOOBoffsetFromMesh = false;
             IntPtr vertices, indices;
             int vertexCount, indexCount;
             int vertexStride, triStride;
+
+            // this is a messy waste of time.. but c# hates me using pointers
+            
+            List<Vector3> vertlist = mesh.getVertexList();
+
+            if (vertlist.Count > 0)
+            {
+                Vector3 vtmp = Vector3.Zero;
+                foreach (Vector3 v in vertlist)
+                    vtmp += v;
+                vtmp /= vertlist.Count;
+                primOOBoffset = vtmp;
+                hasOOBoffsetFromMesh = true;
+            }
+
             mesh.getVertexListAsPtrToFloatArray(out vertices, out vertexStride, out vertexCount); // Note, that vertices are fixed in unmanaged heap
             mesh.getIndexListAsPtrToIntArray(out indices, out triStride, out indexCount); // Also fixed, needs release after usage
 
-            mesh.releaseSourceMeshData(); // free up the original mesh data to save memory
+//            mesh.releaseSourceMeshData(); // free up the original mesh data to save memory
+
+
+/*
             if (m_MeshToTriMeshMap.ContainsKey(mesh))
             {
                 _triMeshData = m_MeshToTriMeshMap[mesh];
             }
             else
             {
+ */
                 _triMeshData = d.GeomTriMeshDataCreate();
 
                 d.GeomTriMeshDataBuildSimple(_triMeshData, vertices, vertexStride, vertexCount, indices, indexCount, triStride);
                 d.GeomTriMeshDataPreprocess(_triMeshData);
-                m_MeshToTriMeshMap[mesh] = _triMeshData;
-            }
+//                m_MeshToTriMeshMap[mesh] = _triMeshData;
+//            }
+
 
             _parent_scene.waitForSpaceUnlock(m_targetSpace);
             try
             {
                 if (prim_geom == IntPtr.Zero)
                 {
-                    SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, parent_scene.triCallback, null, null));
+// we aren't doing anything in the tricallback
+//                    SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, parent_scene.triCallback, null, null));
+                    SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, null, null, null));
                 }
             }
             catch (AccessViolationException)
@@ -1360,6 +1394,10 @@ namespace OpenSim.Region.Physics.OdePlugin
 #if SPAM
 Console.WriteLine("CreateGeom:");
 #endif
+            if (_triMeshData != IntPtr.Zero)
+                d.GeomTriMeshDataDestroy(_triMeshData);
+            _triMeshData = IntPtr.Zero;
+
             if (_mesh != null)
             {
                 setMesh(_parent_scene, _mesh); // this will give a mesh to non trivial known prims
@@ -1404,7 +1442,7 @@ Console.WriteLine("CreateGeom:");
             if (_parent_scene.needsMeshing(_pbs))
             {
                 // Don't need to re-enable body..   it's done in SetMesh
-                mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size, _parent_scene.meshSculptLOD, IsPhysical);
+                mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size,(float) LevelOfDetail.High, true);
                 // createmesh returns null when it's a shape that isn't a cube.
                 // m_log.Debug(m_localID);
             }
@@ -1852,6 +1890,9 @@ Console.WriteLine("CreateGeom:");
                 try
                 {
                     d.GeomDestroy(prim_geom);
+                    if (_triMeshData != IntPtr.Zero)
+                        d.GeomTriMeshDataDestroy(_triMeshData);
+                    _triMeshData = IntPtr.Zero;
                 }
                 catch (System.AccessViolationException)
                 {
@@ -1869,24 +1910,14 @@ Console.WriteLine("CreateGeom:");
                 _size.Z = 0.01f;
             // Construction of new prim
 
+            IMesh mesh = null;
+
             if (_parent_scene.needsMeshing(_pbs))
             {
-                // Don't need to re-enable body..   it's done in SetMesh
-                float meshlod = _parent_scene.meshSculptLOD;
-
-                if (IsPhysical)
-                    meshlod = _parent_scene.MeshSculptphysicalLOD;
-
-                IMesh mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size, meshlod, IsPhysical);
-                // createmesh returns null when it doesn't mesh.
-                CreateGeom(m_targetSpace, mesh);
+                mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size, (float)LevelOfDetail.High, true);
             }
-            else
-            {
-                //                _mesh = null;
-                //Console.WriteLine("changeshape");
-                CreateGeom(m_targetSpace, null);
-            }
+
+            CreateGeom(m_targetSpace, mesh);
 
             lock (_parent_scene.OdeLock)
             {
@@ -2528,9 +2559,6 @@ Console.WriteLine("CreateGeom:");
                         //outofBounds = true;
                     }
 
-
-                    //float Adiff = 1.0f - Math.Abs(Quaternion.Dot(m_lastorientation, l_orientation));
-                    //Console.WriteLine("Adiff " + Name + " = " + Adiff);
                     if ((Math.Abs(m_lastposition.X - lpos.X) < 0.01)
                         && (Math.Abs(m_lastposition.Y - lpos.Y) < 0.01)
                         && (Math.Abs(m_lastposition.Z - lpos.Z) < 0.01)
