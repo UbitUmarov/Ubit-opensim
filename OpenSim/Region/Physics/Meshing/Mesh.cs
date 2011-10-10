@@ -62,7 +62,7 @@ namespace OpenSim.Region.Physics.Meshing
                 int a = v.X.GetHashCode();
                 int b = v.Y.GetHashCode();
                 int c = v.Z.GetHashCode();
-                return a << 16 ^ b << 8 ^ c;
+                return (a << 16) ^ (b << 8) ^ c;
             }
 
         }
@@ -93,7 +93,13 @@ namespace OpenSim.Region.Physics.Meshing
                 throw new NotSupportedException("Attempt to Add to a pinned Mesh");
             // If a vertex of the triangle is not yet in the vertices list,
             // add it and set its index to the current index count
-            
+
+            if (triangle.v1 == triangle.v2 || triangle.v1 == triangle.v3 || triangle.v2 == triangle.v3)
+            {
+                // ignore colapsed triangles
+                return;
+            }
+
             if (!m_vertices.ContainsKey(triangle.v1))
                 m_vertices[triangle.v1] = m_vertices.Count;
             if (!m_vertices.ContainsKey(triangle.v2))
