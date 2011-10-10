@@ -405,8 +405,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.GeomDestroy(prim_geom);
                     prim_geom = IntPtr.Zero;
                     if (_triMeshData != IntPtr.Zero)
+                    {
                         d.GeomTriMeshDataDestroy(_triMeshData);
-                    _triMeshData = IntPtr.Zero;
+                        _triMeshData = IntPtr.Zero;
+                    }
                     hasOOBoffsetFromMesh = false;
                     CalcPrimBodyData();
                 }
@@ -1033,54 +1035,33 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
 
-            hasOOBoffsetFromMesh = false;
             IntPtr vertices, indices;
             int vertexCount, indexCount;
             int vertexStride, triStride;
 
-            // this is a messy waste of time.. but c# hates me using pointers
-            
-            List<Vector3> vertlist = mesh.getVertexList();
 
-            if (vertlist.Count > 0)
-            {
-                Vector3 vtmp = Vector3.Zero;
-                foreach (Vector3 v in vertlist)
-                    vtmp += v;
-                vtmp /= vertlist.Count;
-                primOOBoffset = vtmp;
-                hasOOBoffsetFromMesh = true;
-            }
 
             mesh.getVertexListAsPtrToFloatArray(out vertices, out vertexStride, out vertexCount); // Note, that vertices are fixed in unmanaged heap
             mesh.getIndexListAsPtrToIntArray(out indices, out triStride, out indexCount); // Also fixed, needs release after usage
 
-//            mesh.releaseSourceMeshData(); // free up the original mesh data to save memory
+            primOOBoffset = mesh.GetCentroid();
+            hasOOBoffsetFromMesh = true;
 
+            _triMeshData = d.GeomTriMeshDataCreate();
 
-/*
-            if (m_MeshToTriMeshMap.ContainsKey(mesh))
-            {
-                _triMeshData = m_MeshToTriMeshMap[mesh];
-            }
-            else
-            {
- */
-                _triMeshData = d.GeomTriMeshDataCreate();
+            d.GeomTriMeshDataBuildSimple(_triMeshData, vertices, vertexStride, vertexCount, indices, indexCount, triStride);
+            d.GeomTriMeshDataPreprocess(_triMeshData);
 
-                d.GeomTriMeshDataBuildSimple(_triMeshData, vertices, vertexStride, vertexCount, indices, indexCount, triStride);
-                d.GeomTriMeshDataPreprocess(_triMeshData);
-//                m_MeshToTriMeshMap[mesh] = _triMeshData;
-//            }
-
+            
+            mesh.releaseSourceMeshData();
 
             _parent_scene.waitForSpaceUnlock(m_targetSpace);
             try
             {
                 if (prim_geom == IntPtr.Zero)
                 {
-// we aren't doing anything in the tricallback
-//                    SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, parent_scene.triCallback, null, null));
+                    // we aren't doing anything in the tricallback
+                    //                    SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, parent_scene.triCallback, null, null));
                     SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, null, null, null));
                 }
             }
@@ -1389,18 +1370,22 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// </summary>
         /// <param name="m_targetSpace"></param>
         /// <param name="mesh">If null, then a mesh is used that is based on the profile shape data.</param>
-        public void CreateGeom(IntPtr targetSpace, IMesh _mesh)
+        public void CreateGeom(IntPtr targetSpace, IMesh mesh)
         {
 #if SPAM
 Console.WriteLine("CreateGeom:");
 #endif
             if (_triMeshData != IntPtr.Zero)
-                d.GeomTriMeshDataDestroy(_triMeshData);
-            _triMeshData = IntPtr.Zero;
-
-            if (_mesh != null)
             {
-                setMesh(_parent_scene, _mesh); // this will give a mesh to non trivial known prims
+                d.GeomTriMeshDataDestroy(_triMeshData);
+                _triMeshData = IntPtr.Zero;
+            }
+
+            hasOOBoffsetFromMesh = false;
+
+            if (mesh != null)
+            {
+                setMesh(_parent_scene, mesh); // this will give a mesh to non trivial known prims
             }
             else
             {
@@ -1442,7 +1427,7 @@ Console.WriteLine("CreateGeom:");
             if (_parent_scene.needsMeshing(_pbs))
             {
                 // Don't need to re-enable body..   it's done in SetMesh
-                mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size,(float) LevelOfDetail.High, true);
+                mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size, (int)LevelOfDetail.High, true);
                 // createmesh returns null when it's a shape that isn't a cube.
                 // m_log.Debug(m_localID);
             }
@@ -1914,7 +1899,7 @@ Console.WriteLine("CreateGeom:");
 
             if (_parent_scene.needsMeshing(_pbs))
             {
-                mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size, (float)LevelOfDetail.High, true);
+                mesh = _parent_scene.mesher.CreateMesh(Name, _pbs, _size, (int)LevelOfDetail.High,true);
             }
 
             CreateGeom(m_targetSpace, mesh);

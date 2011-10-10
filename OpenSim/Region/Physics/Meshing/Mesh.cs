@@ -46,7 +46,8 @@ namespace OpenSim.Region.Physics.Meshing
         IntPtr m_indicesPtr = IntPtr.Zero;
         int m_indexCount = 0;
         public float[] m_normals;
-
+        Vector3 _centroid;
+        int _centroidDiv;
 
         private class vertexcomp : IEqualityComparer<Vertex>
         {
@@ -73,6 +74,8 @@ namespace OpenSim.Region.Physics.Meshing
 
             m_vertices = new Dictionary<Vertex, int>(vcomp);
             m_triangles = new List<Triangle>();
+            _centroid = Vector3.Zero;
+            _centroidDiv = 0;
         }
 
         public Mesh Clone()
@@ -83,7 +86,8 @@ namespace OpenSim.Region.Physics.Meshing
             {
                 result.Add(new Triangle(t.v1.Clone(), t.v2.Clone(), t.v3.Clone()));
             }
-
+            result._centroid = _centroid;
+            result._centroidDiv = _centroidDiv;
             return result;
         }
 
@@ -100,13 +104,45 @@ namespace OpenSim.Region.Physics.Meshing
                 return;
             }
 
+            if (m_vertices.Count == 0)
+            {
+                _centroidDiv = 0;
+                _centroid = Vector3.Zero;
+            }
+
             if (!m_vertices.ContainsKey(triangle.v1))
+            {
                 m_vertices[triangle.v1] = m_vertices.Count;
+                _centroid.X += triangle.v1.X;
+                _centroid.Y += triangle.v1.Y;
+                _centroid.Z += triangle.v1.Z;
+                _centroidDiv++;
+            }
             if (!m_vertices.ContainsKey(triangle.v2))
+            {
                 m_vertices[triangle.v2] = m_vertices.Count;
+                _centroid.X += triangle.v2.X;
+                _centroid.Y += triangle.v2.Y;
+                _centroid.Z += triangle.v2.Z;
+                _centroidDiv++;
+            }
             if (!m_vertices.ContainsKey(triangle.v3))
+            {
                 m_vertices[triangle.v3] = m_vertices.Count;
+                _centroid.X += triangle.v3.X;
+                _centroid.Y += triangle.v3.Y;
+                _centroid.Z += triangle.v3.Z;
+                _centroidDiv++;
+            }
             m_triangles.Add(triangle);
+        }
+
+        public Vector3 GetCentroid()
+        {
+            if (_centroidDiv > 0)
+                return new Vector3(_centroid.X / _centroidDiv, _centroid.Y / _centroidDiv, _centroid.Z / _centroidDiv);
+            else
+                return Vector3.Zero;
         }
 
         public void CalcNormals()
