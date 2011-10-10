@@ -47,9 +47,31 @@ namespace OpenSim.Region.Physics.Meshing
         int m_indexCount = 0;
         public float[] m_normals;
 
+
+        private class vertexcomp : IEqualityComparer<Vertex>
+        {
+            public bool Equals(Vertex v1, Vertex v2)
+            {
+                if (v1.X == v2.X && v1.Y == v2.Y && v1.Z == v2.Z)
+                    return true;
+                else
+                    return false;
+            }
+            public int GetHashCode(Vertex v)
+            {
+                int a = v.X.GetHashCode();
+                int b = v.Y.GetHashCode();
+                int c = v.Z.GetHashCode();
+                return a << 16 ^ b << 8 ^ c;
+            }
+
+        }
+
         public Mesh()
         {
-            m_vertices = new Dictionary<Vertex, int>();
+            vertexcomp vcomp = new vertexcomp();
+
+            m_vertices = new Dictionary<Vertex, int>(vcomp);
             m_triangles = new List<Triangle>();
         }
 
@@ -71,6 +93,7 @@ namespace OpenSim.Region.Physics.Meshing
                 throw new NotSupportedException("Attempt to Add to a pinned Mesh");
             // If a vertex of the triangle is not yet in the vertices list,
             // add it and set its index to the current index count
+            
             if (!m_vertices.ContainsKey(triangle.v1))
                 m_vertices[triangle.v1] = m_vertices.Count;
             if (!m_vertices.ContainsKey(triangle.v2))
