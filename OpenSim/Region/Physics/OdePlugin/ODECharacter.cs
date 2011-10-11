@@ -917,14 +917,14 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             // the Amotor still lets avatar rotation to drift during colisions
             // so force it back to identity
-/*            
+            
             d.Quaternion qtmp;
             qtmp.W = 1;
             qtmp.X = 0;
             qtmp.Y = 0;
             qtmp.Z = 0;
             d.BodySetQuaternion(Body, ref qtmp);
-*/
+
             if (m_pidControllerActive == false)
             {
                 _zeroPosition = localpos;

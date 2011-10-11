@@ -1573,10 +1573,9 @@ Console.WriteLine("CreateGeom:");
                     //float PID_P = 900.0f;
 
                     float m_mass = _mass;
-
+                   
                     //                    fz = 0f;
                     //m_log.Info(m_collisionFlags.ToString());
-
                     if (m_usePID)
                     {
                         //Console.WriteLine("PID " +  Name);

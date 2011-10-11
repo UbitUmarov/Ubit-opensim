@@ -138,18 +138,18 @@ namespace OpenSim.Region.Physics.OdePlugin
         internal IntPtr LandGeom;
         internal IntPtr WaterGeom;
 
-        private float nmTerrainContactFriction = 255.0f;
+        private float nmTerrainContactFriction = 10.0f;
         private float nmTerrainContactBounce = 0.1f;
         private float nmTerrainContactERP = 0.8f;
 
-        private float mTerrainContactFriction = 75f;
+        private float mTerrainContactFriction = 1f;
         private float mTerrainContactBounce = 0.1f;
         private float mTerrainContactERP = 0.05025f;
 
-        private float nmAvatarObjectContactFriction = 250f;
+        private float nmAvatarObjectContactFriction = 10f;
         private float nmAvatarObjectContactBounce = 0.1f;
 
-        private float mAvatarObjectContactFriction = 75f;
+        private float mAvatarObjectContactFriction = 1f;
         private float mAvatarObjectContactBounce = 0.1f;
 
         public float avPIDD = 3200f; // make it visible
@@ -294,12 +294,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         public d.Vector3 xyz = new d.Vector3(128.1640f, 128.3079f, 25.7600f);
         public d.Vector3 hpr = new d.Vector3(125.5000f, -17.0000f, 0.0000f);
 
-        // TODO: unused: private uint heightmapWidth = m_regionWidth + 1;
-        // TODO: unused: private uint heightmapHeight = m_regionHeight + 1;
-        // TODO: unused: private uint heightmapWidthSamples;
-        // TODO: unused: private uint heightmapHeightSamples;
-
-
         private Vector3 m_worldOffset = Vector3.Zero;
         public Vector2 WorldExtents = new Vector2((int)Constants.RegionSize, (int)Constants.RegionSize);
         private PhysicsScene m_parentScene = null;
@@ -409,27 +403,22 @@ namespace OpenSim.Region.Physics.OdePlugin
                     gravityy = physicsconfig.GetFloat("world_gravityy", 0f);
                     gravityz = physicsconfig.GetFloat("world_gravityz", -9.8f);
 
-//                    worldHashspaceLow = physicsconfig.GetInt("world_hashspace_size_low", -4);
-//                    worldHashspaceHigh = physicsconfig.GetInt("world_hashspace_size_high", 128);
-
                     metersInSpace = physicsconfig.GetFloat("meters_in_small_space", 29.9f);
-//                    smallHashspaceLow = physicsconfig.GetInt("small_hashspace_size_low", -4);
-//                    smallHashspaceHigh = physicsconfig.GetInt("small_hashspace_size_high", 66);
 
                     contactsurfacelayer = physicsconfig.GetFloat("world_contact_surface_layer", 0.001f);
 
-                    nmTerrainContactFriction = physicsconfig.GetFloat("nm_terraincontact_friction", 255.0f);
+                    nmTerrainContactFriction = physicsconfig.GetFloat("nm_terraincontact_friction", 10.0f);
                     nmTerrainContactBounce = physicsconfig.GetFloat("nm_terraincontact_bounce", 0.1f);
                     nmTerrainContactERP = physicsconfig.GetFloat("nm_terraincontact_erp", 0.8f);
 
-                    mTerrainContactFriction = physicsconfig.GetFloat("m_terraincontact_friction", 75f);
+                    mTerrainContactFriction = physicsconfig.GetFloat("m_terraincontact_friction", 1f);
                     mTerrainContactBounce = physicsconfig.GetFloat("m_terraincontact_bounce", 0.05f);
                     mTerrainContactERP = physicsconfig.GetFloat("m_terraincontact_erp", 0.8f);
 
-                    nmAvatarObjectContactFriction = physicsconfig.GetFloat("objectcontact_friction", 250f);
+                    nmAvatarObjectContactFriction = physicsconfig.GetFloat("objectcontact_friction", 10f);
                     nmAvatarObjectContactBounce = physicsconfig.GetFloat("objectcontact_bounce", 0.2f);
 
-                    mAvatarObjectContactFriction = physicsconfig.GetFloat("m_avatarobjectcontact_friction", 75f);
+                    mAvatarObjectContactFriction = physicsconfig.GetFloat("m_avatarobjectcontact_friction", 1f);
                     mAvatarObjectContactBounce = physicsconfig.GetFloat("m_avatarobjectcontact_bounce", 0.1f);
 
                     ODE_STEPSIZE = physicsconfig.GetFloat("world_stepsize", 0.020f);
@@ -970,16 +959,26 @@ namespace OpenSim.Region.Physics.OdePlugin
                             // prim prim contact
                             // int pj294950 = 0;
                             int movintYN = 0;
-                            int material = (int)Material.Wood;
+                            int material;
+                            float mass;
                             // prim terrain contact
                             if (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f)
                             {
                                 movintYN = 1;
                             }
-                            if (p2 is OdePrim)
-                                material = ((OdePrim)p2).m_material;
 
-                            float mu = m_materialContactsSurf[material, movintYN].mu;
+                            if (p2 is OdePrim)
+                            {
+                                material = ((OdePrim)p2).m_material;
+                                mass = p2.Mass;
+                            }
+                            else
+                            {
+                                material = (int)Material.Wood;
+                                mass = 10;
+                            }
+
+                            float mu = m_materialContactsSurf[material, movintYN].mu * mass;
                             float bounce = m_materialContactsSurf[material, movintYN].bounce;
                             float soft_cfm = m_materialContactsSurf[material, movintYN].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, movintYN].soft_erp;
@@ -1019,7 +1018,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                         {
                             // prim prim contact
                             int movintYN = 0;
-                            int material = (int)Material.Wood;
+                            int material;
+                            float mass;
+
                             // prim terrain contact
                             if (Math.Abs(p1.Velocity.X) > 0.01f || Math.Abs(p1.Velocity.Y) > 0.01f)
                             {
@@ -1027,9 +1028,17 @@ namespace OpenSim.Region.Physics.OdePlugin
                             }
 
                             if (p1 is OdePrim)
+                            {
                                 material = ((OdePrim)p1).m_material;
+                                mass = p1.Mass;
+                            }
+                            else
+                            {
+                                material = (int)Material.Wood;
+                                mass = 10f;
+                            }
 
-                            float mu = m_materialContactsSurf[material, movintYN].mu;
+                            float mu = m_materialContactsSurf[material, movintYN].mu * mass;
                             float bounce = m_materialContactsSurf[material, movintYN].bounce;
                             float soft_cfm = m_materialContactsSurf[material, movintYN].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, movintYN].soft_erp;
@@ -1059,10 +1068,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                         // check if we're moving
                         if ((p1.PhysicsActorType == (int)ActorTypes.Agent) && (p2.PhysicsActorType == (int)ActorTypes.Agent))
                         {
-                            if ((Math.Abs(p2.Velocity.X - p1.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y - p1.Velocity.Y) > 0.01f))
+                            if ((Math.Abs(p2.Velocity.X - p1.Velocity.X) > 0.1f || Math.Abs(p2.Velocity.Y - p1.Velocity.Y) > 0.1f))
                             {
                                 // Use the Movement prim contact
-                                float mu = AvatarMovementprimContactSurf.mu;
+                                float mu = AvatarMovementprimContactSurf.mu * 80f;
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
@@ -1071,7 +1080,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             else
                             {
                                 // Use the non movement contact
-                                float mu = contactSurf.mu;
+                                float mu = contactSurf.mu * 80f;
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
@@ -1080,10 +1089,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
                         else if ((p1.PhysicsActorType == (int)ActorTypes.Agent))
                         {
-                            if ((Math.Abs(p1.Velocity.X) > 0.01f || Math.Abs(p1.Velocity.Y) > 0.01f))
+                            if ((Math.Abs(p1.Velocity.X) > 0.1f || Math.Abs(p1.Velocity.Y) > 0.1f))
                             {
                                 // Use the Movement prim contact
-                                float mu = AvatarMovementprimContactSurf.mu;
+                                float mu = AvatarMovementprimContactSurf.mu * 80f;
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
@@ -1092,7 +1101,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             else
                             {
                                 // Use the non movement contact
-                                float mu = contactSurf.mu;
+                                float mu = contactSurf.mu * 80f;
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
@@ -1106,7 +1115,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the Movement prim contact
 
-                                float mu = AvatarMovementprimContactSurf.mu;
+                                float mu = AvatarMovementprimContactSurf.mu * 80f;
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
@@ -1115,7 +1124,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             else
                             {
                                 // Use the non movement contact
-                                float mu = contactSurf.mu;
+                                float mu = contactSurf.mu * 80f;
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
@@ -1125,35 +1134,78 @@ namespace OpenSim.Region.Physics.OdePlugin
                         else if (p1.PhysicsActorType == (int)ActorTypes.Prim && p2.PhysicsActorType == (int)ActorTypes.Prim)
                         {
                             int isMov;
-                            if ((Math.Abs(p2.Velocity.X - p1.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y - p1.Velocity.Y) > 0.01f))
+                            if ((Math.Abs(p2.Velocity.X - p1.Velocity.X) > 0.1f || Math.Abs(p2.Velocity.Y - p1.Velocity.Y) > 0.1f))
                                 isMov = 1;
                             else
                                 isMov = 0;
 
                             //p1.PhysicsActorType
-                            int material;
+                            int material1;
+                            int material2;
+                            float mu;
+                            float mu2;
+                            float bounce;
+                            float bounce2;
+                            float soft_cfm;
+                            float soft_erp;
+                            float soft_cfm2;
+                            float soft_erp2;
+
+                            if (p1 is OdePrim)
+                            {
+                                material1 = ((OdePrim)p1).m_material;
+                                mu = m_materialContactsSurf[material1, isMov].mu * p1.Mass;
+                            }
+                            else
+                            {
+                                material1 = (int)Material.Wood;
+                                mu = m_materialContactsSurf[material1, isMov].mu * 10f;
+                            }
+                                                        
+                            bounce = m_materialContactsSurf[material1, isMov].bounce;
+                            soft_cfm = m_materialContactsSurf[material1, isMov].soft_cfm;
+                            soft_erp = m_materialContactsSurf[material1, isMov].soft_erp;
 
                             if (p2 is OdePrim)
-                                material = ((OdePrim)p2).m_material;
+                            {
+                                material2 = ((OdePrim)p2).m_material;
+                                mu2 = m_materialContactsSurf[material2, isMov].mu * p2.Mass;
+                            }
                             else
-                                material = (int)Material.Wood;
+                            {
+                                material2 = (int)Material.Wood;
+                                mu2 = m_materialContactsSurf[material2, isMov].mu * 10f;
+                            }
+                            bounce2 = m_materialContactsSurf[material2, isMov].bounce;
+                            soft_cfm2 = m_materialContactsSurf[material2, isMov].soft_cfm;
+                            soft_erp2 = m_materialContactsSurf[material1, isMov].soft_erp;
 
-                            float mu = m_materialContactsSurf[material, isMov].mu;
-                            float bounce = m_materialContactsSurf[material, isMov].bounce;
-                            float soft_cfm = m_materialContactsSurf[material, isMov].soft_cfm;
-                            float soft_erp = m_materialContactsSurf[material, isMov].soft_erp;
+                            if (mu > mu2)
+                                mu = mu2;
+                            if (soft_cfm < soft_cfm2)
+                                soft_cfm = soft_cfm2;
+                            if (soft_erp < soft_erp2)
+                                soft_erp = soft_erp2;
+
                             doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
                         }
                         else if (p1.PhysicsActorType == (int)ActorTypes.Prim)
                         {
                             int material;
+                            float mass;
 
                             if (p1 is OdePrim)
+                            {
+                                mass = p1.Mass;
                                 material = ((OdePrim)p1).m_material;
+                            }
                             else
+                            {
                                 material = (int)Material.Wood;
+                                mass = 10;
+                            }
 
-                            float mu = m_materialContactsSurf[material, 0].mu;
+                            float mu = m_materialContactsSurf[material, 0].mu * mass;
                             float bounce = m_materialContactsSurf[material, 0].bounce;
                             float soft_cfm = m_materialContactsSurf[material, 0].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, 0].soft_erp;
@@ -1162,13 +1214,20 @@ namespace OpenSim.Region.Physics.OdePlugin
                         else if (p2.PhysicsActorType == (int)ActorTypes.Prim)
                         {
                             int material;
+                            float mass;
 
                             if (p2 is OdePrim)
+                            {
                                 material = ((OdePrim)p2).m_material;
+                                mass = p2.Mass;
+                            }
                             else
+                            {
                                 material = (int)Material.Wood;
+                                mass = 10;
+                            }
 
-                            float mu = m_materialContactsSurf[material, 0].mu;
+                            float mu = m_materialContactsSurf[material, 0].mu * mass;
                             float bounce = m_materialContactsSurf[material, 0].bounce;
                             float soft_cfm = m_materialContactsSurf[material, 0].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, 0].soft_erp;
