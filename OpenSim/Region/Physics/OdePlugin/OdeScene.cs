@@ -139,18 +139,18 @@ namespace OpenSim.Region.Physics.OdePlugin
         internal IntPtr WaterGeom;
 
         private float nmTerrainContactFriction = 10.0f;
-        private float nmTerrainContactBounce = 0.1f;
+        private float nmTerrainContactBounce = 0.05f;
         private float nmTerrainContactERP = 0.8f;
 
         private float mTerrainContactFriction = 1f;
-        private float mTerrainContactBounce = 0.1f;
-        private float mTerrainContactERP = 0.05025f;
+        private float mTerrainContactBounce = 0.05f;
+        private float mTerrainContactERP = 0.8f;
 
         private float nmAvatarObjectContactFriction = 10f;
-        private float nmAvatarObjectContactBounce = 0.1f;
+        private float nmAvatarObjectContactBounce = 0.05f;
 
         private float mAvatarObjectContactFriction = 1f;
-        private float mAvatarObjectContactBounce = 0.1f;
+        private float mAvatarObjectContactBounce = 0.05f;
 
         public float avPIDD = 3200f; // make it visible
         public float avPIDP = 1400f; // make it visible
@@ -408,7 +408,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     contactsurfacelayer = physicsconfig.GetFloat("world_contact_surface_layer", 0.001f);
 
                     nmTerrainContactFriction = physicsconfig.GetFloat("nm_terraincontact_friction", 10.0f);
-                    nmTerrainContactBounce = physicsconfig.GetFloat("nm_terraincontact_bounce", 0.1f);
+                    nmTerrainContactBounce = physicsconfig.GetFloat("nm_terraincontact_bounce", 0.05f);
                     nmTerrainContactERP = physicsconfig.GetFloat("nm_terraincontact_erp", 0.8f);
 
                     mTerrainContactFriction = physicsconfig.GetFloat("m_terraincontact_friction", 1f);
@@ -487,8 +487,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             contactSurf.mode |= comumContactFlagsMode;
             contactSurf.mu = nmAvatarObjectContactFriction;
             contactSurf.bounce = nmAvatarObjectContactBounce;
-            contactSurf.soft_cfm = 0.0010f;
-            contactSurf.soft_erp = 0.08f;
+            contactSurf.soft_cfm = 0.001f;
+            contactSurf.soft_erp = 0.01f;
 
             // Terrain contact friction and Bounce
             // This is the *non* moving version.   Use this when an avatar
@@ -496,76 +496,64 @@ namespace OpenSim.Region.Physics.OdePlugin
             TerrainContactSurf.mode |= comumContactFlagsMode;
             TerrainContactSurf.mu = nmTerrainContactFriction;
             TerrainContactSurf.bounce = nmTerrainContactBounce;
-            TerrainContactSurf.soft_erp = nmTerrainContactERP;
-            TerrainContactSurf.soft_erp = 0.08f;
+            TerrainContactSurf.soft_cfm = 0.001f;
+            TerrainContactSurf.soft_erp = 0.01f;
 
             WaterContactSurf.mode |= comumContactFlagsMode;
             WaterContactSurf.mu = 0f; // No friction
             WaterContactSurf.bounce = 0.0f; // No bounce
-            WaterContactSurf.soft_cfm = 0.0010f;
-            WaterContactSurf.soft_erp = 0.08f;
+            WaterContactSurf.soft_cfm = 0.50f;
+            WaterContactSurf.soft_erp = 0.01f;
 
             // Prim contact friction and bounce
             // THis is the *non* moving version of friction and bounce
             // Use this when an avatar comes in contact with a prim
             // and is moving
+
+            AvatarMovementprimContactSurf.mode |= comumContactFlagsMode;
             AvatarMovementprimContactSurf.mu = mAvatarObjectContactFriction;
             AvatarMovementprimContactSurf.bounce = mAvatarObjectContactBounce;
+            AvatarMovementprimContactSurf.soft_cfm = 0.001f;
+            AvatarMovementprimContactSurf.soft_erp = 0.02f;
 
             // Terrain contact friction bounce and various error correcting calculations
             // Use this when an avatar is in contact with the terrain and moving.
             AvatarMovementTerrainContactSurf.mode |= comumContactFlagsMode;
             AvatarMovementTerrainContactSurf.mu = mTerrainContactFriction;
             AvatarMovementTerrainContactSurf.bounce = mTerrainContactBounce;
-            AvatarMovementTerrainContactSurf.soft_erp = mTerrainContactERP;
-
-            /*
-                <summary></summary>
-                Stone = 0,
-                /// <summary></summary>
-                Metal = 1,
-                /// <summary></summary>
-                Glass = 2,
-                /// <summary></summary>
-                Wood = 3,
-                /// <summary></summary>
-                Flesh = 4,
-                /// <summary></summary>
-                Plastic = 5,
-                /// <summary></summary>
-                Rubber = 6
-             */
+            AvatarMovementTerrainContactSurf.soft_cfm = 0.001f;
+            AvatarMovementTerrainContactSurf.soft_erp = .02f;
 
             m_materialContactsSurf = new d.SurfaceParameters[7, 2];
 
             m_materialContactsSurf[(int)Material.Stone, 0].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Stone, 0].mu = nmAvatarObjectContactFriction;
             m_materialContactsSurf[(int)Material.Stone, 0].bounce = nmAvatarObjectContactBounce;
-            m_materialContactsSurf[(int)Material.Stone, 0].soft_cfm = 0.010f;
+            m_materialContactsSurf[(int)Material.Stone, 0].soft_cfm = 0.001f;
             m_materialContactsSurf[(int)Material.Stone, 0].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Stone, 1].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Stone, 1].mu = mAvatarObjectContactFriction;
             m_materialContactsSurf[(int)Material.Stone, 1].bounce = mAvatarObjectContactBounce;
-            m_materialContactsSurf[(int)Material.Stone, 1].soft_cfm = 0.010f;
+            m_materialContactsSurf[(int)Material.Stone, 1].soft_cfm = 0.001f;
             m_materialContactsSurf[(int)Material.Stone, 1].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Metal, 0].mode |= comumContactFlagsMode;
-            m_materialContactsSurf[(int)Material.Metal, 0].mu = nmAvatarObjectContactFriction;
+            m_materialContactsSurf[(int)Material.Metal, 0].mu = nmAvatarObjectContactFriction * .8f;
             m_materialContactsSurf[(int)Material.Metal, 0].bounce = nmAvatarObjectContactBounce;
-            m_materialContactsSurf[(int)Material.Metal, 0].soft_cfm = 0.010f;
+            m_materialContactsSurf[(int)Material.Metal, 0].soft_cfm = 0.001f;
             m_materialContactsSurf[(int)Material.Metal, 0].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Metal, 1].mode |= comumContactFlagsMode;
-            m_materialContactsSurf[(int)Material.Metal, 1].mu = mAvatarObjectContactFriction;
+            m_materialContactsSurf[(int)Material.Metal, 1].mu = mAvatarObjectContactFriction * .8f;
             m_materialContactsSurf[(int)Material.Metal, 1].bounce = mAvatarObjectContactBounce;
-            m_materialContactsSurf[(int)Material.Metal, 1].soft_cfm = 0.010f;
-            m_materialContactsSurf[(int)Material.Metal, 1].soft_erp = 0.010f;
+            m_materialContactsSurf[(int)Material.Metal, 1].soft_cfm = 0.0010f;
+            m_materialContactsSurf[(int)Material.Metal, 1].soft_erp = 0.01f;
 
             m_materialContactsSurf[(int)Material.Glass, 0].mode |= comumContactFlagsMode;
-            m_materialContactsSurf[(int)Material.Glass, 0].mu = 1f;
-            m_materialContactsSurf[(int)Material.Glass, 0].bounce = 0.5f;
-            m_materialContactsSurf[(int)Material.Glass, 0].soft_cfm = 0.010f;
+            m_materialContactsSurf[(int)Material.Glass, 0].mu = 2f;
+            m_materialContactsSurf[(int)Material.Glass, 0].bounce = 0.2f;
+            m_materialContactsSurf[(int)Material.Glass, 0].soft_cfm = 0.001f;
             m_materialContactsSurf[(int)Material.Glass, 0].soft_erp = 0.010f;
 
             /*
@@ -576,56 +564,56 @@ namespace OpenSim.Region.Physics.OdePlugin
                 private float mAvatarObjectContactBounce = 0.1f;
             */
             m_materialContactsSurf[(int)Material.Glass, 1].mode |= comumContactFlagsMode;
-            m_materialContactsSurf[(int)Material.Glass, 1].mu = 1f;
-            m_materialContactsSurf[(int)Material.Glass, 1].bounce = 0.5f;
-            m_materialContactsSurf[(int)Material.Glass, 1].soft_cfm = 0.010f;
-            m_materialContactsSurf[(int)Material.Glass, 1].soft_erp = 0.010f;
+            m_materialContactsSurf[(int)Material.Glass, 1].mu = .2f;
+            m_materialContactsSurf[(int)Material.Glass, 1].bounce = 0.2f;
+            m_materialContactsSurf[(int)Material.Glass, 1].soft_cfm = 0.0010f;
+            m_materialContactsSurf[(int)Material.Glass, 1].soft_erp = 0.01f;
 
             m_materialContactsSurf[(int)Material.Wood, 0].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Wood, 0].mu = nmAvatarObjectContactFriction;
             m_materialContactsSurf[(int)Material.Wood, 0].bounce = nmAvatarObjectContactBounce;
-            m_materialContactsSurf[(int)Material.Wood, 0].soft_cfm = 0.010f;
+            m_materialContactsSurf[(int)Material.Wood, 0].soft_cfm = 0.0010f;
             m_materialContactsSurf[(int)Material.Wood, 0].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Wood, 1].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Wood, 1].mu = mAvatarObjectContactFriction;
             m_materialContactsSurf[(int)Material.Wood, 1].bounce = mAvatarObjectContactBounce;
-            m_materialContactsSurf[(int)Material.Wood, 1].soft_cfm = 0.010f;
+            m_materialContactsSurf[(int)Material.Wood, 1].soft_cfm = 0.0010f;
             m_materialContactsSurf[(int)Material.Wood, 1].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Flesh, 0].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Flesh, 0].mu = nmAvatarObjectContactFriction;
             m_materialContactsSurf[(int)Material.Flesh, 0].bounce = nmAvatarObjectContactBounce;
             m_materialContactsSurf[(int)Material.Flesh, 0].soft_cfm = 0.010f;
-            m_materialContactsSurf[(int)Material.Flesh, 0].soft_erp = 0.010f;
+            m_materialContactsSurf[(int)Material.Flesh, 0].soft_erp = 0.01f;
 
             m_materialContactsSurf[(int)Material.Flesh, 1].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Flesh, 1].mu = mAvatarObjectContactFriction;
             m_materialContactsSurf[(int)Material.Flesh, 1].bounce = mAvatarObjectContactBounce;
             m_materialContactsSurf[(int)Material.Flesh, 1].soft_cfm = 0.010f;
-            m_materialContactsSurf[(int)Material.Flesh, 1].soft_erp = 0.010f;
+            m_materialContactsSurf[(int)Material.Flesh, 1].soft_erp = 0.01f;
 
             m_materialContactsSurf[(int)Material.Plastic, 0].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Plastic, 0].mu = nmAvatarObjectContactFriction;
-            m_materialContactsSurf[(int)Material.Plastic, 0].bounce = nmAvatarObjectContactBounce;
+            m_materialContactsSurf[(int)Material.Plastic, 0].bounce = 0.5f;
             m_materialContactsSurf[(int)Material.Plastic, 0].soft_cfm = 0.010f;
             m_materialContactsSurf[(int)Material.Plastic, 0].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Plastic, 1].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Plastic, 1].mu = mAvatarObjectContactFriction;
-            m_materialContactsSurf[(int)Material.Plastic, 1].bounce = mAvatarObjectContactBounce;
+            m_materialContactsSurf[(int)Material.Plastic, 1].bounce = 0.5f;
             m_materialContactsSurf[(int)Material.Plastic, 1].soft_cfm = 0.010f;
             m_materialContactsSurf[(int)Material.Plastic, 1].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Rubber, 0].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Rubber, 0].mu = nmAvatarObjectContactFriction;
-            m_materialContactsSurf[(int)Material.Rubber, 0].bounce = nmAvatarObjectContactBounce;
+            m_materialContactsSurf[(int)Material.Rubber, 0].bounce = 0.8f;
             m_materialContactsSurf[(int)Material.Rubber, 0].soft_cfm = 0.010f;
             m_materialContactsSurf[(int)Material.Rubber, 0].soft_erp = 0.010f;
 
             m_materialContactsSurf[(int)Material.Rubber, 1].mode |= comumContactFlagsMode;
             m_materialContactsSurf[(int)Material.Rubber, 1].mu = mAvatarObjectContactFriction;
-            m_materialContactsSurf[(int)Material.Rubber, 1].bounce = mAvatarObjectContactBounce;
+            m_materialContactsSurf[(int)Material.Rubber, 1].bounce = .8f;
             m_materialContactsSurf[(int)Material.Rubber, 1].soft_cfm = 0.010f;
             m_materialContactsSurf[(int)Material.Rubber, 1].soft_erp = 0.010f;
 
@@ -648,7 +636,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             // This is in addition to the step size.
             // Essentially Steps * m_physicsiterations
             d.WorldSetQuickStepNumIterations(world, m_physicsiterations);
-            d.WorldSetContactMaxCorrectingVel(world, 500.0f);
+            d.WorldSetContactMaxCorrectingVel(world, 100.0f);
 
             spacesPerMeter = 1 / metersInSpace;
             spaceGridMaxX = (int)(300 * spacesPerMeter);

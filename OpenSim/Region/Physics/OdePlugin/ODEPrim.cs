@@ -2482,9 +2482,9 @@ Console.WriteLine("CreateGeom:");
                     Vector3 l_position = Vector3.Zero;
                     Quaternion l_orientation = Quaternion.Identity;
 
-                    if (cpos.X > (_parent_scene.WorldExtents.X - 0.05f)
+                    if (cpos.X <0 || cpos.X > (_parent_scene.WorldExtents.X - 0.05f)
                         || cpos.Y < 0f || cpos.Y > (_parent_scene.WorldExtents.Y - 0.05f)
-                        || cpos.Y < 0f)
+                        )
                     {
                         //base.RaiseOutOfBounds(l_position);
 
@@ -2505,16 +2505,28 @@ Console.WriteLine("CreateGeom:");
                         {
 
                             base.RaiseOutOfBounds(_position);
+
+                            _position.X = Util.Clip(_position.X, 1f, _parent_scene.WorldExtents.X - 1f);
+                            _position.Y = Util.Clip(_position.Y, 1f, _parent_scene.WorldExtents.Y - 1f);
+                            _position.Z = Util.Clip(_position.Z, -100f,50000f);
+
+                            m_lastposition = _position;
+
+                            m_lastorientation = _orientation;
+
+                            d.BodySetLinearVel(Body, 0, 0, 0); // stop it
+                            d.BodySetAngularVel(Body, 0, 0, 0); // stop it
+                            d.BodySetPosition(Body, _position.X, _position.Y, _position.Z);
                             return;
                         }
                     }
 
 
-                    if (cpos.Z < 0)
+                    if (cpos.Z < -100 || cpos.Z > 100000f)
                     {
                         base.RaiseOutOfBounds(_position);
 
-                        cpos.Z = 0;
+                        cpos.Z = Util.Clip(cpos.Z, -100f, 50000f);
 
                         _acceleration.X = 0;
                         _acceleration.Y = 0;
