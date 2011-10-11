@@ -111,7 +111,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public float MinimumGroundFlightOffset = 3f;
 
         private float m_tainted_CAPSULE_LENGTH; // set when the capsule length changes. 
-        private float m_tiltMagnitudeWhenProjectedOnXYPlane = 0.1131371f; // used to introduce a fixed tilt because a straight-up capsule falls through terrain, probably a bug in terrain collider
+//        private float m_tiltMagnitudeWhenProjectedOnXYPlane = 0.1131371f; // used to introduce a fixed tilt because a straight-up capsule falls through terrain, probably a bug in terrain collider
 
 
         private float m_buoyancy = 0f;
@@ -531,7 +531,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             //CAPSULE_LENGTH = -5;
             //CAPSULE_RADIUS = -5;
-            int dAMotorEuler = 1;
+//            int dAMotorEuler = 1;
             _parent_scene.waitForSpaceUnlock(_parent_scene.ActiveSpace);
             if (CAPSULE_LENGTH <= 0)
             {
@@ -613,10 +613,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             //            d.JointSetAMotorAngle(Amotor, 2, 0);
             */
 
-
             d.JointSetAMotorMode(Amotor, 0);
             d.JointSetAMotorNumAxes(Amotor, 3);
-            d.JointSetAMotorAxis(Amotor, 0, 0, 1, 0, 0);
+            d.JointSetAMotorAxis(Amotor, 0, 0 , 1, 0, 0);
             d.JointSetAMotorAxis(Amotor, 1, 0, 0, 1, 0);
             d.JointSetAMotorAxis(Amotor, 2, 0, 0, 0, 1);
 
@@ -624,20 +623,29 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.JointSetAMotorAngle(Amotor, 1, 0);
             d.JointSetAMotorAngle(Amotor, 2, 0);
 
+
+            d.JointSetAMotorParam(Amotor, (int)dParam.StopCFM, 0f); // make it HARD
+            d.JointSetAMotorParam(Amotor, (int)dParam.StopCFM2, 0f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.StopCFM3, 0f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.StopERP, 0.8f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.StopERP2, 0.8f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.StopERP3, 0.8f);
+
             // These lowstops and high stops are effectively (no wiggle room)
-            d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, -0.000001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, -0.000001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, -0.000001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop, 0.000001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, 0.000001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0.000001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, -0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop, 0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, -0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, 0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, -0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0.0001f);
+
             d.JointSetAMotorParam(Amotor, (int)d.JointParam.Vel, 0);
             d.JointSetAMotorParam(Amotor, (int)d.JointParam.Vel2, 0);
             d.JointSetAMotorParam(Amotor, (int)d.JointParam.Vel3, 0);
 
-            d.JointSetAMotorParam(Amotor, (int)dParam.FMax, 50000);
-            d.JointSetAMotorParam(Amotor, (int)dParam.FMax2, 50000);
-            d.JointSetAMotorParam(Amotor, (int)dParam.FMax3, 50000);
+            d.JointSetAMotorParam(Amotor, (int)dParam.FMax, 5e6f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.FMax2, 5e6f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.FMax3, 5e6f);
         }
 
         //
@@ -907,6 +915,16 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.BodyCopyPosition(Body, out dtmp);
             Vector3 localpos = new Vector3(dtmp.X, dtmp.Y, dtmp.Z);
 
+            // the Amotor still lets avatar rotation to drift during colisions
+            // so force it back to identity
+/*            
+            d.Quaternion qtmp;
+            qtmp.W = 1;
+            qtmp.X = 0;
+            qtmp.Y = 0;
+            qtmp.Z = 0;
+            d.BodySetQuaternion(Body, ref qtmp);
+*/
             if (m_pidControllerActive == false)
             {
                 _zeroPosition = localpos;

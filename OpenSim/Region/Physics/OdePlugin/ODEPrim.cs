@@ -2736,6 +2736,9 @@ Console.WriteLine("CreateGeom:");
             curr.W = dcur.W;
             Vector3 ax;
 
+            const int StopERP = 7;
+            const int StopCFM = 8;
+
             int i = 0;
             int j = 0;
             if (axis.X == 0)
@@ -2749,7 +2752,9 @@ Console.WriteLine("CreateGeom:");
                 d.JointSetAMotorParam(Amotor, (int)d.JointParam.Vel, 0);
                 d.JointSetAMotorParam(Amotor, (int)d.JointParam.FudgeFactor, 0.0001f);
                 d.JointSetAMotorParam(Amotor, (int)d.JointParam.Bounce, 0f);
-                d.JointSetAMotorParam(Amotor, (int)d.JointParam.FMax, 550000000);
+                d.JointSetAMotorParam(Amotor, (int)d.JointParam.FMax, 5e8f);
+                d.JointSetAMotorParam(Amotor, (int)StopCFM, 0f);
+                d.JointSetAMotorParam(Amotor, (int)StopERP, 0.8f);
                 i++;
                 j = 256; // odeplugin.cs doesn't have all parameters so this moves to next axis set
             }
@@ -2764,7 +2769,9 @@ Console.WriteLine("CreateGeom:");
                 d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.Vel, 0);
                 d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.FudgeFactor, 0.0001f);
                 d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.Bounce, 0f);
-                d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.FMax, 550000000);
+                d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.FMax, 5e8f);
+                d.JointSetAMotorParam(Amotor, j + (int)StopCFM, 0f);
+                d.JointSetAMotorParam(Amotor, j + (int)StopERP, 0.8f);
                 i++;
                 j += 256;
             }
@@ -2779,10 +2786,12 @@ Console.WriteLine("CreateGeom:");
                 d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.Vel, 0);
                 d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.FudgeFactor, 0.0001f);
                 d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.Bounce, 0f);
-                d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.FMax, 550000000);
+                d.JointSetAMotorParam(Amotor, j + (int)d.JointParam.FMax, 5e8f);
+                d.JointSetAMotorParam(Amotor, j + (int)StopCFM, 0f);
+                d.JointSetAMotorParam(Amotor, j + (int)StopERP, 0.8f);
             }
 
-            d.JointAddAMotorTorques(Amotor, 0.001f, 0.001f, 0.001f);
+//            d.JointAddAMotorTorques(Amotor, 0.001f, 0.001f, 0.001f);
         }
 
 

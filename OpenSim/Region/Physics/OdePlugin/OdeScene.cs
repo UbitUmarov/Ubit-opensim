@@ -654,6 +654,10 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.WorldSetLinearDampingThreshold(world, 0f);
             d.WorldSetMaxAngularSpeed(world, 256f);
 
+            d.WorldSetCFM(world,1e-6f); // a bit harder than default
+            d.WorldSetERP(world, 0.6f); // higher than original
+
+
             // Set how many steps we go without running collision testing
             // This is in addition to the step size.
             // Essentially Steps * m_physicsiterations
