@@ -97,10 +97,13 @@ namespace OpenSim.Region.Physics.Meshing
                 throw new NotSupportedException("Attempt to Add to a pinned Mesh");
             // If a vertex of the triangle is not yet in the vertices list,
             // add it and set its index to the current index count
-
-            if (triangle.v1 == triangle.v2 || triangle.v1 == triangle.v3 || triangle.v2 == triangle.v3)
-            {
-                // ignore colapsed triangles
+            // vertex == seems broken
+            // skip colapsed triangles
+            if ((triangle.v1.X == triangle.v2.X && triangle.v1.Y == triangle.v2.Y && triangle.v1.Z == triangle.v2.Z)
+                || (triangle.v1.X == triangle.v3.X && triangle.v1.Y == triangle.v3.Y && triangle.v1.Z == triangle.v3.Z)
+                || (triangle.v2.X == triangle.v3.X && triangle.v2.Y == triangle.v3.Y && triangle.v2.Z == triangle.v3.Z)
+                )               
+            {               
                 return;
             }
 
