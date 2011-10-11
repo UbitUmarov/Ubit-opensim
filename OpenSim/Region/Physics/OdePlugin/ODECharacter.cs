@@ -632,12 +632,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.JointSetAMotorParam(Amotor, (int)dParam.StopERP3, 0.8f);
 
             // These lowstops and high stops are effectively (no wiggle room)
-            d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, -0.0001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop, 0.0001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, -0.0001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, 0.0001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, -0.0001f);
-            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 0.0001f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LowStop, -1e-5f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop, 1e-5f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop2, -1e-5f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop2, 1e-5f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.LoStop3, -1e-5f);
+            d.JointSetAMotorParam(Amotor, (int)dParam.HiStop3, 1e-5f);
 
             d.JointSetAMotorParam(Amotor, (int)d.JointParam.Vel, 0);
             d.JointSetAMotorParam(Amotor, (int)d.JointParam.Vel2, 0);
