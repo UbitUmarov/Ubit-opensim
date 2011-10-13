@@ -1356,27 +1356,34 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 string arg = rules.GetLSLStringItem(idx++);
                 switch (code)
                 {
-                    case 0:
-                      newLand.Name = arg;
-                      break;
+                    case ScriptBaseClass.PARCEL_DETAILS_NAME:
+                        newLand.Name = arg;
+                        break;
 
-                    case 1:
-                      newLand.Description = arg;
-                      break;
+                    case ScriptBaseClass.PARCEL_DETAILS_DESC:
+                        newLand.Description = arg;
+                        break;
 
-                    case 2:
-                      CheckThreatLevel(ThreatLevel.VeryHigh, functionName);
-                      if (UUID.TryParse(arg , out uuid))
-                          newLand.OwnerID = uuid;
-                      break;
+                    case ScriptBaseClass.PARCEL_DETAILS_OWNER:
+                        CheckThreatLevel(ThreatLevel.VeryHigh, functionName);
+                        if (UUID.TryParse(arg, out uuid))
+                            newLand.OwnerID = uuid;
+                        break;
 
-                    case 3:
-                      CheckThreatLevel(ThreatLevel.VeryHigh, functionName);
-                      if (UUID.TryParse(arg , out uuid))
-                          newLand.GroupID = uuid;
-                      break;
-                }
-            }
+                    case ScriptBaseClass.PARCEL_DETAILS_GROUP:
+                        CheckThreatLevel(ThreatLevel.VeryHigh, functionName);
+                        if (UUID.TryParse(arg, out uuid))
+                            newLand.GroupID = uuid;
+                        break;
+
+                    case ScriptBaseClass.PARCEL_DETAILS_CLAIMDATE:
+                        CheckThreatLevel(ThreatLevel.VeryHigh, functionName);
+                        newLand.ClaimDate = Convert.ToInt32(arg);
+                        if (newLand.ClaimDate == 0)
+                            newLand.ClaimDate = Util.UnixTimeSinceEpoch();
+                        break;
+                 }
+             }
 
             World.LandChannel.UpdateLandObject(newLand.LocalID,newLand);
         }
@@ -2462,7 +2469,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             CheckThreatLevel(ThreatLevel.Moderate, "osGetRegionStats");
             m_host.AddScriptLPS(1);
             LSL_List ret = new LSL_List();
-            float[] stats = World.SimulatorStats;
+            float[] stats = World.StatsReporter.LastReportedSimStats;
             
             for (int i = 0; i < 21; i++)
             {

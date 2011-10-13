@@ -52,7 +52,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         private YourStatsAreWrong handlerStatsIncorrect = null;
 
-        private enum Stats : uint
+        public enum Stats : uint
         {
             TimeDilation = 0,
             SimFPS = 1,
@@ -78,6 +78,28 @@ namespace OpenSim.Region.Framework.Scenes
             UnAckedBytes = 24,
         }
 
+        /// <summary>
+        /// This is for llGetRegionFPS
+        /// </summary>
+        public float LastReportedSimFPS
+        {
+            get { return lastReportedSimFPS; }
+        }
+
+        /// <summary>
+        /// Number of object updates performed in the last stats cycle
+        /// </summary>
+        /// <remarks>
+        /// This isn't sent out to the client but it is very useful data to detect whether viewers are being sent a
+        /// large number of object updates.
+        /// </remarks>
+        public float LastReportedObjectUpdates { get; private set; }
+
+        public float[] LastReportedSimStats
+        {
+            get { return lastReportedSimStats; }
+        }
+
         // Sending a stats update every 3 seconds-
         private int statsUpdatesEveryMS = 3000;
         private float statsUpdateFactor = 0;
@@ -87,13 +109,20 @@ namespace OpenSim.Region.Framework.Scenes
         private float lastReportedSimFPS = 0;
         private float[] lastReportedSimStats = new float[21];
         private float m_pfps = 0;
+
+        /// <summary>
+        /// Number of agent updates requested in this stats cycle
+        /// </summary>
         private int m_agentUpdates = 0;
 
         private float m_frameMS = 0;
+        private int m_objectUpdates;
         private int m_netMS = 0;
         private int m_agentMS = 0;
+        private int m_physicsMS = 0;
         private float m_physicsMS = 0;
         private int m_imageMS = 0;
+        private int m_otherMS = 0;
         private float m_otherMS = 0;
 
 //Ckrinke: (3-21-08) Comment out to remove a compiler warning. Bring back into play when needed.
@@ -171,6 +200,9 @@ namespace OpenSim.Region.Framework.Scenes
 
 #region various statistic googly moogly
 
+
+
+
                 // Our FPS is actually 10fps, so multiplying by 5 to get the amount that people expect there
                 // 0-50 is pretty close to 0-45
  // show real
@@ -200,6 +232,8 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[0].StatValue = (Single.IsNaN(m_timeDilation)) ? 0.1f : m_timeDilation ; //((((m_timeDilation + (0.10f * statsUpdateFactor)) /10)  / statsUpdateFactor));
 
                 sb[1].StatID = (uint) Stats.SimFPS;
+                sb[1].StatValue = m_fps/statsUpdateFactor;
+
                 sb[1].StatValue = simfps * factor;
 				
                 sb[2].StatID = (uint) Stats.PhysicsFPS;
@@ -274,6 +308,10 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     handlerSendStatResult(simStats);
                 }
+
+                // Extra statistics that aren't currently sent to clients
+                LastReportedObjectUpdates = m_objectUpdates / statsUpdateFactor;
+
                 resetvalues();
             }
         }
@@ -284,6 +322,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_fps = 0;
             m_pfps = 0;
             m_agentUpdates = 0;
+            m_objectUpdates = 0;
             //m_inPacketsPerSecond = 0;
             //m_outPacketsPerSecond = 0;
             m_unAckedBytes = 0;
@@ -365,6 +404,11 @@ namespace OpenSim.Region.Framework.Scenes
             m_pfps += frames;
         }
 
+        public void AddObjectUpdates(int numUpdates)
+        {
+            m_objectUpdates += numUpdates;
+        }
+
         public void AddAgentUpdates(int numUpdates)
         {
             m_agentUpdates += numUpdates;
@@ -429,19 +473,6 @@ namespace OpenSim.Region.Framework.Scenes
         public void SetActiveScripts(int count)
         {
             m_activeScripts = count;
-        }
-
-        /// <summary>
-        /// This is for llGetRegionFPS
-        /// </summary>
-        public float getLastReportedSimFPS()
-        {
-            return lastReportedSimFPS;
-        }
-        
-        public float[] getLastReportedSimStats()
-        {
-            return lastReportedSimStats;
         }
 
         public void AddPacketsStats(int inPackets, int outPackets, int unAckedBytes)

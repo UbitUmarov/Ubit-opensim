@@ -85,11 +85,9 @@ namespace OpenSim.Region.Framework.Scenes
         public bool m_seeIntoRegionFromNeighbor;
 
         protected float m_defaultDrawDistance = 255.0f;
-        public float DefaultDrawDistance
         {
             get { return m_defaultDrawDistance; }
         }
-
         // TODO: need to figure out how allow client agents but deny
         // root agents when ACL denies access to root agent
         public bool m_strictAccessControl = true;
@@ -137,8 +135,6 @@ namespace OpenSim.Region.Framework.Scenes
         protected IDialogModule m_dialogModule;
         protected IEntityTransferModule m_teleportModule;
         protected ICapabilitiesModule m_capsModule;
-        // Central Update Loop
-        protected int m_fps = 10;
 
         /// <summary>
         /// Current scene frame number
@@ -201,7 +197,6 @@ namespace OpenSim.Region.Framework.Scenes
         private bool m_firstHeartbeat = true;
 
         private object m_deleting_scene_object = new object();
-        private object m_cleaningAttachments = new object();
 
         private bool m_cleaningTemps = false;
 
@@ -506,19 +501,6 @@ namespace OpenSim.Region.Framework.Scenes
         public object SyncRoot
         {
             get { return m_sceneGraph.m_syncRoot; }
-        }
-
-        /// <summary>
-        /// This is for llGetRegionFPS
-        /// </summary>
-        public float SimulatorFPS
-        {
-            get { return StatsReporter.getLastReportedSimFPS(); }
-        }
-
-        public float[] SimulatorStats
-        {
-            get { return StatsReporter.getLastReportedSimStats(); }
         }
 
         public string DefaultScriptEngine
@@ -1121,8 +1103,7 @@ namespace OpenSim.Region.Framework.Scenes
             // Kick all ROOT agents with the message, 'The simulator is going down'
             ForEachScenePresence(delegate(ScenePresence avatar)
                                  {
-                                     if (avatar.KnownChildRegionHandles.Contains(RegionInfo.RegionHandle))
-                                         avatar.KnownChildRegionHandles.Remove(RegionInfo.RegionHandle);
+                                     avatar.RemoveNeighbourRegion(RegionInfo.RegionHandle);
 
                                      if (!avatar.IsChildAgent)
                                          avatar.ControllingClient.Kick("The simulator is going down.");
@@ -2500,7 +2481,7 @@ namespace OpenSim.Region.Framework.Scenes
                     RootPrim.RemFlag(PrimFlags.TemporaryOnRez);
 
                     if (AttachmentsModule != null)
-                        AttachmentsModule.AttachObject(sp.ControllingClient, grp, 0, false);
+                        AttachmentsModule.AttachObject(sp, grp, 0, false);
                 }
                 else
                 {
@@ -3135,13 +3116,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                     if (closeChildAgents && !avatar.IsChildAgent)
                     {
-                        //List<ulong> childknownRegions = new List<ulong>();
-                        //List<ulong> ckn = avatar.KnownChildRegionHandles;
-                        //for (int i = 0; i < ckn.Count; i++)
-                        //{
-                        //    childknownRegions.Add(ckn[i]);
-                        //}
-                        List<ulong> regions = new List<ulong>(avatar.KnownChildRegionHandles);
+                        List<ulong> regions = avatar.KnownRegionHandles;
                         regions.Remove(RegionInfo.RegionHandle);
                         m_sceneGridService.SendCloseChildAgentConnections(agentID, regions);
                     }
@@ -3705,7 +3680,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                 if (RegionSecret == loggingOffUser.ControllingClient.SecureSessionId || (parsedsecret && RegionSecret == localRegionSecret))
                 {
-                    m_sceneGridService.SendCloseChildAgentConnections(loggingOffUser.UUID, new List<ulong>(loggingOffUser.KnownRegions.Keys));
+                    m_sceneGridService.SendCloseChildAgentConnections(loggingOffUser.UUID, loggingOffUser.KnownRegionHandles);
                     loggingOffUser.ControllingClient.Kick(message);
                     // Give them a second to receive the message!
                     Thread.Sleep(1000);
@@ -3936,8 +3911,8 @@ namespace OpenSim.Region.Framework.Scenes
 
                 Utils.LongToUInts(regionHandle, out regionX, out regionY);
 
-                int shiftx = (int)regionX - (int)m_regInfo.RegionLocX * (int)Constants.RegionSize;
-                int shifty = (int)regionY - (int)m_regInfo.RegionLocY * (int)Constants.RegionSize;
+                int shiftx = (int) regionX - (int) m_regInfo.RegionLocX * (int)Constants.RegionSize;
+                int shifty = (int) regionY - (int) m_regInfo.RegionLocY * (int)Constants.RegionSize;
 
                 position.X += shiftx;
                 position.Y += shifty;
@@ -5217,41 +5192,6 @@ namespace OpenSim.Region.Framework.Scenes
                     throw new Exception(error);
             }
         }
-
-        //        public void CleanDroppedAttachments()
-        //        {
-        //            List<SceneObjectGroup> objectsToDelete =
-        //                    new List<SceneObjectGroup>();
-        //
-        //            lock (m_cleaningAttachments)
-        //            {
-        //                ForEachSOG(delegate (SceneObjectGroup grp)
-        //                        {
-        //                            if (grp.RootPart.Shape.PCode == 0 && grp.RootPart.Shape.State != 0 && (!objectsToDelete.Contains(grp)))
-        //                            {
-        //                                UUID agentID = grp.OwnerID;
-        //                                if (agentID == UUID.Zero)
-        //                                {
-        //                                    objectsToDelete.Add(grp);
-        //                                    return;
-        //                                }
-        //
-        //                                ScenePresence sp = GetScenePresence(agentID);
-        //                                if (sp == null)
-        //                                {
-        //                                    objectsToDelete.Add(grp);
-        //                                    return;
-        //                                }
-        //                            }
-        //                        });
-        //            }
-        //
-        //            foreach (SceneObjectGroup grp in objectsToDelete)
-        //            {
-        //                m_log.InfoFormat("[SCENE]: Deleting dropped attachment {0} of user {1}", grp.UUID, grp.OwnerID);
-        //                DeleteSceneObject(grp, true);
-        //            }
-        //        }
 
         // This method is called across the simulation connector to
         // determine if a given agent is allowed in this region

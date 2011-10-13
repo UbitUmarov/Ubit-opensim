@@ -223,7 +223,7 @@
     ;; server to send mail through.
     ; emailmodule = DefaultEmailModule
 
-    ;# {DeleteScriptsOnRestart} {} {Delete compiled script DLLs on restart?} (true false) true
+    ;# {DeleteScriptsOnStartup} {} {Delete previously compiled script DLLs on startup?} (true false) true
     ;; Controls whether previously compiled scripts DLLs are deleted on sim restart. If you set this to false
     ;; then startup will be considerably faster since scripts won't need to be recompiled. However, then it becomes your responsibility to delete the
     ;; compiled scripts if you're recompiling OpenSim from source code and internal interfaces used
@@ -404,6 +404,11 @@
     ;; This password is required to make any XMLRPC call (should be set as
     ;; the "password" parameter)
     ; access_password = ""
+
+    ;# List the IP addresses allowed to call RemoteAdmin
+    ;; If access_ip_addresses isn't set, then all IP addresses can access RemoteAdmin.
+    ;; access_ip_addresses = 0.0.0.0, 0.0.0.0 ...
+    ; access_ip_addresses =
 
     ;# {create_region_enable_voice} {enabled:true} {Enable voice for newly created regions?} {true false} false
     ;; set this variable to true if you want the create_region XmlRpc

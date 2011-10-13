@@ -3352,6 +3352,7 @@ namespace OpenSim.Region.Framework.Scenes
             //isattachment = ParentGroup.RootPart.IsAttachment;
 
             remoteClient.SendPrimUpdate(this, PrimUpdateFlags.FullUpdate);
+            ParentGroup.Scene.StatsReporter.AddObjectUpdates(1);
         }
 
         /// <summary>
@@ -5140,7 +5141,12 @@ namespace OpenSim.Region.Framework.Scenes
 
             // Causes this thread to dig into the Client Thread Data.
             // Remember your locking here!
-            remoteClient.SendPrimUpdate(this, PrimUpdateFlags.Position | PrimUpdateFlags.Rotation | PrimUpdateFlags.Velocity | PrimUpdateFlags.Acceleration | PrimUpdateFlags.AngularVelocity);
+            remoteClient.SendPrimUpdate(
+                this,
+                PrimUpdateFlags.Position | PrimUpdateFlags.Rotation | PrimUpdateFlags.Velocity
+                    | PrimUpdateFlags.Acceleration | PrimUpdateFlags.AngularVelocity);
+
+            ParentGroup.Scene.StatsReporter.AddObjectUpdates(1);            
         }
 
         public void AddScriptLPS(int count)

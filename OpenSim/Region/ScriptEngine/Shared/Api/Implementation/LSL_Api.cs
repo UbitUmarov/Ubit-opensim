@@ -5925,7 +5925,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
         public LSL_Float llGetRegionFPS()
         {
             m_host.AddScriptLPS(1);
-            return World.SimulatorFPS;
+            return World.StatsReporter.LastReportedSimFPS;
         }
 
 
@@ -9842,8 +9842,6 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             IConfigSource config = m_ScriptEngine.ConfigSource;
             if (config.Configs["Network"] != null)
             {
-                shard = config.Configs["Network"].GetString(
-                    "user_server_url", "http://127.0.0.1:" + ConfigSettings.DefaultUserServerHttpPort.ToString());
                 shard = config.Configs["Network"].GetString("shard", shard);
             }
 

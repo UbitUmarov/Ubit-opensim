@@ -33,12 +33,17 @@ namespace OpenSim.Region.CoreModules.Framework.Monitoring.Monitors
     {
         #region Implementation of IMonitor
 
+        public string GetName()
+        {
+            return "PWSMemoryMonitor";
+        }
+
         public double GetValue()
         {
             return System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64;
         }
 
-        public string GetName()
+        public string GetFriendlyName()
         {
             return "Private Working Set Memory";
         }

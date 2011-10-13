@@ -25,48 +25,56 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-using System.Collections.Generic;
-using OpenMetaverse.Packets;
+using System;
+using OpenSim.Region.Framework.Scenes;
 
-namespace OpenSim.Region.ClientStack.LindenUDP.Tests
-{ 
-    public class TestLLPacketServer : LLPacketServer
+namespace OpenSim.Region.CoreModules.Framework.Monitoring.Monitors
+{
+    class GenericMonitor : IMonitor
     {
-        /// <summary>
-        /// Record counts of packets received
-        /// </summary>
-        protected Dictionary<PacketType, int> m_packetsReceived = new Dictionary<PacketType, int>();
-        
-        public TestLLPacketServer(LLUDPServer networkHandler, ClientStackUserSettings userSettings)
-            : base(networkHandler, userSettings)
-        {}
-        
-        public override void InPacket(uint circuitCode, Packet packet)
+        public Scene Scene { get; private set; }
+        public string Name { get; private set; }
+        public string FriendlyName { get; private set; }
+
+        private readonly Func<GenericMonitor, double> m_getValueAction;
+        private readonly Func<GenericMonitor, string> m_getFriendlyValueAction;
+
+        public GenericMonitor(
+            Scene scene,
+            string name,
+            string friendlyName,
+            Func<GenericMonitor, double> getValueAction,
+            Func<GenericMonitor, string> getFriendlyValueAction)
         {
-            base.InPacket(circuitCode, packet);
-            
-            if (m_packetsReceived.ContainsKey(packet.Type))
-                m_packetsReceived[packet.Type]++;
-            else
-                m_packetsReceived[packet.Type] = 1;
+            Scene = scene;
+            Name = name;
+            FriendlyName = name;
+            m_getFriendlyValueAction = getFriendlyValueAction;
+            m_getValueAction = getValueAction;
         }
-        
-        public int GetTotalPacketsReceived()
+
+        public double GetValue()
         {
-            int totalCount = 0;
-            
-            foreach (int count in m_packetsReceived.Values)
-                totalCount += count;
-            
-            return totalCount;
+            return m_getValueAction(this);
         }
-        
-        public int GetPacketsReceivedFor(PacketType packetType)
+
+        public string GetName()
         {
-            if (m_packetsReceived.ContainsKey(packetType))
-                return m_packetsReceived[packetType];
-            else
-                return 0;
+            return Name;
+        }
+
+        public string GetFriendlyName()
+        {
+            return FriendlyName;
+        }
+
+        public string GetFriendlyValue()
+        {
+            return m_getFriendlyValueAction(this);
         }
     }
 }
+
+
+
+
