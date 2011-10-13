@@ -2422,7 +2422,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
 
                 // followed suggestion from mic bowman. reversed the two lines below.
-                if (ParentID == 0 && PhysicsActor != null || ParentID != 0) // Check that we have a physics actor or we're sitting on something
+                if (ParentID == 0 && PhysicsActor != null) // || ParentID != 0) // Check that we have a physics actor or we're sitting on something
                     CheckForBorderCrossing();
 
                 CheckForSignificantMovement(); // sends update to the modules.
