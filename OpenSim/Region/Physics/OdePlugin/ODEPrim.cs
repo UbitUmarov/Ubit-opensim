@@ -1840,13 +1840,17 @@ Console.WriteLine("CreateGeom:");
             m_disabled = false;
         }
 
-        public void changedisable()
+        public void changedisable(bool disable)
         {
-            m_disabled = true;
-            if (Body != IntPtr.Zero)
+            if (disable)
             {
-                d.BodyDisable(Body);
-                Body = IntPtr.Zero;
+                if (!m_disabled)
+                    disableBodySoft();
+            }
+            else
+            {
+                if (m_disabled)
+                    enableBodySoft();
             }
 
             m_taintdisable = false;
@@ -2467,6 +2471,7 @@ Console.WriteLine("CreateGeom:");
         public override void CrossingFailure()
         {
             m_crossingfailures++;
+            changedisable(false);
 /*
             if (m_crossingfailures > _parent_scene.geomCrossingFailuresBeforeOutofbounds)
             {
@@ -3037,7 +3042,7 @@ Console.WriteLine("ZProcessTaints for " + Name);
                     changeSelectedStatus();
 
                 if (m_taintdisable)
-                    changedisable();
+                    changedisable(true);
 
                 if (!m_taintVelocity.ApproxEquals(Vector3.Zero, 0.001f))
                     changevelocity();

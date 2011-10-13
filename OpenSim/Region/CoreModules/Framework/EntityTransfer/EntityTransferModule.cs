@@ -1684,24 +1684,39 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 // y + 1
             }
 
-            // Offset the positions for the new region across the border
-            Vector3 oldGroupPosition = grp.RootPart.GroupPosition;
-            grp.OffsetForNewRegion(pos);
-
             // If we fail to cross the border, then reset the position of the scene object on that border.
             uint x = 0, y = 0;
             Utils.LongToUInts(newRegionHandle, out x, out y);
             GridRegion destination = scene.GridService.GetRegionByPosition(scene.RegionInfo.ScopeID, (int)x, (int)y);
-            if (destination == null || !CrossPrimGroupIntoNewRegion(destination, grp, silent))
+
+            if (destination == null)
             {
+                // let physics know (for now ode needs this)
                 if (!grp.IsDeleted)
                 {
-                    grp.OffsetForNewRegion(oldGroupPosition);
                     if (grp.RootPart.PhysActor != null)
                     {
                         grp.RootPart.PhysActor.CrossingFailure();
                     }
-                    grp.ScheduleGroupForFullUpdate();
+                }
+            }
+
+            else
+            {
+                // Offset the positions for the new region across the border
+                Vector3 oldGroupPosition = grp.RootPart.GroupPosition;
+                grp.OffsetForNewRegion(pos);
+                if (!CrossPrimGroupIntoNewRegion(destination, grp, silent))
+                {
+                    if (!grp.IsDeleted)
+                    {
+                        grp.OffsetForNewRegion(oldGroupPosition);
+                        if (grp.RootPart.PhysActor != null)
+                        {
+                            grp.RootPart.PhysActor.CrossingFailure();
+                        }
+                        grp.ScheduleGroupForFullUpdate();
+                    }
                 }
             }
         }
