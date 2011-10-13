@@ -351,7 +351,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                 // the avatar.Close below will clear the child region list. We need this below for (possibly)
                 // closing the child agents, so save it here (we need a copy as it is Clear()-ed).
-                //List<ulong> childRegions = avatar.KnownRegionHandles;
+                //List<ulong> childRegions = new List<ulong>(avatar.GetKnownRegionList());
                 // Compared to ScenePresence.CrossToNewRegion(), there's no obvious code to handle a teleport
                 // failure at this point (unlike a border crossing failure).  So perhaps this can never fail
                 // once we reach here...
@@ -699,7 +699,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     }
                     else
                     {
-                        agent.IsInTransit = true;
+                        agent.InTransit();
 
                         neighboury = b.TriggerRegionY;
                         neighbourx = b.TriggerRegionX;
@@ -722,7 +722,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 }
                 else
                 {
-                    agent.IsInTransit = true;
+                    agent.InTransit();
 
                     neighboury = ba.TriggerRegionY;
                     neighbourx = ba.TriggerRegionX;
@@ -756,7 +756,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     }
                     else
                     {
-                        agent.IsInTransit = true;
+                        agent.InTransit();
 
                         neighboury = ba.TriggerRegionY;
                         neighbourx = ba.TriggerRegionX;
@@ -788,7 +788,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 }
                 else
                 {
-                    agent.IsInTransit = true;
+                    agent.InTransit();
 
                     neighboury = b.TriggerRegionY;
                     neighbourx = b.TriggerRegionX;
@@ -876,7 +876,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 return false;
             }
 
-            agent.IsInTransit = true;
+            agent.InTransit();
 
             CrossAgentToNewRegionDelegate d = CrossAgentToNewRegionAsync;
             d.BeginInvoke(agent, newpos, neighbourx, neighboury, neighbourRegion, isFlying, version, CrossAgentToNewRegionCompleted, d);
@@ -1066,7 +1066,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 agent.RestoreInCurrentScene();
 
             // In any case
-            agent.IsInTransit = false;
+            agent.NotInTransit();
 
             //m_log.DebugFormat("[ENTITY TRANSFER MODULE]: Crossing agent {0} {1} completed.", agent.Firstname, agent.Lastname);
         }
@@ -1692,10 +1692,17 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             uint x = 0, y = 0;
             Utils.LongToUInts(newRegionHandle, out x, out y);
             GridRegion destination = scene.GridService.GetRegionByPosition(scene.RegionInfo.ScopeID, (int)x, (int)y);
-            if (destination != null && !CrossPrimGroupIntoNewRegion(destination, grp, silent))
+            if (destination == null || !CrossPrimGroupIntoNewRegion(destination, grp, silent))
             {
-                grp.OffsetForNewRegion(oldGroupPosition);
-                grp.ScheduleGroupForFullUpdate();
+                if (!grp.IsDeleted)
+                {
+                    grp.OffsetForNewRegion(oldGroupPosition);
+                    if (grp.RootPart.PhysActor != null)
+                    {
+                        grp.RootPart.PhysActor.CrossingFailure();
+                    }
+                    grp.ScheduleGroupForFullUpdate();
+                }
             }
         }
 
@@ -1750,8 +1757,10 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                             grp, e);
                     }
                 }
+
                 else
                 {
+/*
                     if (!grp.IsDeleted)
                     {
                         if (grp.RootPart.PhysActor != null)
@@ -1759,7 +1768,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                             grp.RootPart.PhysActor.CrossingFailure();
                         }
                     }
-
+*/
                     m_log.ErrorFormat("[ENTITY TRANSFER MODULE]: Prim crossing failed for {0}", grp);
                 }
             }

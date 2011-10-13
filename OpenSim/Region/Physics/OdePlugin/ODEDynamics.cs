@@ -597,6 +597,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     break;
 
             }
+
         }//end SetDefaultsForType
 
         internal void Enable(IntPtr pBody, OdeScene pParentScene)
@@ -615,10 +616,22 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (frcount > 100)
                 frcount = 0;
 
+            // scale time so thing are similar as before and scripts don't break
+            pTimestep *= 0.09375f / pParentScene.ODE_STEPSIZE;
+
             MoveLinear(pTimestep, pParentScene);
             MoveAngular(pTimestep);
             LimitRotation(pTimestep);
         }// end Step
+
+
+        internal void Stop()
+        {
+            m_lastLinearVelocityVector.X = 0;
+            m_lastLinearVelocityVector.Y = 0;
+            m_lastLinearVelocityVector.Z = 0;
+            m_angularMotorVelocity = m_lastLinearVelocityVector;
+        }
 
         private void MoveLinear(float pTimestep, OdeScene _pParentScene)
         {
@@ -628,7 +641,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                      d.BodyEnable(Body);
 
                 // add drive to body
-                Vector3 addAmount = m_linearMotorDirection/(m_linearMotorTimescale/pTimestep);
+                Vector3 addAmount = m_linearMotorDirection * (m_linearMotorTimescale/pTimestep);
                 m_lastLinearVelocityVector += (addAmount*10);  // lastLinearVelocityVector is the current body velocity vector?
 
                 // This will work temporarily, but we really need to compare speed on an axis

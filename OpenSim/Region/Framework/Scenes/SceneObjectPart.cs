@@ -2990,14 +2990,14 @@ namespace OpenSim.Region.Framework.Scenes
         {
             if (PhysActor != null)
             {
-                Vector3 newpos = new Vector3(PhysActor.Position.GetBytes(), 0);
+                Vector3 newpos = PhysActor.Position;
 
                 if (m_parentGroup.Scene.TestBorderCross(newpos, Cardinals.N)
-                    | m_parentGroup.Scene.TestBorderCross(newpos, Cardinals.S)
-                    | m_parentGroup.Scene.TestBorderCross(newpos, Cardinals.E)
-                    | m_parentGroup.Scene.TestBorderCross(newpos, Cardinals.W))
+                    || m_parentGroup.Scene.TestBorderCross(newpos, Cardinals.S)
+                    || m_parentGroup.Scene.TestBorderCross(newpos, Cardinals.E)
+                    || m_parentGroup.Scene.TestBorderCross(newpos, Cardinals.W))
                 {
-                    m_parentGroup.AbsolutePosition = newpos;
+                    m_parentGroup.Scene.CrossPrimGroupIntoNewRegion(newpos, m_parentGroup, true);
                     return;
                 }
                 //m_parentGroup.RootPart.m_groupPosition = newpos;

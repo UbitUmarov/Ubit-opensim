@@ -137,6 +137,8 @@ namespace OpenSim.Region.Framework.Scenes
         protected IDialogModule m_dialogModule;
         protected IEntityTransferModule m_teleportModule;
         protected ICapabilitiesModule m_capsModule;
+        // Central Update Loop
+        protected int m_fps = 10;
 
         /// <summary>
         /// Current scene frame number
@@ -1119,7 +1121,8 @@ namespace OpenSim.Region.Framework.Scenes
             // Kick all ROOT agents with the message, 'The simulator is going down'
             ForEachScenePresence(delegate(ScenePresence avatar)
                                  {
-                                     avatar.RemoveNeighbourRegion(RegionInfo.RegionHandle);
+                                     if (avatar.KnownChildRegionHandles.Contains(RegionInfo.RegionHandle))
+                                         avatar.KnownChildRegionHandles.Remove(RegionInfo.RegionHandle);
 
                                      if (!avatar.IsChildAgent)
                                          avatar.ControllingClient.Kick("The simulator is going down.");
@@ -1240,25 +1243,28 @@ namespace OpenSim.Region.Framework.Scenes
             tempOnRezMS = eventMS = backupMS = terrainMS = landMS = TimeSpan.Zero;
             float physicsFPS = 0f;
 
-            // TODO: ADD AGENT TIME HERE
             // Increment the frame counter
             ++Frame;
             try
             {
-                int tmpAgentMS = Util.EnvironmentTickCount();
-
                 // Check if any objects have reached their targets
                 CheckAtTargets();
+
+                frameMS = MyWatch.Elapsed - Start;
 
                 // Update SceneObjectGroups that have scheduled themselves for updates
                 // Objects queue their updates onto all scene presences
                 if (Frame % m_update_objects == 0)
                     m_sceneGraph.UpdateObjectGroups();
 
+                frameMS = MyWatch.Elapsed - Start;
+
                 // Run through all ScenePresences looking for updates
                 // Presence updates and queued object updates for each presence are sent to clients
                 if (Frame % m_update_presences == 0)
                     m_sceneGraph.UpdatePresences();
+
+                frameMS = MyWatch.Elapsed - Start;
 
                 // Coarse locations relate to positions of green dots on the mini-map (on a SecondLife client)
                 if (Frame % m_update_coarse_locations == 0)
@@ -1273,6 +1279,8 @@ namespace OpenSim.Region.Framework.Scenes
                         });
                 }
 
+                frameMS = MyWatch.Elapsed - Start;
+
                 physicsMS2 = MyWatch.Elapsed;
                 if ((Frame % m_update_physics == 0) && m_physics_enabled)
                     m_sceneGraph.UpdatePreparePhysics();
@@ -1280,11 +1288,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                 // Apply any pending avatar force input to the avatar's velocity
                 if (Frame % m_update_entitymovement == 0)
-                {
-                    tmpAgentMS = Util.EnvironmentTickCount();
                     m_sceneGraph.UpdateScenePresenceMovement();
-                    agentMS += Util.EnvironmentTickCountSubtract(tmpAgentMS);
-                }
 
                 // Perform the main physics update.  This will do the actual work of moving objects and avatars according to their
                 // velocity
@@ -1342,6 +1346,7 @@ namespace OpenSim.Region.Framework.Scenes
                         UpdateTerrain();
                         terrainMS = MyWatch.Elapsed - terrainMS;
                     }
+
 
                     //if (Frame % m_update_land == 0)
                     //{
@@ -3130,7 +3135,13 @@ namespace OpenSim.Region.Framework.Scenes
 
                     if (closeChildAgents && !avatar.IsChildAgent)
                     {
-                        List<ulong> regions = avatar.KnownRegionHandles;
+                        //List<ulong> childknownRegions = new List<ulong>();
+                        //List<ulong> ckn = avatar.KnownChildRegionHandles;
+                        //for (int i = 0; i < ckn.Count; i++)
+                        //{
+                        //    childknownRegions.Add(ckn[i]);
+                        //}
+                        List<ulong> regions = new List<ulong>(avatar.KnownChildRegionHandles);
                         regions.Remove(RegionInfo.RegionHandle);
                         m_sceneGridService.SendCloseChildAgentConnections(agentID, regions);
                     }
@@ -3201,7 +3212,7 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     for (int i = 0; i < regionslst.Count; i++)
                     {
-                        av.RemoveNeighbourRegion(regionslst[i]);
+                        av.KnownChildRegionHandles.Remove(regionslst[i]);
                     }
                 }
             }
@@ -3694,7 +3705,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                 if (RegionSecret == loggingOffUser.ControllingClient.SecureSessionId || (parsedsecret && RegionSecret == localRegionSecret))
                 {
-                    m_sceneGridService.SendCloseChildAgentConnections(loggingOffUser.UUID, loggingOffUser.KnownRegionHandles);
+                    m_sceneGridService.SendCloseChildAgentConnections(loggingOffUser.UUID, new List<ulong>(loggingOffUser.KnownRegions.Keys));
                     loggingOffUser.ControllingClient.Kick(message);
                     // Give them a second to receive the message!
                     Thread.Sleep(1000);

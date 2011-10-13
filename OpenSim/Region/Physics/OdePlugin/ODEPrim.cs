@@ -349,7 +349,15 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
 
                 if (m_isSelected)
-                    disableBodySoft();
+                {
+                    if (!m_disabled)
+                        disableBodySoft();
+                }
+                else
+                {
+                    if (m_disabled)
+                        enableBodySoft();
+                }
             }
         }
 
@@ -432,27 +440,55 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (!childPrim)
             {
-                if (IsPhysical && Body != IntPtr.Zero)
+                if (m_isphysical && Body != IntPtr.Zero && prim_geom != IntPtr.Zero)
                 {
-                    d.BodyEnable(Body);
+                    if (m_targetSpace != _parent_scene.ActiveSpace)
+                    {
+                        m_targetSpace = _parent_scene.ActiveSpace;
+
+                        foreach (OdePrim prm in childrenPrim)
+                        {
+                            if (prm.prim_geom != IntPtr.Zero)
+                            {
+                                d.SpaceAdd(m_targetSpace, prm.prim_geom);
+                                prm.m_targetSpace = m_targetSpace;
+                            }
+                        }
+                        d.SpaceAdd(m_targetSpace, prim_geom);
+                    }
                     if (m_vehicle.Type != Vehicle.TYPE_NONE)
                         m_vehicle.Enable(Body, _parent_scene);
-                }
 
-                m_disabled = false;
+                    d.BodyEnable(Body);
+                }
             }
+            resetCollisionAccounting(); // this sets m_disable to false
         }
 
         public void disableBodySoft()
         {
             m_disabled = true;
-
-            if (IsPhysical && Body != IntPtr.Zero)
+            if (!childPrim)
             {
-                d.BodyDisable(Body);
+                if (m_isphysical && Body != IntPtr.Zero && prim_geom != IntPtr.Zero)
+                {
+                    if (m_targetSpace == _parent_scene.ActiveSpace)
+                    {
+                        foreach (OdePrim prm in childrenPrim)
+                        {
+                            if (prm.m_targetSpace != IntPtr.Zero && prm.prim_geom != IntPtr.Zero)
+                            {
+                                d.SpaceRemove(prm.m_targetSpace, prm.prim_geom);
+                                prm.m_targetSpace = IntPtr.Zero;
+                            }
+                        }
+                        d.SpaceRemove(m_targetSpace, prim_geom);
+                        m_targetSpace = IntPtr.Zero;
+                    }
+                    d.BodyDisable(Body);
+                }
             }
         }
-
 
         public void MakeBody()
         {
@@ -572,7 +608,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             //            d.BodySetLinearDampingThreshold(Body, 0.01f);
             //            d.BodySetAngularDampingThreshold(Body, 0.001f);
             d.BodySetDamping(Body, .001f, .0002f);
-            m_disabled = false;
 
             d.GeomSetCategoryBits(prim_geom, (int)m_collisionCategories);
             d.GeomSetCollideBits(prim_geom, (int)m_collisionFlags);
@@ -580,11 +615,16 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_interpenetrationcount = 0;
             m_collisionscore = 0;
 
+            m_disabled = false;
+
             if (m_targetSpace != _parent_scene.ActiveSpace)
             {
-                _parent_scene.waitForSpaceUnlock(m_targetSpace);
-                if (d.SpaceQuery(m_targetSpace, prim_geom))
-                    d.SpaceRemove(m_targetSpace, prim_geom);
+                if (m_targetSpace != IntPtr.Zero)
+                {
+                    _parent_scene.waitForSpaceUnlock(m_targetSpace);
+                    if (d.SpaceQuery(m_targetSpace, prim_geom))
+                        d.SpaceRemove(m_targetSpace, prim_geom);
+                }
 
                 m_targetSpace = _parent_scene.ActiveSpace;
                 d.SpaceAdd(m_targetSpace, prim_geom);
@@ -613,15 +653,18 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                     if (prm.m_targetSpace != _parent_scene.ActiveSpace)
                     {
-                        _parent_scene.waitForSpaceUnlock(m_targetSpace);
-                        if (d.SpaceQuery(prm.m_targetSpace, prm.prim_geom))
-                            d.SpaceRemove(prm.m_targetSpace, prm.prim_geom);
-
+                        if (prm.m_targetSpace != IntPtr.Zero)
+                        {
+                            _parent_scene.waitForSpaceUnlock(m_targetSpace);
+                            if (d.SpaceQuery(prm.m_targetSpace, prm.prim_geom))
+                                d.SpaceRemove(prm.m_targetSpace, prm.prim_geom);
+                        }
                         prm.m_targetSpace = _parent_scene.ActiveSpace;
                         d.SpaceAdd(m_targetSpace, prm.prim_geom);
                     }
                 }
             }
+
             // The body doesn't already have a finite rotation mode set here
             if ((!m_angularlock.ApproxEquals(Vector3.One, 0.0f)) && _parent == null)
             {
@@ -1545,8 +1588,10 @@ Console.WriteLine("CreateGeom:");
             float fy = 0;
             float fz = 0;
 
-            if (IsPhysical && (Body != IntPtr.Zero) && !m_isSelected && !childPrim)        // KF: Only move root prims.
+            if (m_isphysical && (Body != IntPtr.Zero) && !m_disabled && !childPrim && !m_isSelected)        // KF: Only move root prims.
             {
+                if (!d.BodyIsEnabled(Body)) d.BodyEnable(Body); // KF add 161009
+
                 if (m_vehicle.Type != Vehicle.TYPE_NONE)
                 {
                     // 'VEHICLES' are dealt with in ODEDynamics.cs
@@ -1555,7 +1600,6 @@ Console.WriteLine("CreateGeom:");
                 else
                 {
                     //Console.WriteLine("Move " +  Name);
-                    if (!d.BodyIsEnabled(Body)) d.BodyEnable(Body); // KF add 161009
                     // NON-'VEHICLES' are dealt with here
                     //                    if (d.BodyIsEnabled(Body) && !m_angularlock.ApproxEquals(Vector3.Zero, 0.003f))
                     //                    {
@@ -1976,6 +2020,8 @@ Console.WriteLine("CreateGeom:");
             {
                 if (IsPhysical && Body != IntPtr.Zero)
                 {
+                    if (m_disabled)
+                        enableBodySoft();
                     _torque = m_taintTorque;
                 }
             }
@@ -1992,7 +2038,8 @@ Console.WriteLine("CreateGeom:");
                     //m_log.Info("[PHYSICS]: dequeing forcelist");
                     if (IsPhysical)
                     {
-                        d.BodyEnable(Body);
+                        if (m_disabled)
+                            enableBodySoft();
                         d.BodyAddForce(Body, m_taintimpulseacc.X, m_taintimpulseacc.Y, m_taintimpulseacc.Z);
                     }
                     m_taintimpulseacc = Vector3.Zero;
@@ -2013,7 +2060,8 @@ Console.WriteLine("CreateGeom:");
                 {
                     if (IsPhysical)
                     {
-                        d.BodyEnable(Body);
+                        if (m_disabled)
+                            enableBodySoft();
                         d.BodyAddTorque(Body, m_taintangularimpulseacc.X, m_taintangularimpulseacc.Y, m_taintangularimpulseacc.Z);
                     }
                     m_taintangularimpulseacc = Vector3.Zero;
@@ -2033,6 +2081,8 @@ Console.WriteLine("CreateGeom:");
                 {
                     if (Body != IntPtr.Zero)
                     {
+                        if (m_disabled)
+                            enableBodySoft();
                         d.BodySetLinearVel(Body, m_taintVelocity.X, m_taintVelocity.Y, m_taintVelocity.Z);
                     }
                 }
@@ -2417,6 +2467,7 @@ Console.WriteLine("CreateGeom:");
         public override void CrossingFailure()
         {
             m_crossingfailures++;
+/*
             if (m_crossingfailures > _parent_scene.geomCrossingFailuresBeforeOutofbounds)
             {
                 base.RaiseOutOfBounds(_position);
@@ -2426,6 +2477,7 @@ Console.WriteLine("CreateGeom:");
             {
                 m_log.Warn("[PHYSICS]: Too many crossing failures for: " + Name);
             }
+ */
         }
 
         public override float Buoyancy
@@ -2464,8 +2516,42 @@ Console.WriteLine("CreateGeom:");
         public void UpdatePositionAndVelocity(float timestep)
         {
             //  no lock; called from Simulate() -- if you call this from elsewhere, gotta lock or do Monitor.Enter/Exit!
-            if (_parent == null)
+            if (_parent == null && !m_disabled)
             {
+                if (m_crossingfailures == 2)
+                    {
+                        _position.X = Util.Clip(_position.X, 0.4f, _parent_scene.WorldExtents.X - 0.4f);
+                        _position.Y = Util.Clip(_position.Y, 0.4f, _parent_scene.WorldExtents.Y - 0.4f);
+                        _position.Z = Util.Clip(_position.Z + 0.2f, -100f, 50000f);
+
+                        float tmp = _parent_scene.GetTerrainHeightAtXY(_position.X, _position.Y);
+                        if (_position.Z < tmp)
+                            _position.Z = tmp + 0.2f;
+
+                        m_lastposition = _position;
+                        m_lastorientation = _orientation;
+                        _velocity.X = 0;
+                        _velocity.Y = 0;
+                        _velocity.Z = 0;
+
+                        m_lastVelocity = _velocity;
+                        m_rotationalVelocity = _velocity;
+                        if (m_vehicle.Type != Vehicle.TYPE_NONE)
+                            m_vehicle.Stop();
+
+                        m_crossingfailures = 0; // do this only once
+                        d.BodySetLinearVel(Body, 0, 0, 0); // stop it
+                        d.BodySetAngularVel(Body, 0, 0, 0);
+                        d.GeomSetPosition(prim_geom, _position.X, _position.Y, _position.Z);
+                        enableBodySoft();
+                        base.RequestPhysicsterseUpdate();
+                        return;
+                    }
+                else if (m_crossingfailures != 0)
+                {
+                    return;
+                }
+
                 Vector3 pv = Vector3.Zero;
                 bool lastZeroFlag = _zeroFlag;
                 if (Body != IntPtr.Zero && prim_geom != IntPtr.Zero)
@@ -2482,50 +2568,50 @@ Console.WriteLine("CreateGeom:");
                     Vector3 l_position = Vector3.Zero;
                     Quaternion l_orientation = Quaternion.Identity;
 
-                    if (cpos.X <0 || cpos.X > (_parent_scene.WorldExtents.X - 0.05f)
-                        || cpos.Y < 0f || cpos.Y > (_parent_scene.WorldExtents.Y - 0.05f)
+                    // we need to use root position since that's all the rest of scene uses
+                    if (   lpos.X < 0f || lpos.X > _parent_scene.WorldExtents.X
+                        || lpos.Y < 0f || lpos.Y > _parent_scene.WorldExtents.Y
                         )
                     {
-                        //base.RaiseOutOfBounds(l_position);
-
-                        if (m_crossingfailures < _parent_scene.geomCrossingFailuresBeforeOutofbounds)
+                        // we are outside current region
+                        // we can't let it keeping moving and having colisions
+                        // since it can be stucked between something like terrain and edge
+                        // so lets stop and disable it until something else kicks it
+                        if (m_crossingfailures == 0)
                         {
 
-                            _position.X = (float)lpos.X;
-                            _position.Y = (float)lpos.Y;
-                            _position.Z = (float)lpos.Z;
+                            _position.X = Util.Clip(lpos.X, -0.5f, _parent_scene.WorldExtents.X + 0.5f);
+                            _position.Y = Util.Clip(lpos.Y, -0.5f, _parent_scene.WorldExtents.Y + 0.5f);
+                            _position.Z = Util.Clip(lpos.Z, -100f, 50000f);
 
                             m_lastposition = _position;
                             m_lastorientation = _orientation;
 
+                            d.BodySetLinearVel(Body, 0, 0, 0); // stop it
+                            d.BodySetAngularVel(Body, 0, 0, 0);
+                            d.GeomSetPosition(prim_geom, _position.X, _position.Y, _position.Z);
+                            disableBodySoft(); // stop collisions
+                            m_crossingfailures++; // do this only once
+                            base.RequestPhysicsterseUpdate();
+                            return;
+                        }
+/*
+                        if (m_crossingfailures < _parent_scene.geomCrossingFailuresBeforeOutofbounds )
+                        {
                             base.RequestPhysicsterseUpdate();
                             return;
                         }
                         else
                         {
-
                             base.RaiseOutOfBounds(_position);
-
-                            _position.X = Util.Clip(_position.X, 1f, _parent_scene.WorldExtents.X - 1f);
-                            _position.Y = Util.Clip(_position.Y, 1f, _parent_scene.WorldExtents.Y - 1f);
-                            _position.Z = Util.Clip(_position.Z, -100f,50000f);
-
-                            m_lastposition = _position;
-
-                            m_lastorientation = _orientation;
-
-                            d.BodySetLinearVel(Body, 0, 0, 0); // stop it
-                            d.BodySetAngularVel(Body, 0, 0, 0); // stop it
-                            d.BodySetPosition(Body, _position.X, _position.Y, _position.Z);
                             return;
                         }
+ */
                     }
 
 
                     if (cpos.Z < -100 || cpos.Z > 100000f)
                     {
-                        base.RaiseOutOfBounds(_position);
-
                         cpos.Z = Util.Clip(cpos.Z, -100f, 50000f);
 
                         _acceleration.X = 0;
@@ -2551,6 +2637,10 @@ Console.WriteLine("CreateGeom:");
                         m_throttleUpdates = false;
                         throttleCounter = 0;
                         _zeroFlag = true;
+
+                        disableBodySoft(); // disable it and colisions
+                        base.RaiseOutOfBounds(_position);
+
                         return;
                         //outofBounds = true;
                     }

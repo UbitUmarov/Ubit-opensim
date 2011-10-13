@@ -179,7 +179,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public float bodyPIDD = 35f;
         public float bodyPIDG = 25;
 
-        public int geomCrossingFailuresBeforeOutofbounds = 5;
+        public int geomCrossingFailuresBeforeOutofbounds = 6;
 
         public float bodyMotorJointMaxforceTensor = 2;
 
@@ -2378,13 +2378,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                 return 1;
 
             int curphysiteractions = m_physicsiterations;
-
+/*
             if (step_time >= m_SkipFramesAtms)
                 {
                 // if in trouble reduce step resolution
                 curphysiteractions /= 2;
                 }
-
+*/
             if (SupportsNINJAJoints)
                 {
                 DeleteRequestedJoints(); // this must be outside of the lock (OdeLock) to avoid deadlocks
@@ -2564,9 +2564,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     {
                         foreach (OdePrim actor in _activeprims)
                         {
-                            if (actor.IsPhysical && (d.BodyIsEnabled(actor.Body) || !actor._zeroFlag))
+                            if (actor.IsPhysical)
                             {
-                            actor.UpdatePositionAndVelocity((float)nodeframes * ODE_STEPSIZE);
+                                actor.UpdatePositionAndVelocity((float)nodeframes * ODE_STEPSIZE);
 
                                 if (SupportsNINJAJoints)
                                     SimulateActorPendingJoints(actor);
@@ -2574,7 +2574,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
                     }
                 }
-
                 //DumpJointInfo();
 
                 // Finished with all sim stepping. If requested, dump world state to file for debugging.
@@ -3152,15 +3151,15 @@ namespace OpenSim.Region.Physics.OdePlugin
             float[] _heightmap;
             _heightmap = new float[(((int)Constants.RegionSize + 2) * ((int)Constants.RegionSize + 2))];
 
-            uint heightmapWidth = Constants.RegionSize + 1;
-            uint heightmapHeight = Constants.RegionSize + 1;
+            uint heightmapWidth = Constants.RegionSize + 2;
+            uint heightmapHeight = Constants.RegionSize + 2;
 
             uint heightmapWidthSamples;
 
             uint heightmapHeightSamples;
  
-            heightmapWidthSamples = (uint)Constants.RegionSize + 1;
-            heightmapHeightSamples = (uint)Constants.RegionSize + 1;
+            heightmapWidthSamples = (uint)Constants.RegionSize + 2;
+            heightmapHeightSamples = (uint)Constants.RegionSize + 2;
 
             const float scale = 1.0f;
             const float offset = 0.0f;
@@ -3174,7 +3173,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             float val;
             int xx;
             int yy;
-            
+
+            int maxXXYY = regionsize - 3;
             // flipping map adding one margin all around so avas don't fall in edges
 
             int xt = 0;
@@ -3182,10 +3182,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             for (int x = 0; x < heightmapWidthSamples; x++)
                 {
                 xx = x - 1;
-                if (xx < 0)
-                    xx = 0;
-                else if (xx > regionsize - 1)
-                    xx = regionsize - 1;
+                if (xx < maxXXYY)
+                    xx ++;
 
                 yy = 0;
                 for (int y = 0; y < heightmapHeightSamples; y++)
@@ -3198,7 +3196,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     if (hfmax < val)
                         hfmax = val;
 
-                    if (y > 0 && y < regionsize)
+                    if (y > 0 && y < maxXXYY)
                         yy += (int)Constants.RegionSize;
                     }
 
@@ -3226,8 +3224,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 GCHandle _heightmaphandler = GCHandle.Alloc(_heightmap, GCHandleType.Pinned);
 
-                d.GeomHeightfieldDataBuildSingle(HeightmapData, _heightmaphandler.AddrOfPinnedObject(), 0, heightmapWidth + 1, heightmapHeight + 1,
-                                                 (int)heightmapWidthSamples + 1, (int)heightmapHeightSamples + 1, scale,
+                d.GeomHeightfieldDataBuildSingle(HeightmapData, _heightmaphandler.AddrOfPinnedObject(), 0, heightmapWidth , heightmapHeight,
+                                                 (int)heightmapWidthSamples, (int)heightmapHeightSamples, scale,
                                                  offset, thickness, wrap);
 
                 d.GeomHeightfieldDataSetBounds(HeightmapData, hfmin - 1, hfmax + 1);
