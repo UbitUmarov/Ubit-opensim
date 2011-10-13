@@ -1243,14 +1243,7 @@ namespace OpenSim.Region.Framework.Scenes
             part.ClearUndoState();
         }
 
-        public override void UpdateMovement()
-        {
-            SceneObjectPart[] parts = m_parts.GetArray();
-            for (int i = 0; i < parts.Length; i++)
-                parts[i].UpdateMovement();
-            m_ValidgrpOOB = false;
-        }
-
+ 
         public ushort GetTimeDilation()
         {
             return Utils.FloatToUInt16(m_scene.TimeDilation, 0.0f, 1.0f);

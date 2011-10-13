@@ -699,7 +699,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     }
                     else
                     {
-                        agent.InTransit();
+                        agent.IsInTransit = true;
 
                         neighboury = b.TriggerRegionY;
                         neighbourx = b.TriggerRegionX;
@@ -722,7 +722,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 }
                 else
                 {
-                    agent.InTransit();
+                    agent.IsInTransit = true;
 
                     neighboury = ba.TriggerRegionY;
                     neighbourx = ba.TriggerRegionX;
@@ -756,7 +756,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     }
                     else
                     {
-                        agent.InTransit();
+                        agent.IsInTransit = true;
 
                         neighboury = ba.TriggerRegionY;
                         neighbourx = ba.TriggerRegionX;
@@ -788,7 +788,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 }
                 else
                 {
-                    agent.InTransit();
+                    agent.IsInTransit = true;
 
                     neighboury = b.TriggerRegionY;
                     neighbourx = b.TriggerRegionX;
@@ -876,7 +876,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 return false;
             }
 
-            agent.InTransit();
+            agent.IsInTransit = true;
 
             CrossAgentToNewRegionDelegate d = CrossAgentToNewRegionAsync;
             d.BeginInvoke(agent, newpos, neighbourx, neighboury, neighbourRegion, isFlying, version, CrossAgentToNewRegionCompleted, d);

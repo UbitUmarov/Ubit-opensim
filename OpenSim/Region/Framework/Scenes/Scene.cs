@@ -85,6 +85,7 @@ namespace OpenSim.Region.Framework.Scenes
         public bool m_seeIntoRegionFromNeighbor;
 
         protected float m_defaultDrawDistance = 255.0f;
+        public float DefaultDrawDistance 
         {
             get { return m_defaultDrawDistance; }
         }
@@ -1231,21 +1232,15 @@ namespace OpenSim.Region.Framework.Scenes
                 // Check if any objects have reached their targets
                 CheckAtTargets();
 
-                frameMS = MyWatch.Elapsed - Start;
-
                 // Update SceneObjectGroups that have scheduled themselves for updates
                 // Objects queue their updates onto all scene presences
                 if (Frame % m_update_objects == 0)
                     m_sceneGraph.UpdateObjectGroups();
 
-                frameMS = MyWatch.Elapsed - Start;
-
                 // Run through all ScenePresences looking for updates
                 // Presence updates and queued object updates for each presence are sent to clients
                 if (Frame % m_update_presences == 0)
                     m_sceneGraph.UpdatePresences();
-
-                frameMS = MyWatch.Elapsed - Start;
 
                 // Coarse locations relate to positions of green dots on the mini-map (on a SecondLife client)
                 if (Frame % m_update_coarse_locations == 0)
@@ -1259,8 +1254,6 @@ namespace OpenSim.Region.Framework.Scenes
                             presence.SendCoarseLocations(coarseLocations, avatarUUIDs);
                         });
                 }
-
-                frameMS = MyWatch.Elapsed - Start;
 
                 physicsMS2 = MyWatch.Elapsed;
                 if ((Frame % m_update_physics == 0) && m_physics_enabled)
@@ -1305,55 +1298,52 @@ namespace OpenSim.Region.Framework.Scenes
                     tempOnRezMS = MyWatch.Elapsed - tempOnRezMS;
                 }
 
-                if (RegionStatus != RegionStatus.SlaveScene)
+                if (Frame % m_update_events == 0)
                 {
-                    if (Frame % m_update_events == 0)
-                    {
-                        eventMS = MyWatch.Elapsed;
-                        UpdateEvents();
-                        eventMS = MyWatch.Elapsed - eventMS;
-                    }
-
-                    if (Frame % m_update_backup == 0)
-                    {
-                        backupMS = MyWatch.Elapsed;
-                        UpdateStorageBackup();
-                        backupMS = MyWatch.Elapsed - backupMS;
-                    }
-
-                    if (Frame % m_update_terrain == 0)
-                    {
-                        terrainMS = MyWatch.Elapsed;
-                        UpdateTerrain();
-                        terrainMS = MyWatch.Elapsed - terrainMS;
-                    }
-
-
-                    //if (Frame % m_update_land == 0)
-                    //{
-                    //    int ldMS = Util.EnvironmentTickCount();
-                    //    UpdateLand();
-                    //    landMS = Util.EnvironmentTickCountSubtract(ldMS);
-                    //}
-
-                    frameMS = MyWatch.Elapsed - Start;
-                    otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
-                    lastCompletedFrame = Util.EnvironmentTickCount();
-
-                    // if (Frame%m_update_avatars == 0)
-                    //   UpdateInWorldTime();
-                    StatsReporter.AddTimeDilation(TimeDilation);
-                    StatsReporter.AddFPS(1);
-                    StatsReporter.SetRootAgents(m_sceneGraph.GetRootAgentCount());
-                    StatsReporter.SetChildAgents(m_sceneGraph.GetChildAgentCount());
-                    StatsReporter.SetObjects(m_sceneGraph.GetTotalObjectsCount());
-                    StatsReporter.SetActiveObjects(m_sceneGraph.GetActiveObjectsCount());
-                    StatsReporter.addFrameMS((float)frameMS.TotalMilliseconds);
-                    StatsReporter.addPhysicsMS((float)(physicsMS.TotalMilliseconds + physicsMS2.TotalMilliseconds));
-                    StatsReporter.addOtherMS((float)otherMS.TotalMilliseconds);
-                    StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
-                    StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
+                    eventMS = MyWatch.Elapsed;
+                    UpdateEvents();
+                    eventMS = MyWatch.Elapsed - eventMS;
                 }
+
+                if (Frame % m_update_backup == 0)
+                {
+                    backupMS = MyWatch.Elapsed;
+                    UpdateStorageBackup();
+                    backupMS = MyWatch.Elapsed - backupMS;
+                }
+
+                if (Frame % m_update_terrain == 0)
+                {
+                    terrainMS = MyWatch.Elapsed;
+                    UpdateTerrain();
+                    terrainMS = MyWatch.Elapsed - terrainMS;
+                }
+
+
+                //if (Frame % m_update_land == 0)
+                //{
+                //    int ldMS = Util.EnvironmentTickCount();
+                //    UpdateLand();
+                //    landMS = Util.EnvironmentTickCountSubtract(ldMS);
+                //}
+
+                frameMS = MyWatch.Elapsed - Start;
+                otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
+                lastCompletedFrame = Util.EnvironmentTickCount();
+
+                // if (Frame%m_update_avatars == 0)
+                //   UpdateInWorldTime();
+                StatsReporter.AddTimeDilation(TimeDilation);
+                StatsReporter.AddFPS(1);
+                StatsReporter.SetRootAgents(m_sceneGraph.GetRootAgentCount());
+                StatsReporter.SetChildAgents(m_sceneGraph.GetChildAgentCount());
+                StatsReporter.SetObjects(m_sceneGraph.GetTotalObjectsCount());
+                StatsReporter.SetActiveObjects(m_sceneGraph.GetActiveObjectsCount());
+                StatsReporter.addFrameMS((float)frameMS.TotalMilliseconds);
+                StatsReporter.addPhysicsMS((float)(physicsMS.TotalMilliseconds + physicsMS2.TotalMilliseconds));
+                StatsReporter.addOtherMS((float)otherMS.TotalMilliseconds);
+                StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
+                StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
 
                 if (LoginsDisabled && Frame == 20)
                 {
@@ -3187,7 +3177,7 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     for (int i = 0; i < regionslst.Count; i++)
                     {
-                        av.KnownChildRegionHandles.Remove(regionslst[i]);
+                        av.RemoveNeighbourRegion(regionslst[i]);
                     }
                 }
             }

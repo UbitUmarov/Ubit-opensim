@@ -119,10 +119,8 @@ namespace OpenSim.Region.Framework.Scenes
         private int m_objectUpdates;
         private int m_netMS = 0;
         private int m_agentMS = 0;
-        private int m_physicsMS = 0;
         private float m_physicsMS = 0;
         private int m_imageMS = 0;
-        private int m_otherMS = 0;
         private float m_otherMS = 0;
 
 //Ckrinke: (3-21-08) Comment out to remove a compiler warning. Bring back into play when needed.

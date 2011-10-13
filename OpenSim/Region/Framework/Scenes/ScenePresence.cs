@@ -2462,6 +2462,7 @@ namespace OpenSim.Region.Framework.Scenes
         // vars to support reduced update frequency when velocity is unchanged
         private Vector3 lastVelocitySentToAllClients = Vector3.Zero;
         private Vector3 lastPositionSentToAllClients = Vector3.Zero;
+        private Quaternion lastRotationSentToAllClients = Quaternion.Identity;
         private int lastTerseUpdateToAllClientsTick = Util.EnvironmentTickCount();
 
         /// <summary>
