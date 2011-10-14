@@ -1060,12 +1060,19 @@ namespace OpenSim.Region.Framework.Scenes
         public void TeleportWithMomentum(Vector3 pos)
         {
             bool isFlying = false;
+            Vector3 velocity = Vector3.Zero;
+
             if (PhysicsActor != null)
+            {
                 isFlying = PhysicsActor.Flying;
+                velocity = PhysicsActor.Velocity;
+            }
 
             RemoveFromPhysicalScene();
             AbsolutePosition = pos;
             AddToPhysicalScene(isFlying);
+            if (PhysicsActor != null)
+                PhysicsActor.Velocity = velocity;
 
             SendTerseUpdateToAllClients();
         }
@@ -2513,17 +2520,18 @@ namespace OpenSim.Region.Framework.Scenes
         int curtick = Util.EnvironmentTickCount();
 
 // a big if but faster than those math.sqrt hidden in above code
-        if (Math.Abs(curpos.X - lastPositionSentToAllClients.X) < 5f // didn't moved a lot ?
-            && Math.Abs(curpos.Y - lastPositionSentToAllClients.Y) < 5f
-            && Math.Abs(curpos.Z - lastPositionSentToAllClients.Z) < 5f
-            && Math.Abs(curvel.X - lastVelocitySentToAllClients.X) < 0.001f // not about change move ?
+        if ( // Math.Abs(curpos.X - lastPositionSentToAllClients.X) < 5f // didn't moved a lot ?
+            // && Math.Abs(curpos.Y - lastPositionSentToAllClients.Y) < 5f
+            //&& Math.Abs(curpos.Z - lastPositionSentToAllClients.Z) < 5f
+            //&&
+            Math.Abs(curvel.X - lastVelocitySentToAllClients.X) < 0.001f // not about change move ?
             && Math.Abs(curvel.Y - lastVelocitySentToAllClients.Y) < 0.001f
             && Math.Abs(curvel.Z - lastVelocitySentToAllClients.Z) < 0.01f
             && Math.Abs(currot.X - lastRotationSentToAllClients.X) < 0.001f // not about change rotation ?
             && Math.Abs(currot.Y - lastRotationSentToAllClients.Y) < 0.001f 
             && Math.Abs(currot.Z - lastRotationSentToAllClients.Z) < 0.001f 
             && Math.Abs(currot.W - lastRotationSentToAllClients.W) < 0.001f
-            && curtick - lastTerseUpdateToAllClientsTick < 200 // not long ago ?
+            //&& curtick - lastTerseUpdateToAllClientsTick < 200 // not long ago ?
             )
             {
             return;
@@ -3260,8 +3268,11 @@ namespace OpenSim.Region.Framework.Scenes
             if (PhysicsActor != null)
             {
                 bool isFlying = PhysicsActor.Flying;
+                Vector3 velocity = PhysicsActor.Velocity;
                 RemoveFromPhysicalScene();
                 AddToPhysicalScene(isFlying);
+                if (PhysicsActor != null)
+                    PhysicsActor.Velocity = velocity;
             }
             
             try
