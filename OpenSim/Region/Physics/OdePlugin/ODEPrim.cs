@@ -718,13 +718,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                     if (Body != IntPtr.Zero)
                     {
-                        //                        m_vehicle.Disable(this);
                         d.BodyDestroy(Body);
                     }
                 }
-
                 _mass = primMass;
                 Body = IntPtr.Zero;
+
             }
             m_disabled = true;
             m_collisionscore = 0;
@@ -2247,7 +2246,7 @@ Console.WriteLine("CreateGeom:");
                     dtmp = d.BodyGetPosition(Body);
                     return new Vector3(dtmp.X, dtmp.Y, dtmp.Z);
                 }
-                else if (prim_geom != null)
+                else if (prim_geom != IntPtr.Zero)
                 {
                     d.Quaternion dq;
                     d.GeomCopyQuaternion(prim_geom, out dq);

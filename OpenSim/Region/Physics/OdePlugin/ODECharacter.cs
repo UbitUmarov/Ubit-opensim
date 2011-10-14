@@ -1383,7 +1383,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (m_tainted_isPhysical)
                 {
                     // Create avatar capsule and related ODE data
-                    if (!(Shell == IntPtr.Zero && Body == IntPtr.Zero && Amotor == IntPtr.Zero))
+                    if (!(Shell == IntPtr.Zero))
                     {
                         m_log.Warn("[PHYSICS]: re-creating the following avatar ODE data, even though it already exists - "
                             + (Shell != IntPtr.Zero ? "Shell " : "")
@@ -1395,15 +1395,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     _parent_scene.geom_name_map[Shell] = m_name;
                     _parent_scene.actor_name_map[Shell] = (PhysicsActor)this;
                     _parent_scene.AddCharacter(this);
-
-                    //Ubit: this assumes the avatar is stopped
-                    // if not ode must be told about current velocity, etc    
-                    //                    Vector3 vel = Velocity;
-                    //                    d.BodySetLinearVel(Body, vel.X, vel.Y, vel.Z);
-                    //                    AlignAvatarTiltWithCurrentDirectionOfMovement(vel);
-                    // or
-                    // Velocity = Velocity;
-                    // ?? can't test this fully...
                 }
                 else
                 {
@@ -1428,13 +1419,12 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                     if (Shell != IntPtr.Zero)
                     {
-                        d.GeomDestroy(Shell);
                         _parent_scene.geom_name_map.Remove(Shell);
+                        d.GeomDestroy(Shell);
                         Shell = IntPtr.Zero;
                     }
 
                 }
-
 
                 m_isPhysical = m_tainted_isPhysical;
             }
@@ -1451,23 +1441,14 @@ namespace OpenSim.Region.Physics.OdePlugin
                     CAPSULE_LENGTH = m_tainted_CAPSULE_LENGTH;
                     //m_log.Info("[SIZE]: " + CAPSULE_LENGTH.ToString());
                     d.BodyDestroy(Body);
+                    Body = IntPtr.Zero;
+                    _parent_scene.geom_name_map.Remove(Shell);
                     d.GeomDestroy(Shell);
+                    Shell = IntPtr.Zero;
                     AvatarGeomAndBodyCreation(_position.X, _position.Y,
                                       _position.Z + (Math.Abs(CAPSULE_LENGTH - prevCapsule) * 2), m_tensor);
-                    // As with Size, we reset velocity.  However, this isn't strictly necessary since it doesn't
-                    // appear to stall initial region crossings when done here.  Being done for consistency.
-                    //                    Velocity = Vector3.Zero; 
-                    // Ubit:
-                    // we remade the body and ode now thinks we are stopped
-                    // so we do need to tell the world about that
+
                     Velocity = Vector3.Zero;
-                    // or else tell ode about our previus velocity 
-                    //                   Velocity = Velocity; // ugly
-                    // or possible better directly
-                    //                    Vector3 vel = Velocity;
-                    //                    d.BodySetLinearVel(Body, vel.X, vel.Y, vel.Z);
-                    //                    AlignAvatarTiltWithCurrentDirectionOfMovement(vel);
-                    // i can't test fully this last option
 
                     _parent_scene.geom_name_map[Shell] = m_name;
                     _parent_scene.actor_name_map[Shell] = (PhysicsActor)this;
