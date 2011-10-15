@@ -178,8 +178,10 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private List<OdePrim> childrenPrim = new List<OdePrim>();
 
-        private bool iscolliding;
+        private bool m_iscolliding;
+        private bool m_wascolliding;
         private bool m_isSelected;
+
 
         internal bool m_isVolumeDetect; // If true, this prim only detects collisions but doesn't collide actively
 
@@ -187,6 +189,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private int throttleCounter;
         public int m_interpenetrationcount;
         public float m_collisionscore;
+        int m_colliderfilter = 0;
         public int m_roundsUnderMotionThreshold;
         private int m_crossingfailures;
 
@@ -291,6 +294,10 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             m_force = Vector3.Zero;
 
+            m_iscolliding = false;
+            m_wascolliding = false;
+            m_colliderfilter = 0;
+
             hasOOBoffsetFromMesh = false;
             _triMeshData = IntPtr.Zero;
             m_taintadd = true;
@@ -335,8 +342,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                 // is physical or the object is modified somehow *IN THE FUTURE*
                 // without this, if an avatar selects prim, they can walk right
                 // through it while it's selected
-                m_collisionscore = 0;
+                m_taintselected = value;
+               _parent_scene.AddPhysicsActorTaint(this);
 
+/*
                 if ((IsPhysical && !_zeroFlag) || !value)
                 {
                     m_taintselected = value;
@@ -358,8 +367,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     if (m_disabled)
                         enableBodySoft();
                 }
+ */
             }
-        }
+         }
 
         //sets non physical prim m_targetSpace to right space in spaces grid for static prims
         // should only be called for non physical prims unless they are becoming non physical
@@ -1382,8 +1392,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                 {
                     if (Body != IntPtr.Zero)
                     {
+                        d.BodySetForce(Body, 0f, 0f, 0f);
+                        d.BodySetTorque(Body, 0f, 0f, 0f);
                         d.BodySetLinearVel(Body, 0f, 0f, 0f);
-                        d.BodySetForce(Body, 0, 0, 0);
+                        d.BodySetAngularVel(Body, 0f, 0f, 0f);
                         enableBodySoft();
                     }
                 }
@@ -1544,6 +1556,8 @@ Console.WriteLine("CreateGeom:");
                         d.GeomSetPosition(prim_geom, m_taintposition.X, m_taintposition.Y, m_taintposition.Z);
                         _position = m_taintposition;
                     }
+                    if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                        d.BodyEnable(Body);
                 }
             }
             else
@@ -1583,13 +1597,14 @@ Console.WriteLine("CreateGeom:");
 
         public void Move(float timestep)
         {
-            float fx = 0;
-            float fy = 0;
-            float fz = 0;
 
-            if (m_isphysical && (Body != IntPtr.Zero) && !m_disabled && !childPrim && !m_isSelected)        // KF: Only move root prims.
+            if (!childPrim && m_isphysical && (Body != IntPtr.Zero) && !m_disabled && !m_isSelected && d.BodyIsEnabled(Body))        // KF: Only move root prims.
             {
-                if (!d.BodyIsEnabled(Body)) d.BodyEnable(Body); // KF add 161009
+//                if (!d.BodyIsEnabled(Body)) d.BodyEnable(Body); // KF add 161009
+
+                float fx = 0;
+                float fy = 0;
+                float fz = 0;
 
                 if (m_vehicle.Type != Vehicle.TYPE_NONE)
                 {
@@ -1598,38 +1613,13 @@ Console.WriteLine("CreateGeom:");
                 }
                 else
                 {
-                    //Console.WriteLine("Move " +  Name);
-                    // NON-'VEHICLES' are dealt with here
-                    //                    if (d.BodyIsEnabled(Body) && !m_angularlock.ApproxEquals(Vector3.Zero, 0.003f))
-                    //                    {
-                    //                        d.Vector3 avel2 = d.BodyGetAngularVel(Body);
-                    //                        /*
-                    //                        if (m_angularlock.X == 1)
-                    //                            avel2.X = 0;
-                    //                        if (m_angularlock.Y == 1)
-                    //                            avel2.Y = 0;
-                    //                        if (m_angularlock.Z == 1)
-                    //                            avel2.Z = 0;
-                    //                        d.BodySetAngularVel(Body, avel2.X, avel2.Y, avel2.Z);
-                    //                         */
-                    //                    }
-                    //float PID_P = 900.0f;
-
-                    float m_mass = _mass;
+                     float m_mass = _mass;
                    
                     //                    fz = 0f;
                     //m_log.Info(m_collisionFlags.ToString());
                     if (m_usePID)
                     {
-                        //Console.WriteLine("PID " +  Name);
-                        // KF - this is for object move? eg. llSetPos() ?
-                        //if (!d.BodyIsEnabled(Body))
-                        //d.BodySetForce(Body, 0f, 0f, 0f);
-                        // If we're using the PID controller, then we have no gravity
-                        //fz = (-1 * _parent_scene.gravityz) * m_mass;     //KF: ?? Prims have no global gravity,so simply...
-
-                        //  no lock; for now it's only called from within Simulate()
-
+  
                         // If the PID Controller isn't active then we set our force
                         // calculating base velocity to the current position
 
@@ -1792,7 +1782,7 @@ Console.WriteLine("CreateGeom:");
                             // and the body should fall again. 
                             d.BodySetLinearVel(Body, 0f, 0f, 0f);
                             d.BodySetForce(Body, 0, 0, 0);
-                            enableBodySoft();
+                            d.BodyEnable(Body);
                         }
 
                         // 35x10 = 350n times the mass per second applied maximum.
@@ -2025,6 +2015,9 @@ Console.WriteLine("CreateGeom:");
                 {
                     if (m_disabled)
                         enableBodySoft();
+                    else if (!d.BodyIsEnabled(Body))
+                        d.BodyEnable(Body);
+
                     _torque = m_taintTorque;
                 }
             }
@@ -2043,6 +2036,9 @@ Console.WriteLine("CreateGeom:");
                     {
                         if (m_disabled)
                             enableBodySoft();
+                        else if (!d.BodyIsEnabled(Body))
+                            d.BodyEnable(Body);
+
                         d.BodyAddForce(Body, m_taintimpulseacc.X, m_taintimpulseacc.Y, m_taintimpulseacc.Z);
                     }
                     m_taintimpulseacc = Vector3.Zero;
@@ -2065,6 +2061,8 @@ Console.WriteLine("CreateGeom:");
                     {
                         if (m_disabled)
                             enableBodySoft();
+                        else if (!d.BodyIsEnabled(Body))
+                            d.BodyEnable(Body);
                         d.BodyAddTorque(Body, m_taintangularimpulseacc.X, m_taintangularimpulseacc.Y, m_taintangularimpulseacc.Z);
                     }
                     m_taintangularimpulseacc = Vector3.Zero;
@@ -2086,6 +2084,9 @@ Console.WriteLine("CreateGeom:");
                     {
                         if (m_disabled)
                             enableBodySoft();
+                        else if (!d.BodyIsEnabled(Body))
+                            d.BodyEnable(Body);
+
                         d.BodySetLinearVel(Body, m_taintVelocity.X, m_taintVelocity.Y, m_taintVelocity.Z);
                     }
                 }
@@ -2109,8 +2110,34 @@ Console.WriteLine("CreateGeom:");
 
         public override bool IsColliding
         {
-            get { return iscolliding; }
-            set { iscolliding = value; }
+            get { return m_iscolliding; }
+            set
+            {
+                if (value)
+                {
+                    m_colliderfilter += 2;
+                    if (m_colliderfilter > 2)
+                        m_colliderfilter = 2;
+                }
+                else
+                {
+                    m_colliderfilter--;
+                    if (m_colliderfilter < 0)
+                        m_colliderfilter = 0;
+                }
+
+                if (m_colliderfilter == 0)
+                    m_iscolliding = false;
+                else
+                    m_iscolliding = true;
+
+                if (m_wascolliding != m_iscolliding)
+                {
+                    if (m_wascolliding && !m_isSelected && Body != IntPtr.Zero)
+                        d.BodyEnable(Body);
+                    m_wascolliding = m_iscolliding;
+                }
+            }
         }
 
         public override bool CollidingGround
@@ -2185,6 +2212,8 @@ Console.WriteLine("CreateGeom:");
                 if (value.IsFinite())
                 {
                     m_force = value;
+                    if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                        d.BodyEnable(Body);
                 }
                 else
                 {
@@ -2202,21 +2231,29 @@ Console.WriteLine("CreateGeom:");
         public override void VehicleFloatParam(int param, float value)
         {
             m_vehicle.ProcessFloatVehicleParam((Vehicle)param, value);
+            if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                d.BodyEnable(Body);
         }
 
         public override void VehicleVectorParam(int param, Vector3 value)
         {
             m_vehicle.ProcessVectorVehicleParam((Vehicle)param, value);
+            if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                d.BodyEnable(Body);
         }
 
         public override void VehicleRotationParam(int param, Quaternion rotation)
         {
             m_vehicle.ProcessRotationVehicleParam((Vehicle)param, rotation);
+            if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                d.BodyEnable(Body);
         }
 
         public override void VehicleFlags(int param, bool remove)
         {
             m_vehicle.ProcessVehicleFlags(param, remove);
+            if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                d.BodyEnable(Body);
         }
 
         public override void SetVolumeDetect(int param)
@@ -2459,6 +2496,8 @@ Console.WriteLine("CreateGeom:");
                 if (value.IsFinite())
                 {
                     m_rotationalVelocity = value;
+                    if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                        d.BodyEnable(Body);
                 }
                 else
                 {
@@ -2487,7 +2526,12 @@ Console.WriteLine("CreateGeom:");
         public override float Buoyancy
         {
             get { return m_buoyancy; }
-            set { m_buoyancy = value; }
+            set 
+            {
+                m_buoyancy = value;
+                if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
+                    d.BodyEnable(Body);
+            }
         }
 
         public override void link(PhysicsActor obj)

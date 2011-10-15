@@ -239,7 +239,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private volatile int m_global_contactcount = 0;
         private d.Contact[] globalContacts;
-        private GCHandle globalContactscontactsPinnedHandle;
+        private GCHandle globalContactsPinnedHandle;
 
 //Ckrinke: Comment out until used. We declare it, initialize it, but do not use it
 //Ckrinke        private int m_randomizeWater = 200;
@@ -474,11 +474,23 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
 
+            float glassFriction = 2.0f;
+            // scale down friction for linux not sure about this
+            // maybe also from 32b/64b
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                nmTerrainContactFriction *= .2f;
+                mTerrainContactFriction *= .2f;
+                nmAvatarObjectContactFriction *= .2f;
+                mAvatarObjectContactFriction *= .2f;
+                glassFriction *= .2f;
+            }
+
             contacts = new d.ContactGeom[contactsPerCollision];
             contactsPinnedHandle = GCHandle.Alloc(contacts, GCHandleType.Pinned);
 
             globalContacts = new d.Contact[maxContactsbeforedeath];
-            globalContactscontactsPinnedHandle = GCHandle.Alloc(globalContacts, GCHandleType.Pinned); ;
+            globalContactsPinnedHandle = GCHandle.Alloc(globalContacts, GCHandleType.Pinned); ;
 
             const d.ContactFlags comumContactFlagsMode = d.ContactFlags.SoftERP | d.ContactFlags.SoftERP;
             // Centeral contact friction and bounce
@@ -551,20 +563,13 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_materialContactsSurf[(int)Material.Metal, 1].soft_erp = 0.01f;
 
             m_materialContactsSurf[(int)Material.Glass, 0].mode |= comumContactFlagsMode;
-            m_materialContactsSurf[(int)Material.Glass, 0].mu = 2f;
+            m_materialContactsSurf[(int)Material.Glass, 0].mu = glassFriction;
             m_materialContactsSurf[(int)Material.Glass, 0].bounce = 0.2f;
             m_materialContactsSurf[(int)Material.Glass, 0].soft_cfm = 0.001f;
             m_materialContactsSurf[(int)Material.Glass, 0].soft_erp = 0.010f;
 
-            /*
-                private float nmAvatarObjectContactFriction = 250f;
-                private float nmAvatarObjectContactBounce = 0.1f;
-
-                private float mAvatarObjectContactFriction = 75f;
-                private float mAvatarObjectContactBounce = 0.1f;
-            */
             m_materialContactsSurf[(int)Material.Glass, 1].mode |= comumContactFlagsMode;
-            m_materialContactsSurf[(int)Material.Glass, 1].mu = .2f;
+            m_materialContactsSurf[(int)Material.Glass, 1].mu = glassFriction *0.1f;
             m_materialContactsSurf[(int)Material.Glass, 1].bounce = 0.2f;
             m_materialContactsSurf[(int)Material.Glass, 1].soft_cfm = 0.0010f;
             m_materialContactsSurf[(int)Material.Glass, 1].soft_erp = 0.01f;
@@ -2378,13 +2383,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                 return 1;
 
             int curphysiteractions = m_physicsiterations;
-/*
+
             if (step_time >= m_SkipFramesAtms)
                 {
                 // if in trouble reduce step resolution
                 curphysiteractions /= 2;
                 }
-*/
+
             if (SupportsNINJAJoints)
                 {
                 DeleteRequestedJoints(); // this must be outside of the lock (OdeLock) to avoid deadlocks
@@ -2411,9 +2416,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                     {
                     try
                         {
-                        // do characters requested changes
-
+                        // clear pointer/counter to contacts to pass into joints
                         m_global_contactcount = 0;
+
+                        // do characters requested changes
 
                         OdeCharacter character;
                         int numtaints;
@@ -2440,10 +2446,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                             while (numtaints > 0)
                                 {
                                 prim = _taintedPrimQ.Dequeue();
-                                if (prim.ProcessTaints(ODE_STEPSIZE)) // hack odeprim returns true if the prim is to be removed
-                                    RemovePrimThreadLocked(prim);
                                 _taintedPrimH.Remove(prim);
                                 numtaints--;
+                                if (prim.ProcessTaints(ODE_STEPSIZE)) // hack odeprim returns true if the prim is to be removed
+                                    RemovePrimThreadLocked(prim);
                                 }
 
                             if (SupportsNINJAJoints)
@@ -2473,7 +2479,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                         {
                             foreach (OdePrim aprim in _activeprims)
                             {
-                                aprim.m_collisionscore = 0;
+                                aprim.CollisionScore = 0;
+                                aprim.IsColliding = false; // reset colision state. It will take 2 to cancel one
                                 aprim.Move(ODE_STEPSIZE);
                             }
                         }
@@ -2481,7 +2488,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                         //if ((framecount % m_randomizeWater) == 0)
                            // randomizeWater(waterlevel);
 
-                        //int RayCastTimeMS = m_rayCastManager.ProcessQueuedRequests();
                         m_rayCastManager.ProcessQueuedRequests();
 
                         collision_optimized(ODE_STEPSIZE);
@@ -2492,8 +2498,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 if (obj == null)
                                     continue;
-
-//                                m_log.DebugFormat("[PHYSICS]: Assessing {0} for collision events", obj.SOPName);
 
                                 switch ((ActorTypes)obj.PhysicsActorType)
                                 {
@@ -2523,13 +2527,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                     step_time -= ODE_STEPSIZE;
                     nodeframes++;
-                        //}
-                        //else
-                        //{
-                            //fps = 0;
-                        //}
-                    //}
-                }
+                 }
 
                 lock (_characters)
                 {
@@ -2560,7 +2558,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 lock (_activeprims)
                 {
-                    //if (timeStep < 0.2f)
                     {
                         foreach (OdePrim actor in _activeprims)
                         {
@@ -2595,26 +2592,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.WorldExportDIF(world, fname, physics_logging_append_existing_logfile, prefix);
                 }
 
-/*
-                latertickcount = Util.EnvironmentTickCount() - tickCountFrameRun;
-
-                // OpenSimulator above does 10 fps.  10 fps = means that the main thread loop and physics
-                // has a max of 100 ms to run theoretically.
-                // If the main loop stalls, it calls Simulate later which makes the tick count ms larger.
-                // If Physics stalls, it takes longer which makes the tick count ms larger.
-
-                if (latertickcount < 100)
-                {
-                    m_timeDilation = 1.0f;
-                }
-                else
-                {
-                    m_timeDilation = 100f / latertickcount;
-                    //m_timeDilation = Math.Min((Math.Max(100 - (Util.EnvironmentTickCount() - tickCountFrameRun), 1) / 100f), 1.0f);
-                }
-
-                tickCountFrameRun = Util.EnvironmentTickCount();
- */
 // think time dilation is not a physics issue alone..  but ok let's fake something
                 if (step_time < 0) // we did the required loops
                     m_timeDilation = 1.0f;
@@ -3386,10 +3363,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 Quaternion q1 = Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 1.5707f);
                 Quaternion q2 = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), 1.5707f);
-                //Axiom.Math.Quaternion q3 = Axiom.Math.Quaternion.FromAngleAxis(3.14f, new Axiom.Math.Vector3(0, 0, 1));
 
                 q1 = q1 * q2;
-                //q1 = q1 * q3;
                 Vector3 v3;
                 float angle;
                 q1.GetAxisAngle(out v3, out angle);
@@ -3417,12 +3392,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 }
 
-                //foreach (OdeCharacter act in _characters)
-                //{
-                    //RemoveAvatar(act);
-                //}
                 d.WorldDestroy(world);
                 //d.CloseODE();
+                globalContactsPinnedHandle.Free();
+                contactsPinnedHandle.Free();
+                
             }
         }
 
