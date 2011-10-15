@@ -253,8 +253,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             body_autodisable_frames = parent_scene.bodyFramesAutoDisable;
 
             prim_geom = IntPtr.Zero;
+            Body = IntPtr.Zero;
 
-            if (!pos.IsFinite())
+            if (!size.IsFinite())
             {
                 size = new Vector3(0.5f, 0.5f, 0.5f);
                 m_log.WarnFormat("[PHYSICS]: Got nonFinite Object create Size for {0}", Name);
@@ -280,7 +281,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             _pbs = pbs;
 
             _parent_scene = parent_scene;
-            m_targetSpace = (IntPtr)0;
+            m_targetSpace = IntPtr.Zero;
 
             m_taintPhysics = false; // must review this
             if (pos.Z < 0)
@@ -344,6 +345,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                 // through it while it's selected
                 m_taintselected = value;
                _parent_scene.AddPhysicsActorTaint(this);
+
+               if (value && Body != IntPtr.Zero)
+                   d.BodyDisable(Body);
 
 /*
                 if ((IsPhysical && !_zeroFlag) || !value)
@@ -409,10 +413,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 }
             }
-            //m_log.Warn("Setting Geom to: " + prim_geom);
+            else
+                m_log.Warn("Setting bad Geom");
         }
 
-        public bool RemoveGeom()
+        public void RemoveGeom()
         {
             if (prim_geom != IntPtr.Zero)
             {
@@ -421,10 +426,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                     _parent_scene.geom_name_map.Remove(prim_geom);
                     _parent_scene.actor_name_map.Remove(prim_geom);
                     d.GeomDestroy(prim_geom);
+                    Body = IntPtr.Zero;
                     prim_geom = IntPtr.Zero;
                     if (_triMeshData != IntPtr.Zero)
                     {
-                        d.GeomTriMeshDataDestroy(_triMeshData);
+//                        d.GeomTriMeshDataDestroy(_triMeshData);
                         _triMeshData = IntPtr.Zero;
                     }
                     hasOOBoffsetFromMesh = false;
@@ -432,17 +438,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
                 catch (System.AccessViolationException)
                 {
-                    prim_geom = IntPtr.Zero;
                     m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction failed for {0}", Name);
-
-                    return false;
                 }
-
-                return true;
             }
             else
             {
-                return false;
+                m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction BAD {0}", Name);
             }
         }
 
@@ -516,6 +517,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             if (Body != IntPtr.Zero)
             {
+                d.GeomSetBody(prim_geom, IntPtr.Zero);
                 d.BodyDestroy(Body);
                 Body = IntPtr.Zero;
             }
@@ -588,6 +590,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                         d.GeomClearOffset(prm.prim_geom);
                         d.GeomSetBody(prm.prim_geom, Body);
+                        prm.Body = Body;
                         d.GeomSetOffsetWorldRotation(prm.prim_geom, ref mat); // set relative rotation
                     }
                 }
@@ -655,12 +658,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.GeomSetCategoryBits(prm.prim_geom, (int)prm.m_collisionCategories);
                     d.GeomSetCollideBits(prm.prim_geom, (int)prm.m_collisionFlags);
 
-                    prm.Body = Body;
-                    prm.m_disabled = false;
-                    prm.m_interpenetrationcount = 0;
-                    prm.m_collisionscore = 0;
-                    _parent_scene.addActivePrim(prm);
-
                     if (prm.m_targetSpace != _parent_scene.ActiveSpace)
                     {
                         if (prm.m_targetSpace != IntPtr.Zero)
@@ -672,6 +669,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                         prm.m_targetSpace = _parent_scene.ActiveSpace;
                         d.SpaceAdd(m_targetSpace, prm.prim_geom);
                     }
+
+                    prm.m_disabled = false;
+                    prm.m_interpenetrationcount = 0;
+                    prm.m_collisionscore = 0;
+                    _parent_scene.addActivePrim(prm);
                 }
             }
 
@@ -688,15 +690,9 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void DestroyBody()  // for now removes all colisions etc from childs, full body reconstruction is needed after this
         {
-            //this kills the body so things like 'mesh' can re-create it.
-            lock (this)
+            if (Body != IntPtr.Zero)
             {
-                if (Body != IntPtr.Zero)
-                {
-                    if (!childPrim)
-                        d.BodyDisable(Body);
-                    _parent_scene.remActivePrim(this);
-                }
+                _parent_scene.remActivePrim(this);
                 m_collisionCategories &= ~CollisionCategories.Body;
                 m_collisionFlags &= ~(CollisionCategories.Wind | CollisionCategories.Land);
                 if (prim_geom != IntPtr.Zero)
@@ -704,8 +700,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.GeomSetCategoryBits(prim_geom, (int)m_collisionCategories);
                     d.GeomSetCollideBits(prim_geom, (int)m_collisionFlags);
                     UpdateDataFromGeom();
+                    if (Body != IntPtr.Zero)
+                        d.GeomSetBody(prim_geom, IntPtr.Zero);
                     SetInStaticSpace(this);
                 }
+
                 if (!childPrim)
                 {
                     lock (childrenPrim)
@@ -718,12 +717,16 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if (prm.prim_geom != IntPtr.Zero)
                             {
                                 prm.UpdateDataFromGeom();
+                                if (prm.Body != IntPtr.Zero)
+                                {
+                                    d.GeomSetBody(prm.prim_geom, IntPtr.Zero);
+                                    prm.Body = IntPtr.Zero;
+                                }
                                 d.GeomSetCategoryBits(prm.prim_geom, (int)m_collisionCategories);
                                 d.GeomSetCollideBits(prm.prim_geom, (int)m_collisionFlags);
                                 SetInStaticSpace(prm);
                             }
                             prm._mass = prm.primMass;
-                            prm.Body = IntPtr.Zero;
                         }
                     }
                     if (Body != IntPtr.Zero)
@@ -731,10 +734,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                         d.BodyDestroy(Body);
                     }
                 }
-                _mass = primMass;
                 Body = IntPtr.Zero;
-
             }
+            _mass = primMass;
             m_disabled = true;
             m_collisionscore = 0;
         }
@@ -1091,8 +1093,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             int vertexCount, indexCount;
             int vertexStride, triStride;
 
-
-
             mesh.getVertexListAsPtrToFloatArray(out vertices, out vertexStride, out vertexCount); // Note, that vertices are fixed in unmanaged heap
             mesh.getIndexListAsPtrToIntArray(out indices, out triStride, out indexCount); // Also fixed, needs release after usage
 
@@ -1103,7 +1103,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             d.GeomTriMeshDataBuildSimple(_triMeshData, vertices, vertexStride, vertexCount, indices, indexCount, triStride);
             d.GeomTriMeshDataPreprocess(_triMeshData);
-
             
             mesh.releaseSourceMeshData();
 
@@ -1154,7 +1153,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private void changelink()
         {
-
             if (_parent == null && m_taintparent != null)
             {
                 if (m_taintparent is OdePrim)
@@ -1191,6 +1189,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             //Console.WriteLine("ParentPrim  " + m_primName);
             if (this.m_localID != prim.m_localID)
             {
+                DestroyBody();  // for now we need to rebuil entire object on link change
+
                 lock (childrenPrim)
                 {
                     // adopt the prim
@@ -1202,6 +1202,14 @@ namespace OpenSim.Region.Physics.OdePlugin
                     {
                         if (!childrenPrim.Contains(prm))
                         {
+                            if (prm.Body != IntPtr.Zero)
+                            {
+                                if (prm.prim_geom != IntPtr.Zero)
+                                    d.GeomSetBody(prm.prim_geom, IntPtr.Zero);
+                                prm.DestroyBody(); // don't loose bodies around
+                                prm.Body = IntPtr.Zero;
+                            }
+
                             childrenPrim.Add(prm);
                             prm._parent = this;
                         }
@@ -1212,16 +1220,16 @@ namespace OpenSim.Region.Physics.OdePlugin
                 prim.childPrim = true;
                 prim._parent = this;
 
-                if (prim.Body != IntPtr.Zero && prim.Body != Body)
+                if (prim.Body != IntPtr.Zero)
                 {
+                    if (prim.prim_geom != IntPtr.Zero)
+                        d.GeomSetBody(prim.prim_geom, IntPtr.Zero);
                     prim.DestroyBody(); // don't loose bodies around
                     prim.Body = IntPtr.Zero;
                 }
+
                 if (m_isphysical)
-                {
-                    //                    if (!BlockPhysicalReconstruction)
                     MakeBody(); // full nasty reconstruction
-                }
             }
         }
 
@@ -1335,6 +1343,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                         newroot.MakeBody();
                     }
                 }
+                if (reMakeBody)
+                    MakeBody();
                 return;
             }
             else
@@ -1344,10 +1354,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                     childrenPrim.Remove(odePrim);
                     odePrim.childPrim = false;
                     odePrim._parent = null;
+                    if (reMakeBody)
+                        MakeBody();
                 }
             }
-            if (reMakeBody)
-                MakeBody();
+            MakeBody();
         }
 
         private void changeSelectedStatus()
@@ -1431,7 +1442,7 @@ Console.WriteLine("CreateGeom:");
 #endif
             if (_triMeshData != IntPtr.Zero)
             {
-                d.GeomTriMeshDataDestroy(_triMeshData);
+//                d.GeomTriMeshDataDestroy(_triMeshData);
                 _triMeshData = IntPtr.Zero;
             }
 
@@ -1912,14 +1923,16 @@ Console.WriteLine("CreateGeom:");
                 {
                     d.GeomDestroy(prim_geom);
                     if (_triMeshData != IntPtr.Zero)
-                        d.GeomTriMeshDataDestroy(_triMeshData);
-                    _triMeshData = IntPtr.Zero;
+                    {
+//                        d.GeomTriMeshDataDestroy(_triMeshData);
+                        _triMeshData = IntPtr.Zero;
+                    }
                 }
                 catch (System.AccessViolationException)
                 {
-                    prim_geom = IntPtr.Zero;
                     m_log.Error("[PHYSICS]: PrimGeom destruction failed");
                 }
+
                 prim_geom = IntPtr.Zero;
             }
             // we don't need to do space calculation because the client sends a position update also.
@@ -1950,11 +1963,10 @@ Console.WriteLine("CreateGeom:");
                     {
                         d.GeomSetPosition(prim_geom, _position.X, _position.Y, _position.Z);
                         d.Quaternion myrot = new d.Quaternion();
-                        Quaternion fake = _orientation;
-                        myrot.X = fake.X;
-                        myrot.Y = fake.Y;
-                        myrot.Z = fake.Z;
-                        myrot.W = fake.W;
+                        myrot.X = _orientation.X;
+                        myrot.Y = _orientation.Y;
+                        myrot.Z = _orientation.Z;
+                        myrot.W = _orientation.W;
                         d.GeomSetQuaternion(prim_geom, ref myrot);
                     }
 
@@ -3030,9 +3042,7 @@ Console.WriteLine("CreateGeom:");
 
         public bool ProcessTaints(float timestep)
         {
-#if SPAM
-Console.WriteLine("ZProcessTaints for " + Name);
-#endif
+
             if (m_taintremove)
             {
                 ResetTaints();
@@ -3041,9 +3051,9 @@ Console.WriteLine("ZProcessTaints for " + Name);
                 else
                     ChildRemove(this,false);
 
+                RemoveGeom();
+
                 m_targetSpace = IntPtr.Zero;
-                if (!RemoveGeom())
-                    m_log.Warn("[PHYSICS]: Unable to remove prim from physics scene");
 
                 return true;
             }
@@ -3060,8 +3070,6 @@ Console.WriteLine("ZProcessTaints for " + Name);
 
                 if (!m_isSelected && m_taintselected) // do change to not selected first
                     changeSelectedStatus();
-
-
 
                 if (m_taintshape)
                     changeshape();
