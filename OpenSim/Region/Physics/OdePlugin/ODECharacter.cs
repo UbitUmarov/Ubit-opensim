@@ -1036,6 +1036,9 @@ namespace OpenSim.Region.Physics.OdePlugin
         public void UpdatePositionAndVelocity()
         {
             //  no lock; called from Simulate() -- if you call this from elsewhere, gotta lock or do Monitor.Enter/Exit!
+            if (Body == IntPtr.Zero)
+                return;
+
             d.Vector3 vec;
             try
             {

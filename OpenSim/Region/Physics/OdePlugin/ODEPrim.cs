@@ -163,7 +163,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private bool m_hastaintimpulse = false;
         private bool m_hastaintaddangularforce = false;
 
-
         private PrimitiveBaseShape _pbs;
         private OdeScene _parent_scene;
 
@@ -429,25 +428,27 @@ namespace OpenSim.Region.Physics.OdePlugin
                     _parent_scene.geom_name_map.Remove(prim_geom);
                     _parent_scene.actor_name_map.Remove(prim_geom);
                     d.GeomDestroy(prim_geom);
-                    Body = IntPtr.Zero;
-                    prim_geom = IntPtr.Zero;
                     if (_triMeshData != IntPtr.Zero)
                     {
-//                        d.GeomTriMeshDataDestroy(_triMeshData);
+                        d.GeomTriMeshDataDestroy(_triMeshData);
                         _triMeshData = IntPtr.Zero;
                     }
                     hasOOBoffsetFromMesh = false;
                     CalcPrimBodyData();
                 }
-                catch (System.AccessViolationException)
+                //                catch (System.AccessViolationException)
+                catch
                 {
                     m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction failed for {0}", Name);
                 }
+
+                prim_geom = IntPtr.Zero;
             }
             else
             {
                 m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction BAD {0}", Name);
             }
+            Body = IntPtr.Zero;
         }
 
         public void enableBodySoft()
@@ -1105,16 +1106,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             _parent_scene.waitForSpaceUnlock(m_targetSpace);
             try
             {
-                if (prim_geom == IntPtr.Zero)
-                {
-                    // we aren't doing anything in the tricallback
-                    //                    SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, parent_scene.triCallback, null, null));
-                    SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, null, null, null));
-                }
+                SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, null, null, null));
             }
-            catch (AccessViolationException)
+            //            catch (AccessViolationException)
+            catch
             {
-                m_log.ErrorFormat("[PHYSICS]: MESH LOCKED FOR {0}", Name);
+                m_log.ErrorFormat("[PHYSICS]: SetGeom failed for {0}", Name);
                 return;
             }
         }
@@ -1349,7 +1346,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     odePrim.childPrim = false;
                     odePrim._parent = null;
                     if (reMakeBody)
-                        MakeBody();
+                        odePrim.MakeBody();
                 }
             }
             MakeBody();
@@ -1905,6 +1902,7 @@ Console.WriteLine("CreateGeom:");
                     DestroyBody();
                 }
             }
+
             if (prim_geom != IntPtr.Zero)
             {
                 try
@@ -1912,17 +1910,19 @@ Console.WriteLine("CreateGeom:");
                     d.GeomDestroy(prim_geom);
                     if (_triMeshData != IntPtr.Zero)
                     {
-//                        d.GeomTriMeshDataDestroy(_triMeshData);
+                        d.GeomTriMeshDataDestroy(_triMeshData);
                         _triMeshData = IntPtr.Zero;
                     }
                 }
-                catch (System.AccessViolationException)
+                //                catch (System.AccessViolationException)
+                catch
                 {
                     m_log.Error("[PHYSICS]: PrimGeom destruction failed");
                 }
 
                 prim_geom = IntPtr.Zero;
             }
+
             // we don't need to do space calculation because the client sends a position update also.
             if (_size.X <= 0)
                 _size.X = 0.01f;
@@ -1962,7 +1962,6 @@ Console.WriteLine("CreateGeom:");
                 }
             }
 
-            changeSelectedStatus();
 
             if (chp)
             {
@@ -1971,14 +1970,13 @@ Console.WriteLine("CreateGeom:");
                     (_parent as OdePrim).ChildSetGeom(this);
                 }
             }
+
+            changeSelectedStatus();
             resetCollisionAccounting();
         }
 
         public void changesize()
         {
-#if SPAM
-            m_log.DebugFormat("[ODE PRIM]: Called changesize");
-#endif
             changeprimsizeshape();
             m_taintsize = _size;
         }
