@@ -437,9 +437,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     CalcPrimBodyData();
                 }
                 //                catch (System.AccessViolationException)
-                catch
+                catch (Exception e)
                 {
-                    m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction failed for {0}", Name);
+                    m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction failed for {0} exception {1}", Name,e);
                 }
 
                 prim_geom = IntPtr.Zero;
@@ -1108,10 +1108,10 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 SetGeom(d.CreateTriMesh(m_targetSpace, _triMeshData, null, null, null));
             }
-            //            catch (AccessViolationException)
-            catch
+
+            catch (Exception e)
             {
-                m_log.ErrorFormat("[PHYSICS]: SetGeom failed for {0}", Name);
+                m_log.ErrorFormat("[PHYSICS]: SetGeom Mesh failed for {0} exception: {1}", Name , e);
                 return;
             }
         }
@@ -1446,9 +1446,9 @@ Console.WriteLine("CreateGeom:");
                     {
                         SetGeom(d.CreateSphere(targetSpace, _size.X * 0.5f));
                     }
-                    catch (AccessViolationException)
+                    catch (Exception e)
                     {
-                        m_log.Warn("[PHYSICS]: Unable to create physics proxy for object");
+                        m_log.WarnFormat("[PHYSICS]: Create sphere failed: {0}",e);
                         return;
                     }
                 }
@@ -1460,9 +1460,9 @@ Console.WriteLine("CreateGeom:");
                         //Console.WriteLine("  CreateGeom 4");
                         SetGeom(d.CreateBox(targetSpace, _size.X, _size.Y, _size.Z));
                     }
-                    catch (AccessViolationException)
+                    catch (Exception e)
                     {
-                        m_log.Warn("[PHYSICS]: Unable to create physics proxy for object");
+                        m_log.Warn("[PHYSICS]: Create box failed: {0}", e);
                         return;
                     }
                 }
@@ -1915,9 +1915,9 @@ Console.WriteLine("CreateGeom:");
                     }
                 }
                 //                catch (System.AccessViolationException)
-                catch
+                catch (Exception e)
                 {
-                    m_log.Error("[PHYSICS]: PrimGeom destruction failed");
+                    m_log.Error("[PHYSICS]: PrimGeom destruction failed: {0}", e);
                 }
 
                 prim_geom = IntPtr.Zero;
