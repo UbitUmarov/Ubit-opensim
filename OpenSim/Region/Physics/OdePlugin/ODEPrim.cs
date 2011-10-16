@@ -423,18 +423,16 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (prim_geom != IntPtr.Zero)
             {
+                _parent_scene.geom_name_map.Remove(prim_geom);
+                _parent_scene.actor_name_map.Remove(prim_geom);
                 try
                 {
-                    _parent_scene.geom_name_map.Remove(prim_geom);
-                    _parent_scene.actor_name_map.Remove(prim_geom);
                     d.GeomDestroy(prim_geom);
                     if (_triMeshData != IntPtr.Zero)
                     {
                         d.GeomTriMeshDataDestroy(_triMeshData);
                         _triMeshData = IntPtr.Zero;
                     }
-                    hasOOBoffsetFromMesh = false;
-                    CalcPrimBodyData();
                 }
                 //                catch (System.AccessViolationException)
                 catch (Exception e)
@@ -449,6 +447,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                 m_log.ErrorFormat("[PHYSICS]: PrimGeom destruction BAD {0}", Name);
             }
             Body = IntPtr.Zero;
+            hasOOBoffsetFromMesh = false;
+            CalcPrimBodyData();
         }
 
         public void enableBodySoft()
