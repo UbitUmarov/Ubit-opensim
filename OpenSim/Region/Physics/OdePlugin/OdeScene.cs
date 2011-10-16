@@ -123,15 +123,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private float contactsurfacelayer = 0.001f;
 
-//        private int worldHashspaceLow = -4;
-//        private int worldHashspaceHigh = 128;
-
-//        private int smallHashspaceLow = -4;
-//        private int smallHashspaceHigh = 66;
-
         private float waterlevel = 0f;
         private int framecount = 0;
-        //private int m_returncollisions = 10;
 
         private readonly IntPtr contactgroup;
 
@@ -277,9 +270,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         private int spaceGridMaxY;
         private float spacesPerMeter;
 
-        //private IntPtr tmpSpace;
         // split static geometry collision into a grid as before
-        public IntPtr[,] staticPrimspace;
+        private IntPtr[,] staticPrimspace;
 
         public Object OdeLock;
 
@@ -475,17 +467,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             float glassFriction = 2.0f;
-            // scale down friction for linux not sure about this
-            // maybe also from 32b/64b
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                nmTerrainContactFriction *= .2f;
-                mTerrainContactFriction *= .2f;
-                nmAvatarObjectContactFriction *= .2f;
-                mAvatarObjectContactFriction *= .2f;
-                glassFriction *= .2f;
-            }
-
             contacts = new d.ContactGeom[contactsPerCollision];
             contactsPinnedHandle = GCHandle.Alloc(contacts, GCHandleType.Pinned);
 
@@ -679,7 +660,14 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private bool SetGlobalContact(ref d.ContactGeom contactGeom, float mu, float bounce, float soft_cfm, float soft_erp)
         {
-            globalContacts[m_global_contactcount].geom = contactGeom;
+            globalContacts[m_global_contactcount].geom.depth = contactGeom.depth;
+            globalContacts[m_global_contactcount].geom.g1 = contactGeom.g1;
+            globalContacts[m_global_contactcount].geom.g2 = contactGeom.g2;
+            globalContacts[m_global_contactcount].geom.pos = contactGeom.pos;
+            globalContacts[m_global_contactcount].geom.normal = contactGeom.normal;
+            globalContacts[m_global_contactcount].geom.side1 = contactGeom.side1;
+            globalContacts[m_global_contactcount].geom.side2 = contactGeom.side2;
+
             globalContacts[m_global_contactcount].surface.mode = d.ContactFlags.SoftERP | d.ContactFlags.SoftERP;
             globalContacts[m_global_contactcount].surface.mu = mu;
             globalContacts[m_global_contactcount].surface.bounce = bounce;

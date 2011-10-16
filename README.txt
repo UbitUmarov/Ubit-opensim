@@ -4,8 +4,9 @@ http://opensimulator.org/
 
 Ubit Umarov
 
-
-
+temporary make sure:
+-> coment out friction parameters on OpenSimDefaults.ini and Opensim.ini the ones there don't work
+-> coment out av_density so its the default in code (80)
 
 
 

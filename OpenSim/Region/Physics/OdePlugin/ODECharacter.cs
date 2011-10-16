@@ -759,7 +759,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (pushforce)
                 {
                     m_pidControllerActive = false;
-                    m_taintForce = force *= 100f;
+                    m_taintForce = force * 100f;
                     m_hasTaintForce = true;
                     _parent_scene.AddPhysicsActorTaint(this);
                 }
