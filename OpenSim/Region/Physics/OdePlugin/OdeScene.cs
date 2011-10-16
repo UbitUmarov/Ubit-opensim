@@ -815,7 +815,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             ContactPoint maxDepthContact = new ContactPoint();
 
-            int notskipedcount = 0;
             for (int i = 0; i < count; i++)
             {
 
@@ -917,8 +916,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 bool doJoint = false;
                 if (!skipThisContact)
                 {
-                    notskipedcount++;
-                    
+                   
                     // If we're colliding against terrain
                     if (name1 == "Terrain")
                     {
@@ -1237,22 +1235,23 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
             // this was inside above loop ?
-            if (notskipedcount > 0)
-                collision_accounting_events(p1, p2, maxDepthContact);
+            collision_accounting_events(p1, p2, maxDepthContact);
 
+/*
             if (notskipedcount > geomContactPointsStartthrottle)
             {
                 // If there are more then 3 contact points, it's likely
                 // that we've got a pile of objects, so ...
                 // We don't want to send out hundreds of terse updates over and over again
                 // so lets throttle them and send them again after it's somewhat sorted out.
-                /* this needs checking so out for now
+                 this needs checking so out for now
                                 if (b1 != IntPtr.Zero)
                                     p1.ThrottleUpdates = true;
                                 if (b2 != IntPtr.Zero)
                                     p2.ThrottleUpdates = true;
-                 */
+                
             }
+ */
         }            
 
         private void collision_accounting_events(PhysicsActor p1, PhysicsActor p2, ContactPoint contact)
@@ -2426,8 +2425,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                         lock (_taintedCharacterLock)
                             {
                             numtaints = _taintedCharacterQ.Count;
-                            if (numtaints > 50)
-                                numtaints = 50;
+//                            if (numtaints > 50)
+//                                numtaints = 50;
                             while (numtaints > 0)
                                 {
                                 character = _taintedCharacterQ.Dequeue();
@@ -2441,8 +2440,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                         lock (_taintedPrimLock)
                             {
                             numtaints = _taintedPrimQ.Count;
-                            if (numtaints > 100)
-                                numtaints = 100;
+//                            if (numtaints > 100)
+//                                numtaints = 100;
                             while (numtaints > 0)
                                 {
                                 prim = _taintedPrimQ.Dequeue();
