@@ -6,7 +6,7 @@
         <CompilerDefines>TRACE;DEBUG</CompilerDefines>
         <OptimizeCode>false</OptimizeCode>
         <CheckUnderflowOverflow>false</CheckUnderflowOverflow>
-        <AllowUnsafe>false</AllowUnsafe>
+        <AllowUnsafe>true</AllowUnsafe>
         <WarningLevel>4</WarningLevel>
         <WarningsAsErrors>false</WarningsAsErrors>
         <SuppressWarnings/>
@@ -21,7 +21,7 @@
         <CompilerDefines>TRACE</CompilerDefines>
         <OptimizeCode>true</OptimizeCode>
         <CheckUnderflowOverflow>false</CheckUnderflowOverflow>
-        <AllowUnsafe>false</AllowUnsafe>
+        <AllowUnsafe>true</AllowUnsafe>
         <WarningLevel>4</WarningLevel>
         <WarningsAsErrors>false</WarningsAsErrors>
         <SuppressWarnings/>
