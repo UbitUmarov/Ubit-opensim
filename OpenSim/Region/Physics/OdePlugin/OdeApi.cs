@@ -10,6 +10,7 @@ namespace OdeAPI
 	using dReal = System.Single;
 //#endif
 
+
 	public static class d
 	{
 		public static dReal Infinity = dReal.MaxValue;
