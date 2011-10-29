@@ -37,11 +37,10 @@ using System.IO;
 using System.Diagnostics;
 using log4net;
 using Nini.Config;
-//using Ode.NET;
 using OdeAPI;
 #if USE_DRAWSTUFF
-using Drawstuff.NET;
-#endif 
+using ODEDrawstuff;
+#endif
 using OpenSim.Framework;
 using OpenSim.Region.Physics.Manager;
 using OpenMetaverse;

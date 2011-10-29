@@ -40,15 +40,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Runtime.InteropServices;
-using Ode.NET;
+using OdeAPI;
 
-namespace Drawstuff.NET
+namespace ODEDrawstuff
 {
-#if dDOUBLE
+/*#if dDOUBLE
     using dReal = System.Double;
 #else
+ */
     using dReal = System.Single;
-#endif
+//#endif
 
     public static class ds
     {

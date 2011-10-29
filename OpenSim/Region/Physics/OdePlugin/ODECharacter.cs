@@ -32,7 +32,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using OpenMetaverse;
-//using Ode.NET;
 using OdeAPI;
 using OpenSim.Framework;
 using OpenSim.Region.Physics.Manager;

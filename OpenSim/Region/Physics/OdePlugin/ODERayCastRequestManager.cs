@@ -32,7 +32,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using OpenMetaverse;
 using OpenSim.Region.Physics.Manager;
-//using Ode.NET;
 using OdeAPI;
 using log4net;
 
