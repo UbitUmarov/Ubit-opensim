@@ -563,7 +563,8 @@
       <Reference name="OpenSim.Framework"/>
       <Reference name="OpenSim.Framework.Console"/>
       <Reference name="OpenSim.Region.Physics.Manager"/>
-      <Reference name="Ode.NET" path="../../../../bin/"/>
+<!--      <Reference name="Ode.NET" path="../../../../bin/"/>
+-->
       <Reference name="log4net" path="../../../../bin/"/>
 
       <Files>
