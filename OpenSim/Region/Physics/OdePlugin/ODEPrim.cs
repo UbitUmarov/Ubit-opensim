@@ -422,7 +422,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override void SetVolumeDetect(int param)
         {
-            lock (_parent_scene.OdeLock)
+//            lock (_parent_scene.OdeLock)
             {
                 m_isVolumeDetect = (param != 0);
             }
@@ -1258,6 +1258,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 d.BodyDestroy(Body);
                 Body = IntPtr.Zero;
+                m_log.Warn("[PHYSICS]: MakeBody called having a body");
             }
 
             d.Matrix3 mymat = new d.Matrix3();
@@ -1461,10 +1462,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             prm._mass = prm.primMass;
                         }
                     }
-                    if (Body != IntPtr.Zero)
-                    {
-                        d.BodyDestroy(Body);
-                    }
+                    d.BodyDestroy(Body);
                 }
                 Body = IntPtr.Zero;
             }
@@ -1989,7 +1987,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 // m_log.Debug(m_localID);
             }
 
-            lock (_parent_scene.OdeLock)
+//            lock (_parent_scene.OdeLock)
             {
                 //Console.WriteLine("changeadd 1");
                 CreateGeom(m_targetSpace, mesh);
@@ -2317,7 +2315,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             CreateGeom(m_targetSpace, mesh);
 
-            lock (_parent_scene.OdeLock)
+//            lock (_parent_scene.OdeLock)
             {
                 if (prim_geom != IntPtr.Zero)
                 {

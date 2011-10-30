@@ -273,7 +273,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         // split static geometry collision into a grid as before
         private IntPtr[,] staticPrimspace;
 
-        public Object OdeLock;
+        private Object OdeLock;
+        private Object SimulationLock;
 
         public IMesher mesher;
 
@@ -303,6 +304,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType.ToString() + "." + sceneIdentifier);
 
             OdeLock = new Object();
+            SimulationLock = new Object();
             ode = dode;
 
             nearCallback = near;
@@ -1958,7 +1960,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public override void RemoveAllJointsConnectedToActorThreadLocked(PhysicsActor actor)
         {
             //m_log.Debug("RemoveAllJointsConnectedToActorThreadLocked: start");
-            lock (OdeLock)
+ //           lock (OdeLock)
             {
                 //m_log.Debug("RemoveAllJointsConnectedToActorThreadLocked: got lock");
                 RemoveAllJointsConnectedToActor(actor);
@@ -2365,44 +2367,44 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             // acumulate time so we can reduce error
             step_time += timeStep;
-            
+
             if (step_time < ODE_STEPSIZE)
                 return 1;
 
             int curphysiteractions = m_physicsiterations;
 
             if (step_time >= m_SkipFramesAtms)
-                {
+            {
                 // if in trouble reduce step resolution
                 curphysiteractions /= 2;
-                }
+            }
 
             if (SupportsNINJAJoints)
-                {
+            {
                 DeleteRequestedJoints(); // this must be outside of the lock (OdeLock) to avoid deadlocks
                 CreateRequestedJoints(); // this must be outside of the lock (OdeLock) to avoid deadlocks
-                }
+            }
 
-            lock (OdeLock)
-                {
+            lock (SimulationLock)
+            {
                 // adjust number of iterations per step
                 try
-                    {
+                {
                     d.WorldSetQuickStepNumIterations(world, curphysiteractions);
-                    }
+                }
                 catch (StackOverflowException)
-                    {
+                {
                     m_log.Error("[PHYSICS]: The operating system wasn't able to allocate enough memory for the simulation.  Restarting the sim.");
                     ode.drelease(world);
-                   base.TriggerPhysicsBasedRestart();
-                    }
+                    base.TriggerPhysicsBasedRestart();
+                }
 
                 int nodeframes = 0;
 
                 while (step_time > 0.0f && nodeframes < 10) //limit number of steps so we don't say here for ever
-                    {
+                {
                     try
-                        {
+                    {
                         // clear pointer/counter to contacts to pass into joints
                         m_global_contactcount = 0;
 
@@ -2411,55 +2413,55 @@ namespace OpenSim.Region.Physics.OdePlugin
                         OdeCharacter character;
                         int numtaints;
                         lock (_taintedCharacterLock)
-                            {
+                        {
                             numtaints = _taintedCharacterQ.Count;
-//                            if (numtaints > 50)
-//                                numtaints = 50;
+                            //                            if (numtaints > 50)
+                            //                                numtaints = 50;
                             while (numtaints > 0)
-                                {
+                            {
                                 character = _taintedCharacterQ.Dequeue();
                                 character.ProcessTaints(ODE_STEPSIZE);
                                 _taintedCharacterH.Remove(character);
                                 numtaints--;
-                                }
                             }
+                        }
                         // do other objects requested changes
                         OdePrim prim;
                         lock (_taintedPrimLock)
-                            {
+                        {
                             numtaints = _taintedPrimQ.Count;
-//                            if (numtaints > 100)
-//                                numtaints = 100;
+                            //                            if (numtaints > 100)
+                            //                                numtaints = 100;
                             while (numtaints > 0)
-                                {
+                            {
                                 prim = _taintedPrimQ.Dequeue();
                                 _taintedPrimH.Remove(prim);
                                 numtaints--;
                                 if (prim.ProcessTaints(ODE_STEPSIZE)) // hack odeprim returns true if the prim is to be removed
                                     RemovePrimThreadLocked(prim);
-                                }
+                            }
 
                             if (SupportsNINJAJoints)
                                 SimulatePendingNINJAJoints();
-                            }
+                        }
 
                         // Move characters
                         lock (_characters)
-                            {
+                        {
                             List<OdeCharacter> defects = new List<OdeCharacter>();
                             foreach (OdeCharacter actor in _characters)
-                                {
+                            {
                                 if (actor != null)
                                     actor.Move(ODE_STEPSIZE, defects);
-                                }
+                            }
                             if (defects.Count != 0)
-                                {
+                            {
                                 foreach (OdeCharacter defect in defects)
-                                    {
+                                {
                                     RemoveCharacter(defect);
-                                    }
                                 }
                             }
+                        }
 
                         // Move other active objects
                         lock (_activeprims)
@@ -2473,7 +2475,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
 
                         //if ((framecount % m_randomizeWater) == 0)
-                           // randomizeWater(waterlevel);
+                        // randomizeWater(waterlevel);
 
                         m_rayCastManager.ProcessQueuedRequests();
 
@@ -2501,7 +2503,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 }
                             }
                         }
-                      
+
                         d.WorldQuickStep(world, ODE_STEPSIZE);
                         d.JointGroupEmpty(contactgroup);
                         //ode.dunlock(world);
@@ -2514,7 +2516,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                     step_time -= ODE_STEPSIZE;
                     nodeframes++;
-                 }
+                }
 
                 lock (_characters)
                 {
@@ -2579,17 +2581,17 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.WorldExportDIF(world, fname, physics_logging_append_existing_logfile, prefix);
                 }
 
-// think time dilation is not a physics issue alone..  but ok let's fake something
+                // think time dilation is not a physics issue alone..  but ok let's fake something
                 if (step_time < 0) // we did the required loops
                     m_timeDilation = 1.0f;
                 else
-                    { // we didn't forget the lost ones and let user know something
+                { // we didn't forget the lost ones and let user know something
                     m_timeDilation = 1 - step_time / timeStep;
-                    if(m_timeDilation <0)
-                        m_timeDilation=0;
+                    if (m_timeDilation < 0)
+                        m_timeDilation = 0;
                     step_time = 0;
-                    }
-            }           
+                }
+            }
 
             return 1;
         }
