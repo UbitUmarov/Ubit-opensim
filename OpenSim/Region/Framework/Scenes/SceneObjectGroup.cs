@@ -1515,6 +1515,7 @@ namespace OpenSim.Region.Framework.Scenes
                 // Hack to get the physics scene geometries in the right spot
                 ResetChildPrimPhysicsPositions();
             }
+
         }
 
         public void SetOwnerId(UUID userId)

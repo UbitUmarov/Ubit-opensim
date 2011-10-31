@@ -100,6 +100,52 @@ namespace OpenSim.Region.Physics.OdePlugin
         Rubber = 6
     }
 
+    public enum changes : int
+    {
+        Add = 0,                // arg null. finishs the prim creation. should be used internally only ( to remove later ?)
+        Remove,
+        Link,               // arg AuroraODEPrim new parent prim or null to delink. Makes the prim part of a object with prim parent as root
+        //  or removes from a object if arg is null
+        DeLink,
+        Position,           // arg Vector3 new position in world coords. Changes prim position. Prim must know if it is root or child
+        Orientation,        // arg Quaternion new orientation in world coords. Changes prim position. Prim must know it it is root or child
+        PosOffset,          // not in use
+        // arg Vector3 new position in local coords. Changes prim position in object
+        OriOffset,          // not in use
+        // arg Vector3 new position in local coords. Changes prim position in object
+        Velocity,
+        AngVelocity,
+        Acceleration,
+        Force,
+        Torque,
+
+        AddForce,
+        AddAngForce,
+        AngLock,
+
+        Size,
+        Shape,
+
+        CollidesWater,
+        VolumeDtc,
+
+        Physical,
+        Selected,
+        disabled,
+        buildingrepresentation,
+        blockphysicalreconstruction,
+
+        Null             //keep this last used do dim the methods array. does nothing but pulsing the prim
+    }
+
+    public struct ODEchangeitem
+    {
+        public OdePrim prim;
+        public OdeCharacter character;
+        public changes what;
+        public Object arg;
+    }
+
     public class OdeScene : PhysicsScene
     {
         private readonly ILog m_log;
@@ -188,12 +234,16 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly HashSet<OdeCharacter> _characters = new HashSet<OdeCharacter>();
         private readonly HashSet<OdePrim> _prims = new HashSet<OdePrim>();
         private readonly HashSet<OdePrim> _activeprims = new HashSet<OdePrim>();
-        private readonly Object _taintedPrimLock = new Object();
-        private readonly HashSet<OdePrim> _taintedPrimH = new HashSet<OdePrim>(); // faster verification of repeated prim taints
-        private readonly Queue<OdePrim> _taintedPrimQ = new Queue<OdePrim>(); // prims taints
+
+//        private readonly Object _taintedPrimLock = new Object();
+//        private readonly HashSet<OdePrim> _taintedPrimH = new HashSet<OdePrim>(); // faster verification of repeated prim taints
+//        private readonly Queue<OdePrim> _taintedPrimQ = new Queue<OdePrim>(); // prims taints
         private readonly Object _taintedCharacterLock = new Object();
         private readonly HashSet<OdeCharacter> _taintedCharacterH = new HashSet<OdeCharacter>(); // faster verification of repeated character taints
         private readonly Queue<OdeCharacter> _taintedCharacterQ = new Queue<OdeCharacter>(); // character taints
+
+        public OpenSim.Framework.LocklessQueue<ODEchangeitem> ChangesQueue = new OpenSim.Framework.LocklessQueue<ODEchangeitem>();
+
 //        private readonly List<d.ContactGeom> _perloopContact = new List<d.ContactGeom>();
 
         /// <summary>
@@ -2312,6 +2362,28 @@ namespace OpenSim.Region.Physics.OdePlugin
             return true; 
         }
 
+        public void AddChange(OdePrim prim, changes what, Object arg)
+        {
+            ODEchangeitem item = new ODEchangeitem();
+            item.prim = prim;
+            item.what = what;
+            item.arg = arg;
+            ChangesQueue.Enqueue(item);
+        }
+
+        /// <summary>
+        /// Called to queue a change to a prim
+        /// to use in place of old taint mechanism so changes do have a time sequence
+        /// </summary>
+        public void AddChange(OdeCharacter character, changes what, Object arg)
+        {
+            ODEchangeitem item = new ODEchangeitem();
+            item.character = character;
+            item.what = what;
+            item.arg = arg;
+            ChangesQueue.Enqueue(item);
+        }
+
         /// <summary>
         /// Called after our prim properties are set Scale, position etc.
         /// We use this event queue like method to keep changes to the physical scene occuring in the threadlocked mutex
@@ -2322,7 +2394,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
             if (prim is OdePrim)
                 {
-                OdePrim taintedprim = ((OdePrim) prim);
+/*                OdePrim taintedprim = ((OdePrim) prim);
                 lock (_taintedPrimLock)
                     {
                     if (!(_taintedPrimH.Contains(taintedprim))) 
@@ -2331,6 +2403,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         _taintedPrimQ.Enqueue(taintedprim);                    // List for ordered readout
                         }
                     }
+ */
                 return;
                 }
             else if (prim is OdeCharacter)
@@ -2426,7 +2499,26 @@ namespace OpenSim.Region.Physics.OdePlugin
                             }
                         }
                         // do other objects requested changes
-                        OdePrim prim;
+
+                        ODEchangeitem item;
+
+                        int tlimit = 500;
+
+                        while (ChangesQueue.Dequeue(out item))
+                        {
+                            if (item.prim != null)
+                            {
+                                try
+                                {
+                                    if (item.prim.DoAChange(item.what, item.arg))
+                                        RemovePrimThreadLocked(item.prim);
+                                }
+                                catch { };
+                            }
+                            if (tlimit-- <= 0)
+                                break;
+
+                        }/*
                         lock (_taintedPrimLock)
                         {
                             numtaints = _taintedPrimQ.Count;
@@ -2444,7 +2536,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if (SupportsNINJAJoints)
                                 SimulatePendingNINJAJoints();
                         }
-
+*/
                         // Move characters
                         lock (_characters)
                         {

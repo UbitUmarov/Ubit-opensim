@@ -2130,21 +2130,20 @@ namespace OpenSim.Region.Framework.Scenes
                         if (PhysActor.IsPhysical) // implies UsePhysics==false for this block
                         {
                             if (!isNew)
-                                ParentGroup.Scene.RemovePhysicalPrim(1);
-
-                            PhysActor.OnRequestTerseUpdate -= PhysicsRequestingTerseUpdate;
-                            PhysActor.OnOutOfBounds -= PhysicsOutOfBounds;
-                            PhysActor.delink();
-
-                            if (ParentGroup.Scene.PhysicsScene.SupportsNINJAJoints && (!isNew))
                             {
-                                // destroy all joints connected to this now deactivated body
-                                m_parentGroup.Scene.PhysicsScene.RemoveAllJointsConnectedToActorThreadLocked(PhysActor);
+                                ParentGroup.Scene.RemovePhysicalPrim(1);
+                                PhysActor.OnRequestTerseUpdate -= PhysicsRequestingTerseUpdate;
+                                PhysActor.OnOutOfBounds -= PhysicsOutOfBounds;
+                                PhysActor.IsPhysical = UsePhysics;
+                                PhysActor.delink();
+                                if (ParentGroup.Scene.PhysicsScene.SupportsNINJAJoints)
+                                {
+                                    // destroy all joints connected to this now deactivated body
+                                    m_parentGroup.Scene.PhysicsScene.RemoveAllJointsConnectedToActorThreadLocked(PhysActor);
+                                }
                             }
-
-                            // stop client-side interpolation of all joint proxy objects that have just been deleted
-                            // this is done because RemoveAllJointsConnectedToActor invokes the OnJointDeactivated callback,
-                            // which stops client-side interpolation of deactivated joint proxy objects.
+                            else
+                                PhysActor.IsPhysical = UsePhysics;
                         }
 
                         if (!UsePhysics && !isNew)
@@ -2157,8 +2156,6 @@ namespace OpenSim.Region.Framework.Scenes
                             AngularVelocity = new Vector3(0, 0, 0);
                             //RotationalVelocity = new Vector3(0, 0, 0);
                         }
-
-                        PhysActor.IsPhysical = UsePhysics;
 
                         // If we're not what we're supposed to be in the physics scene, recreate ourselves.
                         //m_parentGroup.Scene.PhysicsScene.RemovePrim(PhysActor);
@@ -2173,6 +2170,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                                 PhysActor.OnRequestTerseUpdate += PhysicsRequestingTerseUpdate;
                                 PhysActor.OnOutOfBounds += PhysicsOutOfBounds;
+
                                 if (_parentID != 0 && _parentID != LocalId)
                                 {
                                     if (ParentGroup.RootPart.PhysActor != null)
@@ -2180,8 +2178,12 @@ namespace OpenSim.Region.Framework.Scenes
                                         PhysActor.link(ParentGroup.RootPart.PhysActor);
                                     }
                                 }
+                                PhysActor.IsPhysical = UsePhysics;
                             }
                         }
+
+                        if (!UsePhysics && isNew)
+                            PhysActor.IsPhysical = UsePhysics;
                     }
 
                     // If this part is a sculpt then delay the physics update until we've asynchronously loaded the
@@ -4716,7 +4718,7 @@ namespace OpenSim.Region.Framework.Scenes
                 AddFlag(PrimFlags.Physics);
                 if (!wasUsingPhysics)
                 {
-                    DoPhysicsPropertyUpdate(UsePhysics, false);
+//                    DoPhysicsPropertyUpdate(UsePhysics, false);
 
                     if (!m_parentGroup.IsDeleted)
                     {
@@ -4730,10 +4732,10 @@ namespace OpenSim.Region.Framework.Scenes
             else
             {
                 RemFlag(PrimFlags.Physics);
-                if (wasUsingPhysics)
-                {
-                    DoPhysicsPropertyUpdate(UsePhysics, false);
-                }
+ //               if (wasUsingPhysics)
+ //               {
+ //                   DoPhysicsPropertyUpdate(UsePhysics, false);
+ //               }
             }
 
             if (SetPhantom
@@ -4800,7 +4802,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
                 else // it already has a physical representation
                 {
-                    pa.IsPhysical = UsePhysics;
+//                    pa.IsPhysical = UsePhysics;
 
                     DoPhysicsPropertyUpdate(UsePhysics, false); // Update physical status. If it's phantom this will remove the prim
 
