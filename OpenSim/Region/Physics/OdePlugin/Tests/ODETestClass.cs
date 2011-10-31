@@ -88,8 +88,6 @@ namespace OpenSim.Region.Physics.OdePlugin.Tests
             OdePrim oprim = (OdePrim)prim;
             OdeScene pscene = (OdeScene) ps;
 
-            Assert.That(oprim.m_taintadd);
-
             prim.LocalID = 5;
 
             for (int i = 0; i < 58; i++)
@@ -103,7 +101,6 @@ namespace OpenSim.Region.Physics.OdePlugin.Tests
                 //Assert.That(oprim.m_targetSpace == pscene.space);
                 m_log.Info("TargetSpace: " + oprim.m_targetSpace + " - SceneMainSpace: " + pscene.TopSpace);
 
-                Assert.That(!oprim.m_taintadd);
                 m_log.Info("Prim Position (" + oprim.m_localID + "): " + prim.Position.ToString());
 
                 // Make sure we're above the ground
@@ -119,7 +116,6 @@ namespace OpenSim.Region.Physics.OdePlugin.Tests
             Assert.That(prim.Position.Z < 21.5f);
 
             ps.RemovePrim(prim);
-            Assert.That(oprim.m_taintremove);
             ps.Simulate(0.133f);
             Assert.That(oprim.Body == (IntPtr)0);
         }
