@@ -1513,7 +1513,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
 
                 // Hack to get the physics scene geometries in the right spot
-                ResetChildPrimPhysicsPositions();
+//                ResetChildPrimPhysicsPositions();
             }
 
         }
@@ -1720,7 +1720,8 @@ namespace OpenSim.Region.Framework.Scenes
                             pbs,
                             newPart.AbsolutePosition,
                             newPart.Scale,
-                            newPart.RotationOffset,
+                        //                            newPart.RotationOffset,
+                            newPart.GetWorldRotation(),
                             part.PhysActor.IsPhysical,
                             newPart.LocalId);
 

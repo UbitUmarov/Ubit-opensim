@@ -1871,7 +1871,8 @@ namespace OpenSim.Region.Framework.Scenes
                                 Shape,
                                 AbsolutePosition,
                                 Scale,
-                                RotationOffset,
+//                                RotationOffset,
+                                GetWorldRotation(), // physics want word coords
                                 RigidBody,
                                 m_localId);
                     }
@@ -1886,6 +1887,21 @@ namespace OpenSim.Region.Framework.Scenes
                         PhysActor.SOPName = this.Name; // save object name and desc into the PhysActor so ODE internals know the joint/body info
                         PhysActor.SOPDescription = this.Description;
                         PhysActor.SetMaterial(Material);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                         DoPhysicsPropertyUpdate(RigidBody, true);
                         PhysActor.SetVolumeDetect(VolumeDetectActive ? 1 : 0);
                     }
@@ -4767,7 +4783,8 @@ namespace OpenSim.Region.Framework.Scenes
                         Shape,
                         AbsolutePosition,
                         Scale,
-                        RotationOffset,
+                        GetWorldRotation(),
+//                        RotationOffset,
                         UsePhysics,
                         m_localId);
 

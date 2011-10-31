@@ -2095,15 +2095,11 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 lock (OdeLock)
                 {
-                    OdePrim p = (OdePrim) prim;
-
+                    OdePrim p = (OdePrim)prim;
                     p.setPrimForRemoval();
-                    AddPhysicsActorTaint(prim);
-                    //RemovePrimThreadLocked(p);
                 }
             }
         }
-
         /// <summary>
         /// This is called from within simulate but outside the locked portion
         /// We need to do our own locking here

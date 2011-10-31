@@ -1796,6 +1796,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         childrenPrim.Add(prim);
 
                     // see if this prim has kids and adopt them also
+                    // should not happen for now
                     foreach (OdePrim prm in prim.childrenPrim)
                     {
                         if (!childrenPrim.Contains(prm))
@@ -1804,7 +1805,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 if (prm.prim_geom != IntPtr.Zero)
                                     d.GeomSetBody(prm.prim_geom, IntPtr.Zero);
-                                prm.DestroyBody(); // don't loose bodies around
+                                if(prm.Body != prim.Body)
+                                    prm.DestroyBody(); // don't loose bodies around
                                 prm.Body = IntPtr.Zero;
                             }
 
@@ -1825,7 +1827,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     prim.DestroyBody(); // don't loose bodies around
                     prim.Body = IntPtr.Zero;
                 }
-
                 MakeBody(); // full nasty reconstruction
             }
         }
