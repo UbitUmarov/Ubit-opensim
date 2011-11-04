@@ -1505,17 +1505,15 @@ namespace OpenSim.Region.Framework.Scenes
             SceneObjectPart[] parts = m_parts.GetArray();
             if (parts.Length > 1)
             {
+                // Hack to get the physics scene geometries in the right spot
+                ResetChildPrimPhysicsPositions();
                 for (int i = 0; i < parts.Length; i++)
                 {
                     SceneObjectPart part = parts[i];
                     if (part.LocalId != m_rootPart.LocalId)
                         part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive, m_physicalPrim);
                 }
-
-                // Hack to get the physics scene geometries in the right spot
-//                ResetChildPrimPhysicsPositions();
             }
-
         }
 
         public void SetOwnerId(UUID userId)

@@ -2477,41 +2477,6 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public void SendTerseUpdateToAllClients()
         {
-        //Ubit: this is just rubber banding code
-        /*
-                    int currentTick = Util.EnvironmentTickCount();
-
-                    // Decrease update frequency when avatar is moving but velocity is
-                    // not changing.
-                    // If there is a mismatch between distance travelled and expected
-                    // distance based on last velocity sent and velocity hasnt changed,
-                    // then send a new terse update
-
-                    float timeSinceLastUpdate = (currentTick - lastTerseUpdateToAllClientsTick) * 0.001f;
-
-                    Vector3 expectedPosition = lastPositionSentToAllClients + lastVelocitySentToAllClients * timeSinceLastUpdate;
-
-                    float distanceError = Vector3.Distance(OffsetPosition, expectedPosition);
-
-                    float speed = Velocity.Length();
-                    float velocidyDiff = Vector3.Distance(lastVelocitySentToAllClients, Velocity);
-
-                    // assuming 5 ms. worst case precision for timer, use 2x that 
-                    // for distance error threshold
-                    float distanceErrorThreshold = speed * 0.01f;
-
-                    if (speed < 0.01f // allow rotation updates if avatar position is unchanged
-                        || Math.Abs(distanceError) > distanceErrorThreshold
-                        || velocidyDiff > 0.01f) // did velocity change from last update?
-                        {
-                        lastVelocitySentToAllClients = Velocity;
-                        lastTerseUpdateToAllClientsTick = currentTick;
-                        lastPositionSentToAllClients = OffsetPosition;
-
-                        m_scene.ForEachClient(SendTerseUpdateToClient);
-
-                        }
-         */
         // let's try another way
 
         Vector3 curvel = Velocity;
@@ -2519,7 +2484,6 @@ namespace OpenSim.Region.Framework.Scenes
         Quaternion currot = Rotation;
         int curtick = Util.EnvironmentTickCount();
 
-// a big if but faster than those math.sqrt hidden in above code
         if ( // Math.Abs(curpos.X - lastPositionSentToAllClients.X) < 5f // didn't moved a lot ?
             // && Math.Abs(curpos.Y - lastPositionSentToAllClients.Y) < 5f
             //&& Math.Abs(curpos.Z - lastPositionSentToAllClients.Z) < 5f
