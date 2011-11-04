@@ -60,9 +60,6 @@ using OpenSim.Region.Physics.Manager;
 
 namespace OpenSim.Region.Physics.OdePlugin
 {
-    /// <summary>
-    /// Various properties that ODE uses for AMotors but isn't exposed in ODE.NET so we must define them ourselves.
-    /// </summary>
     public class OdePrim : PhysicsActor
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
@@ -128,9 +125,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         public bool m_taintselected;
 
         public uint m_localID;
-
-        //public GCHandle gc;
-        private CollisionLocker ode;
 
         private PrimitiveBaseShape _pbs;
         private OdeScene _parent_scene;
@@ -657,12 +651,32 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override int VehicleType
         {
-            get { return (int)m_vehicle.Type; }
-            set { m_vehicle.ProcessTypeChange((Vehicle)value); }
+            get
+            {
+                if (m_vehicle == null)
+                    return (int)Vehicle.TYPE_NONE;
+                else
+                    return (int)m_vehicle.Type;
+            }
+            set
+            {
+                if (m_vehicle == null)
+                {
+                    if (value != (int)Vehicle.TYPE_NONE)
+                    {
+                        m_vehicle = new ODEDynamics();
+                        m_vehicle.ProcessTypeChange((Vehicle)value);
+                    }
+                }
+                else    
+                    m_vehicle.ProcessTypeChange((Vehicle)value);
+            }
         }
 
         public override void VehicleFloatParam(int param, float value)
         {
+            if (m_vehicle == null)
+                return;
             m_vehicle.ProcessFloatVehicleParam((Vehicle)param, value);
             if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
                 d.BodyEnable(Body);
@@ -670,6 +684,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override void VehicleVectorParam(int param, Vector3 value)
         {
+            if (m_vehicle == null)
+                return;
             m_vehicle.ProcessVectorVehicleParam((Vehicle)param, value);
             if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
                 d.BodyEnable(Body);
@@ -677,6 +693,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override void VehicleRotationParam(int param, Quaternion rotation)
         {
+            if (m_vehicle == null)
+                return;
             m_vehicle.ProcessRotationVehicleParam((Vehicle)param, rotation);
             if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
                 d.BodyEnable(Body);
@@ -684,6 +702,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override void VehicleFlags(int param, bool remove)
         {
+            if (m_vehicle == null)
+                return;
             m_vehicle.ProcessVehicleFlags(param, remove);
             if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
                 d.BodyEnable(Body);
@@ -811,16 +831,14 @@ namespace OpenSim.Region.Physics.OdePlugin
                        Quaternion rotation, PrimitiveBaseShape pbs, bool pisPhysical, CollisionLocker dode)
         {
             Name = primName;
-            m_vehicle = new ODEDynamics();
-            //gc = GCHandle.Alloc(prim_geom, GCHandleType.Pinned);
-            ode = dode;
+            m_vehicle = null;
+//            m_vehicle = new ODEDynamics();
             if (!pos.IsFinite())
             {
                 pos = new Vector3(((float)Constants.RegionSize * 0.5f), ((float)Constants.RegionSize * 0.5f),
                     parent_scene.GetTerrainHeightAtXY(((float)Constants.RegionSize * 0.5f), ((float)Constants.RegionSize * 0.5f)) + 0.5f);
                 m_log.WarnFormat("[PHYSICS]: Got nonFinite Object create Position for {0}", Name);
             }
-
             _position = pos;
             givefakepos = false;
 
@@ -1182,7 +1200,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
                         d.SpaceAdd(m_targetSpace, prim_geom);
                     }
-                    if (m_vehicle.Type != Vehicle.TYPE_NONE)
+                    if (m_vehicle != null && m_vehicle.Type != Vehicle.TYPE_NONE)
                         m_vehicle.Enable(Body, _parent_scene);
 
                     d.BodyEnable(Body);
@@ -1397,7 +1415,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 createAMotor(m_angularlock);
             }
-            if (m_vehicle.Type != Vehicle.TYPE_NONE)
+            if (m_vehicle!= null && m_vehicle.Type != Vehicle.TYPE_NONE)
                 m_vehicle.Enable(Body, _parent_scene);
 
             _parent_scene.addActivePrim(this);
@@ -2552,7 +2570,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 float fy = 0;
                 float fz = 0;
 
-                if (m_vehicle.Type != Vehicle.TYPE_NONE)
+                if (m_vehicle != null && m_vehicle.Type != Vehicle.TYPE_NONE)
                 {
                     // 'VEHICLES' are dealt with in ODEDynamics.cs
                     m_vehicle.Step(timestep, _parent_scene);
@@ -2803,7 +2821,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                         m_lastVelocity = _velocity;
                         m_rotationalVelocity = _velocity;
-                        if (m_vehicle.Type != Vehicle.TYPE_NONE)
+                        if (m_vehicle != null && m_vehicle.Type != Vehicle.TYPE_NONE)
                             m_vehicle.Stop();
 
                         m_crossingfailures = 0; // do this only once
