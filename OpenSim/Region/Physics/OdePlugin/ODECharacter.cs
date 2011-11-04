@@ -286,7 +286,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (m_colliderfilter == 0)
                     m_iscolliding = false;
                 else
+                {
+//                    SetPidStatus(false);
                     m_iscolliding = true;
+                }
             }
         }
 
@@ -349,7 +352,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     m_iscollidingObj = true;
 
                 //            m_iscollidingObj = value;
-                if (value)
+                if (m_iscollidingObj)
                     m_pidControllerActive = false;
                 else
                     m_pidControllerActive = true;
@@ -394,15 +397,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                             value.Z = _parent_scene.GetTerrainHeightAtXY(127, 127) + 5;
                         }
 
-                        _position.X = value.X;
-                        _position.Y = value.Y;
-                        _position.Z = value.Z;
-
                         m_taintPosition.X = value.X;
                         m_taintPosition.Y = value.Y;
                         m_taintPosition.Z = value.Z;
-                        m_hasTaintPosition = false;
-                        // this will do nothing    _parent_scene.AddPhysicsActorTaint(this);
+                        m_hasTaintPosition = true;
+                        _parent_scene.AddPhysicsActorTaint(this);
                     }
                     else
                     {
@@ -491,6 +490,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             Body = d.BodyCreate(_parent_scene.world);
 
+            d.BodySetAutoDisableFlag(Body, false);
             d.BodySetPosition(Body, npositionX, npositionY, npositionZ);
 
             _position.X = npositionX;
@@ -516,7 +516,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.JointSetAMotorAngle(Amotor, 0, 0);
             d.JointSetAMotorAngle(Amotor, 1, 0);
             d.JointSetAMotorAngle(Amotor, 2, 0);
-
 
             d.JointSetAMotorParam(Amotor, (int)dParam.StopCFM, 0f); // make it HARD
             d.JointSetAMotorParam(Amotor, (int)dParam.StopCFM2, 0f);
@@ -688,8 +687,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             get
             {
                 // There's a problem with Vector3.Zero! Don't Use it Here!
-                if (_zeroFlag)
-                    return Vector3.Zero;
+//                if (_zeroFlag)
+//                    return Vector3.Zero;
                 m_lastUpdateSent = false;
                 return _velocity;
             }
@@ -927,7 +926,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
 
             //  if velocity is zero, use position control; otherwise, velocity control
-            if (_target_velocity.X == 0.0f && _target_velocity.Y == 0.0f && _target_velocity.Z == 0.0f && m_iscolliding)
+            if (_target_velocity.X == 0.0f && _target_velocity.Y == 0.0f && _target_velocity.Z == 0.0f
+                && m_iscolliding)
             {
                 //  keep track of where we stopped.  No more slippin' & slidin'
                 if (!_zeroFlag)
@@ -1086,7 +1086,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             // Did we move last? = zeroflag
             // This helps keep us from sliding all over
-
+/*
             if (_zeroFlag)
             {
                 _velocity.X = 0.0f;
@@ -1103,6 +1103,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             else
             {
                 m_lastUpdateSent = false;
+ */
                 try
                 {
                     vec = d.BodyGetLinearVel(Body);
@@ -1116,7 +1117,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 _velocity.X = (vec.X);
                 _velocity.Y = (vec.Y);
                 _velocity.Z = (vec.Z);
-            }
+ //           }
         }
 
         /// <summary>
