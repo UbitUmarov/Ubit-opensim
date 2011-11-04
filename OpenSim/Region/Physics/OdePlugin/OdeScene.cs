@@ -860,6 +860,10 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 d.ContactGeom curContact = contacts[i];
 
+                if(curContact.g1 == IntPtr.Zero)
+                    curContact.g1 = g1;
+                if(curContact.g2 == IntPtr.Zero)
+                    curContact.g2 = g2;
 
 //for debug                d.Quaternion qtmp = d.BodyGetQuaternion(b1);
 
@@ -877,11 +881,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                 // inform actors about colision
 
                 if (p1 is OdeCharacter && p2.PhysicsActorType == (int)ActorTypes.Prim)
-                {
-                    // Testing if the collision is at the feet of the avatar
-                    if ((p1.Position.Z - curContact.pos.Z) > (p1.Size.Z * 0.6f))
-                        p1.IsColliding = true;
-                }
+                    {
+                        // Testing if the collision is at the feet of the avatar
+                        if ((p1.Position.Z - curContact.pos.Z) > (p1.Size.Z * 0.6f))
+                            p1.IsColliding = true;
+                    }
                 else
                 {
                     p1.IsColliding = true;
@@ -905,11 +909,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
 
                 if (p2 is OdeCharacter && p1.PhysicsActorType == (int)ActorTypes.Prim)
-                {
-                    // Testing if the collision is at the feet of the avatar
-                    if ((p2.Position.Z - curContact.pos.Z) > (p2.Size.Z * 0.6f))
-                        p2.IsColliding = true;
-                }
+                    {
+                        // Testing if the collision is at the feet of the avatar
+                        if ((p2.Position.Z - curContact.pos.Z) > (p2.Size.Z * 0.6f))
+                            p2.IsColliding = true;
+                    }
                 else
                 {
                     p2.IsColliding = true;
@@ -1275,6 +1279,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
             // this was inside above loop ?
+
             collision_accounting_events(p1, p2, maxDepthContact);
 
 /*
@@ -1308,7 +1313,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                 {
                 case ActorTypes.Agent:
                     cc1 = (OdeCharacter)p1;
-
                     switch ((ActorTypes)p2.PhysicsActorType)
                         {
                         case ActorTypes.Agent:
@@ -1516,8 +1520,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                 return 0f;
 
             // TerrainHeightField for ODE as offset 1
-            x += 1f - offsetX;
-            y += 1f - offsetY;
+            //            x += 1f - offsetX;
+            //            y += 1f - offsetY;
+
+            x -= offsetX;
+            y -= offsetY;
 
             // make position fit into array
             if (x < 0) 
