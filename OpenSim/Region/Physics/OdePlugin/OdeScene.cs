@@ -1520,11 +1520,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                 return 0f;
 
             // TerrainHeightField for ODE as offset 1
-            //            x += 1f - offsetX;
-            //            y += 1f - offsetY;
-
-            x -= offsetX;
-            y -= offsetY;
+            x += 1f - offsetX;
+            y += 1f - offsetY;
 
             // make position fit into array
             if (x < 0) 
@@ -3236,20 +3233,22 @@ namespace OpenSim.Region.Physics.OdePlugin
             int yy;
 
             int maxXXYY = regionsize - 3;
-            // flipping map adding one margin all around so avas don't fall in edges
+            // flipping map adding one margin all around so things don't fall in edges
 
             int xt = 0;
+            xx = 0;
 
             for (int x = 0; x < heightmapWidthSamples; x++)
-                {
-                xx = x - 1;
-                if (xx < maxXXYY)
-                    xx ++;
-
+            {
+                if (x > 1 && xx < maxXXYY)
+                    xx++;
                 yy = 0;
                 for (int y = 0; y < heightmapHeightSamples; y++)
-                    {                                      
-                    val= heightMap[yy + xx];
+                {
+                    if (y > 1 && y < maxXXYY)
+                        yy += (int)Constants.RegionSize;
+
+                    val = heightMap[yy + xx];
                     _heightmap[xt + y] = val;
 
                     if (hfmin > val)
@@ -3257,12 +3256,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                     if (hfmax < val)
                         hfmax = val;
 
-                    if (y > 0 && y < maxXXYY)
-                        yy += (int)Constants.RegionSize;
-                    }
+                }
 
                 xt += regionsize;
-                }
+            }
             lock (OdeLock)
             {
                 IntPtr GroundGeom = IntPtr.Zero;
