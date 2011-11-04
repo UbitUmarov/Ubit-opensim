@@ -1523,8 +1523,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             //            x += 1f - offsetX;
             //            y += 1f - offsetY;
 
-            x += 0.5f - offsetX;
-            y += 0.5f - offsetY;
+            x -= offsetX;
+            y -= offsetY;
 
             // make position fit into array
             if (x < 0) 
