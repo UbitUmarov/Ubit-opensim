@@ -50,6 +50,7 @@ namespace OpenSim.Framework
 
         public void Enqueue(T item)
         {
+/* use current libovm 
             SingleLinkNode oldTail = null;
             SingleLinkNode oldTailNext;
 
@@ -74,10 +75,36 @@ namespace OpenSim.Framework
 
             CAS(ref tail, oldTail, newNode);
             Interlocked.Increment(ref count);
+*/
+           SingleLinkNode oldTail;
+           SingleLinkNode oldTailNext;
+           SingleLinkNode newNode = new SingleLinkNode { Item = item };
+
+            while (true)
+            {
+                oldTail = tail;
+                oldTailNext = oldTail.Next;
+
+                if (tail == oldTail)
+                {
+                    if (oldTailNext != null)
+                    {
+                        CAS(ref tail, oldTail, oldTailNext);
+                    }
+                    else if (CAS(ref tail.Next, null, newNode))
+                    {
+                        CAS(ref tail, oldTail, newNode);
+                        Interlocked.Increment(ref count);
+                        return;
+                    }
+                }
+            }
         }
+        
 
         public bool Dequeue(out T item)
         {
+/*  using code adapted from libovm instead
             item = default(T);
             SingleLinkNode oldHead = null;
             bool haveAdvancedHead = false;
@@ -107,6 +134,31 @@ namespace OpenSim.Framework
 
             Interlocked.Decrement(ref count);
             return true;
+*/
+            SingleLinkNode oldHead;
+            SingleLinkNode oldHeadNext;
+
+            while (true)
+            {
+                oldHead = head;
+                oldHeadNext = oldHead.Next;
+
+                if (oldHead == head)
+                {
+                    if (oldHeadNext == null)
+                    {
+                        item = default(T);
+                        count = 0;
+                        return false;
+                    }
+                    if (CAS(ref head, oldHead, oldHeadNext))
+                    {
+                        item = oldHeadNext.Item;
+                        Interlocked.Decrement(ref count);
+                        return true;
+                    }
+                }
+            }
         }
 
         public void Clear()

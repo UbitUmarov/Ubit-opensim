@@ -175,9 +175,9 @@ namespace OpenSim.Region.Physics.OdePlugin
         public d.Mass objectpMass; // object last computed inertia
         private bool hasOOBoffsetFromMesh = false; // if true we did compute it form mesh centroid, else from aabb
 
-        public bool givefakepos = false;
+        public int givefakepos = 0;
         private Vector3 fakepos;
-        public bool givefakeori = false;
+        public int givefakeori = 0;
         private Quaternion fakeori;
 
         public int m_eventsubscription;
@@ -345,7 +345,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             get
             {
-                if (givefakepos)
+                if (givefakepos >0)
                     return fakepos;
                 else
 
@@ -355,7 +355,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             set
             {
                 fakepos = value;
-                givefakepos = true;
+                givefakepos++;
                 AddChange(changes.Position, value);
             }
         }
@@ -546,7 +546,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             get
             {
-                if (givefakeori)
+                if (givefakeori>0)
                     return fakeori;
                 else
 
@@ -557,7 +557,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (QuaternionIsFinite(value))
                 {
                     fakeori = value;
-                    givefakeori = true;
+                    givefakeori++;
                     AddChange(changes.Orientation, value);
                 }
                 else
@@ -838,7 +838,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 m_log.WarnFormat("[PHYSICS]: Got nonFinite Object create Position for {0}", Name);
             }
             _position = pos;
-            givefakepos = false;
+            givefakepos = 0;
 
             PID_D = parent_scene.bodyPIDD;
             PID_G = parent_scene.bodyPIDG;
@@ -868,7 +868,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             _orientation = rotation;
-            givefakeori = false;
+            givefakeori = 0;
 
             _pbs = pbs;
 
@@ -2134,7 +2134,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
                 else
                 {
-                    if (givefakepos && _position != newPos)
+                    if (_position != newPos)
                     {
                         d.GeomSetPosition(prim_geom, newPos.X, newPos.Y, newPos.Z);
                         _position = newPos;
@@ -2147,7 +2147,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 if (prim_geom != IntPtr.Zero)
                 {
-                    if (givefakepos && newPos != _position)
+                    if (newPos != _position)
                     {
                         d.GeomSetPosition(prim_geom, newPos.X, newPos.Y, newPos.Z);
                         _position = newPos;
@@ -2156,7 +2156,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 }
             }
-            givefakepos = false;
+            givefakepos--;
+            if (givefakepos < 0)
+                givefakepos = 0;
             changeSelectedStatus();
             resetCollisionAccounting();
         }
@@ -2178,7 +2180,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
                 else
                 {
-                    if (givefakeori && newOri != _orientation)
+                    if (newOri != _orientation)
                     {
                         d.Quaternion myrot = new d.Quaternion();
                         myrot.X = newOri.X;
@@ -2198,7 +2200,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 if (prim_geom != IntPtr.Zero)
                 {
-                    if (givefakeori && newOri != _orientation)
+                    if (newOri != _orientation)
                     {
                         d.Quaternion myrot = new d.Quaternion();
                         myrot.X = newOri.X;
@@ -2210,7 +2212,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 }
             }
-            givefakeori = false;
+            givefakeori--;
+            if (givefakeori < 0)
+                givefakeori = 0;
             changeSelectedStatus();
             resetCollisionAccounting();
         }
@@ -2232,7 +2236,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
                 else
                 {
-                    if (givefakeori && newOri != _orientation)
+                    if (newOri != _orientation)
                     {
                         d.Quaternion myrot = new d.Quaternion();
                         myrot.X = newOri.X;
@@ -2244,7 +2248,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         if (Body != IntPtr.Zero && !m_angularlock.ApproxEquals(Vector3.One, 0f))
                             createAMotor(m_angularlock);
                     }
-                    if (givefakepos && _position != newPos)
+                    if (_position != newPos)
                     {
                         d.GeomSetPosition(prim_geom, newPos.X, newPos.Y, newPos.Z);
                         _position = newPos;
@@ -2260,7 +2264,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 if (prim_geom != IntPtr.Zero)
                 {
-                    if (givefakeori && newOri != _orientation)
+                    if (newOri != _orientation)
                     {
                         d.Quaternion myrot = new d.Quaternion();
                         myrot.X = newOri.X;
@@ -2271,7 +2275,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         _orientation = newOri;
                     }
 
-                    if (givefakepos && newPos != _position)
+                    if (newPos != _position)
                     {
                         d.GeomSetPosition(prim_geom, newPos.X, newPos.Y, newPos.Z);
                         _position = newPos;
@@ -2280,8 +2284,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 }
             }
-            givefakepos = false;
-            givefakeori = false;
+            givefakepos--;
+            if (givefakepos < 0)
+                givefakepos = 0;
+            givefakeori--;
+            if (givefakeori < 0)
+                givefakeori = 0;
+
             changeSelectedStatus();
             resetCollisionAccounting();
         }
