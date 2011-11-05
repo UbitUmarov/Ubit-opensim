@@ -875,14 +875,18 @@ namespace OpenSim.Region.Physics.OdePlugin
             _parent_scene = parent_scene;
             m_targetSpace = IntPtr.Zero;
 
+            /*
             if (pos.Z < 0)
             {
-                IsPhysical = false;
+                m_isphysical = false;
             }
             else
             {
-                IsPhysical = pisPhysical;
+                m_isphysical = pisPhysical;
             }
+            */
+            m_isphysical = false;
+            m_isVolumeDetect = false;
 
             m_force = Vector3.Zero;
 

@@ -1871,8 +1871,7 @@ namespace OpenSim.Region.Framework.Scenes
                                 Shape,
                                 AbsolutePosition,
                                 Scale,
-//                                RotationOffset,
-                                GetWorldRotation(), // physics want word coords
+                                GetWorldRotation(),
                                 RigidBody,
                                 m_localId);
                     }
@@ -1888,7 +1887,8 @@ namespace OpenSim.Region.Framework.Scenes
                         PhysActor.SOPDescription = this.Description;
                         PhysActor.SetMaterial(Material);
                         DoPhysicsPropertyUpdate(RigidBody, true);
-                        PhysActor.SetVolumeDetect(VolumeDetectActive ? 1 : 0);
+                        if(VolumeDetectActive) // no need to turn off what is already off by default
+                            PhysActor.SetVolumeDetect(1);
                     }
                     else
                     {
