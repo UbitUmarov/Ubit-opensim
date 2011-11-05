@@ -1688,7 +1688,6 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             uint x = 0, y = 0;
             Utils.LongToUInts(newRegionHandle, out x, out y);
             GridRegion destination = scene.GridService.GetRegionByPosition(scene.RegionInfo.ScopeID, (int)x, (int)y);
-            if (destination != null && !CrossPrimGroupIntoNewRegion(destination, grp, silent))
 
             if (destination == null)
             {
