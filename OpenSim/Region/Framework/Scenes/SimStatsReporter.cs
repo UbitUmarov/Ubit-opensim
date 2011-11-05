@@ -105,6 +105,22 @@ namespace OpenSim.Region.Framework.Scenes
         private float statsUpdateFactor = 0;
         private float m_timeDilation = 0;
         private int m_fps = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // saved last reported value so there is something available for llGetRegionFPS 
         private float lastReportedSimFPS = 0;
         private float[] lastReportedSimStats = new float[21];
@@ -150,8 +166,9 @@ namespace OpenSim.Region.Framework.Scenes
 
         public SimStatsReporter(Scene scene)
         {
+
+
             statsUpdateFactor = (float)(statsUpdatesEveryMS / 1000);
-            m_scene = scene;
             ReportingRegion = scene.RegionInfo;
 
             m_objectCapacity = scene.RegionInfo.ObjectCapacity;
@@ -198,6 +215,7 @@ namespace OpenSim.Region.Framework.Scenes
 
 #region various statistic googly moogly
 
+    
 
 
 

@@ -25,57 +25,32 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+using OpenMetaverse;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using pCampBot.Interfaces;
 
-namespace OpenSim.TestSuite
+namespace pCampBot
 {
-    public class Utils
+    /// <summary>
+    /// Click (grab) on random objects in the scene.
+    /// </summary>
+    /// <remarks>
+    /// The viewer itself does not give the option of grabbing objects that haven't been signalled as grabbable.
+    /// </remarks>
+    public class GrabbingBehaviour : IBehaviour
     {
-        enum Result
+        public void Action(Bot bot)
         {
-            Fail = 0,
-            Pass = 1,
-            Skip = 3
-        }
+            Dictionary<UUID, Primitive> objects = bot.Objects;
 
-        private static String ResultToString(Result r)
-        {
-            if (r == Result.Pass)
-            {
-                return "PASS";
-            }
-            else if (r == Result.Fail)
-            {
-                return "FAIL";
-            }
-            else if (r == Result.Skip)
-            {
-                return "SKIP";
-            }
-            else
-            {
-                return "UNKNOWN";
-            }
-        }
+            Primitive prim = objects.ElementAt(bot.Random.Next(0, objects.Count)).Value;
 
-        private static void TestResult(Result r, String msg)
-        {
-            Console.WriteLine("[{0}]: {1}", ResultToString(r), msg);
-        }
-
-        public static void TestFail(String msg)
-        {
-            TestResult(Result.Fail, msg);
-        }
-
-        public static void TestPass(String msg)
-        {
-            TestResult(Result.Pass, msg);
-        }
-
-        public static void TestSkip(String msg)
-        {
-            TestResult(Result.Skip, msg);
+            // This appears to be a typical message sent when a viewer user clicks a clickable object
+            bot.Client.Self.Grab(prim.LocalID);
+            bot.Client.Self.GrabUpdate(prim.ID, Vector3.Zero);
+            bot.Client.Self.DeGrab(prim.LocalID);
         }
     }
 }

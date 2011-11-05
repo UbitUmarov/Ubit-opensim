@@ -29,86 +29,131 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Timers;
+using log4net;
 using OpenMetaverse;
 using OpenMetaverse.Assets;
 using Nini.Config;
 using OpenSim.Framework;
 using OpenSim.Framework.Console;
-using Timer=System.Timers.Timer;
+using pCampBot.Interfaces;
+using Timer = System.Timers.Timer;
 
 namespace pCampBot
 {
-    public class PhysicsBot
+    public class Bot
     {
-        public delegate void AnEvent(PhysicsBot callbot, EventType someevent); // event delegate for bot events
-        public IConfig startupConfig; // bot config, passed from BotManager
+        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
-        public string firstname;
-        public string lastname;
-        public string password;
-        public string loginURI;
+        public delegate void AnEvent(Bot callbot, EventType someevent); // event delegate for bot events
+
+        public BotManager BotManager { get; private set; }
+        private IConfig startupConfig; // bot config, passed from BotManager
+
+        /// <summary>
+        /// Behaviours implemented by this bot.
+        /// </summary>
+        /// <remarks>
+        /// Lock this list before manipulating it.
+        /// </remarks>
+        public List<IBehaviour> Behaviours { get; private set; }
+
+        /// <summary>
+        /// Objects that the bot has discovered.
+        /// </summary>
+        /// <remarks>
+        /// Returns a list copy.  Inserting new objects manually will have no effect.
+        /// </remarks>
+        public Dictionary<UUID, Primitive> Objects
+        {
+            get
+            {
+                lock (m_objects)
+                    return new Dictionary<UUID, Primitive>(m_objects);
+            }
+        }
+        private Dictionary<UUID, Primitive> m_objects = new Dictionary<UUID, Primitive>();
+
+        /// <summary>
+        /// Is this bot connected to the grid?
+        /// </summary>
+        public bool IsConnected { get; private set; }
+
+        public string FirstName { get; private set; }
+        public string LastName { get; private set; }
+        public string Name { get; private set; }
+        public string Password { get; private set; }
+        public string LoginUri { get; private set; }
         public string saveDir;
         public string wear;
 
         public event AnEvent OnConnected;
         public event AnEvent OnDisconnected;
 
-        protected Timer m_action; // Action Timer
+        /// <summary>
+        /// Keep a track of the continuously acting thread so that we can abort it.
+        /// </summary>
+        private Thread m_actionThread;
+
         protected List<uint> objectIDs = new List<uint>();
 
-        protected Random somthing = new Random(Environment.TickCount);// We do stuff randomly here
-
-        //New instance of a SecondLife client
-        public GridClient client = new GridClient();
-
-        protected string[] talkarray;
         /// <summary>
-        ///
+        /// Random number generator.
         /// </summary>
-        /// <param name="bsconfig">nini config for the bot</param>
-        public PhysicsBot(IConfig bsconfig)
+        public Random Random { get; private set; }
+
+        /// <summary>
+        /// New instance of a SecondLife client
+        /// </summary>
+        public GridClient Client { get; private set; }
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="bm"></param>
+        /// <param name="behaviours">Behaviours for this bot to perform</param>
+        /// <param name="firstName"></param>
+        /// <param name="lastName"></param>
+        /// <param name="password"></param>
+        /// <param name="loginUri"></param>
+        /// <param name="behaviours"></param>
+        public Bot(
+            BotManager bm, List<IBehaviour> behaviours,
+            string firstName, string lastName, string password, string loginUri)
         {
-            startupConfig = bsconfig;
+            Client = new GridClient();
+
+            Random = new Random(Environment.TickCount);// We do stuff randomly here
+            FirstName = firstName;
+            LastName = lastName;
+            Name = string.Format("{0} {1}", FirstName, LastName);
+            Password = password;
+            LoginUri = loginUri;
+
+            BotManager = bm;
+            startupConfig = bm.Config;
             readconfig();
-            talkarray = readexcuses();
+
+            Behaviours = behaviours;
         }
 
         //We do our actions here.  This is where one would
         //add additional steps and/or things the bot should do
-
-        void m_action_Elapsed(object sender, ElapsedEventArgs e)
+        private void Action()
         {
             while (true)
-            {
-                int walkorrun = somthing.Next(4); // Randomize between walking and running. The greater this number,
-                                                  // the greater the bot's chances to walk instead of run.
-                client.Self.Jump(false);
-                if (walkorrun == 0)
-                {
-                    client.Self.Movement.AlwaysRun = true;
-                }
-                else
-                {
-                    client.Self.Movement.AlwaysRun = false;
-                }
+                lock (Behaviours)
+                    Behaviours.ForEach(
+                        b =>
+                        {
+                            // m_log.DebugFormat("[pCAMPBOT]: For {0} performing action {1}", Name, b.GetType());
+                            b.Action(this);
 
-                // TODO: unused: Vector3 pos = client.Self.SimPosition;
-                Vector3 newpos = new Vector3(somthing.Next(255), somthing.Next(255), somthing.Next(255));
-                client.Self.Movement.TurnToward(newpos);
-
-                client.Self.Movement.AtPos = true;
-                Thread.Sleep(somthing.Next(3000,13000));
-                client.Self.Movement.AtPos = false;
-                client.Self.Jump(true);
-
-                string randomf = talkarray[somthing.Next(talkarray.Length)];
-                if (talkarray.Length > 1 && randomf.Length > 1)
-                    client.Self.Chat(randomf, 0, ChatType.Normal);
-
-                Thread.Sleep(somthing.Next(1000, 10000));
-            }
+                            Thread.Sleep(Random.Next(1000, 10000));
+                        }
+                    );
         }
 
         /// <summary>
@@ -116,11 +161,7 @@ namespace pCampBot
         /// </summary>
         public void readconfig()
         {
-            firstname = startupConfig.GetString("firstname", "random");
-            lastname = startupConfig.GetString("lastname", "random");
-            password = startupConfig.GetString("password", "12345");
-            loginURI = startupConfig.GetString("loginuri");
-            wear = startupConfig.GetString("wear","no");
+            wear = startupConfig.GetString("wear", "no");
         }
 
         /// <summary>
@@ -128,7 +169,10 @@ namespace pCampBot
         /// </summary>
         public void shutdown()
         {
-            client.Network.Logout();
+            if (m_actionThread != null)
+                m_actionThread.Abort();
+
+            Client.Network.Logout();
         }
 
         /// <summary>
@@ -136,51 +180,51 @@ namespace pCampBot
         /// </summary>
         public void startup()
         {
-            client.Settings.LOGIN_SERVER = loginURI;
-            client.Settings.ALWAYS_DECODE_OBJECTS = false;
-            client.Settings.AVATAR_TRACKING = false;
-            client.Settings.OBJECT_TRACKING = false;
-            client.Settings.SEND_AGENT_THROTTLE = true;
-            client.Settings.SEND_PINGS = true;
-            client.Settings.STORE_LAND_PATCHES = false;
-            client.Settings.USE_ASSET_CACHE = false;
-            client.Settings.MULTIPLE_SIMS = true;
-            client.Throttle.Asset = 100000;
-            client.Throttle.Land = 100000;
-            client.Throttle.Task = 100000;
-            client.Throttle.Texture = 100000;
-            client.Throttle.Wind = 100000;
-            client.Throttle.Total = 400000;
-            client.Network.LoginProgress += this.Network_LoginProgress;
-            client.Network.SimConnected += this.Network_SimConnected;
-            client.Network.Disconnected += this.Network_OnDisconnected;
-            client.Objects.ObjectUpdate += Objects_NewPrim;
-            //client.Assets.OnAssetReceived += Asset_ReceivedCallback;
-            if (client.Network.Login(firstname, lastname, password, "pCampBot", "Your name"))
+            Client.Settings.LOGIN_SERVER = LoginUri;
+            Client.Settings.ALWAYS_DECODE_OBJECTS = false;
+            Client.Settings.AVATAR_TRACKING = false;
+            Client.Settings.OBJECT_TRACKING = false;
+            Client.Settings.SEND_AGENT_THROTTLE = true;
+            Client.Settings.SEND_PINGS = true;
+            Client.Settings.STORE_LAND_PATCHES = false;
+            Client.Settings.USE_ASSET_CACHE = false;
+            Client.Settings.MULTIPLE_SIMS = true;
+            Client.Throttle.Asset = 100000;
+            Client.Throttle.Land = 100000;
+            Client.Throttle.Task = 100000;
+            Client.Throttle.Texture = 100000;
+            Client.Throttle.Wind = 100000;
+            Client.Throttle.Total = 400000;
+            Client.Network.LoginProgress += this.Network_LoginProgress;
+            Client.Network.SimConnected += this.Network_SimConnected;
+            Client.Network.Disconnected += this.Network_OnDisconnected;
+            Client.Objects.ObjectUpdate += Objects_NewPrim;
+
+            if (Client.Network.Login(FirstName, LastName, Password, "pCampBot", "Your name"))
             {
-                if (OnConnected != null)
+                IsConnected = true;
+
+                Thread.Sleep(Random.Next(1000, 10000));
+                m_actionThread = new Thread(Action);
+                m_actionThread.Start();
+
+//                    OnConnected(this, EventType.CONNECTED);
+                if (wear == "save")
                 {
-                    m_action = new Timer(somthing.Next(1000, 10000));
-                    m_action.Enabled = true;
-                    m_action.AutoReset = false;
-                    m_action.Elapsed += new ElapsedEventHandler(m_action_Elapsed);
-                    m_action.Start();
-                    OnConnected(this, EventType.CONNECTED);
-                    if (wear == "save")
-                    {
-                        client.Appearance.SetPreviousAppearance();
-                        SaveDefaultAppearance();
-                    }
-                    else if (wear != "no")
-                    {
-                        MakeDefaultAppearance(wear);
-                    }
-                    client.Self.Jump(true);
+                    Client.Appearance.SetPreviousAppearance();
+                    SaveDefaultAppearance();
                 }
+                else if (wear != "no")
+                {
+                    MakeDefaultAppearance(wear);
+                }
+                Client.Self.Jump(true);
             }
             else
             {
-                MainConsole.Instance.Output(firstname + " " + lastname + " Can't login: " + client.Network.LoginMessage);
+                MainConsole.Instance.OutputFormat(
+                    "{0} {1} cannot login: {2}", FirstName, LastName, Client.Network.LoginMessage);
+
                 if (OnDisconnected != null)
                 {
                     OnDisconnected(this, EventType.DISCONNECTED);
@@ -190,7 +234,7 @@ namespace pCampBot
 
         public void SaveDefaultAppearance()
         {
-            saveDir = "MyAppearance/" + firstname + "_" + lastname;
+            saveDir = "MyAppearance/" + FirstName + "_" + LastName;
             if (!Directory.Exists(saveDir))
             {
                 Directory.CreateDirectory(saveDir);
@@ -199,11 +243,11 @@ namespace pCampBot
             Array wtypes = Enum.GetValues(typeof(WearableType));
             foreach (WearableType wtype in wtypes)
             {
-                UUID wearable = client.Appearance.GetWearableAsset(wtype);
+                UUID wearable = Client.Appearance.GetWearableAsset(wtype);
                 if (wearable != UUID.Zero)
                 {
-                    client.Assets.RequestAsset(wearable, AssetType.Clothing, false, Asset_ReceivedCallback);
-                    client.Assets.RequestAsset(wearable, AssetType.Bodypart, false, Asset_ReceivedCallback);
+                    Client.Assets.RequestAsset(wearable, AssetType.Clothing, false, Asset_ReceivedCallback);
+                    Client.Assets.RequestAsset(wearable, AssetType.Bodypart, false, Asset_ReceivedCallback);
                 }
             }
         }
@@ -216,7 +260,7 @@ namespace pCampBot
                 {
                     if (asset.Decode())
                     {
-                       File.WriteAllBytes(Path.Combine(saveDir, String.Format("{1}.{0}",
+                        File.WriteAllBytes(Path.Combine(saveDir, String.Format("{1}.{0}",
                         asset.AssetType.ToString().ToLower(),
                         asset.WearableType)), asset.AssetData);
                     }
@@ -278,11 +322,11 @@ namespace pCampBot
                     UUID assetID = UUID.Random();
                     AssetClothing asset = new AssetClothing(assetID, File.ReadAllBytes(clothing[i]));
                     asset.Decode();
-                    asset.Owner = client.Self.AgentID;
+                    asset.Owner = Client.Self.AgentID;
                     asset.WearableType = GetWearableType(clothing[i]);
                     asset.Encode();
-                    transid = client.Assets.RequestUpload(asset,true);
-                    client.Inventory.RequestCreateItem(clothfolder.UUID, "MyClothing" + i.ToString(), "MyClothing", AssetType.Clothing,
+                    transid = Client.Assets.RequestUpload(asset,true);
+                    Client.Inventory.RequestCreateItem(clothfolder.UUID, "MyClothing" + i.ToString(), "MyClothing", AssetType.Clothing,
                          transid, InventoryType.Wearable, asset.WearableType, PermissionMask.All, delegate(bool success, InventoryItem item)
                     {
                         if (success)
@@ -300,11 +344,11 @@ namespace pCampBot
                     UUID assetID = UUID.Random();
                     AssetBodypart asset = new AssetBodypart(assetID, File.ReadAllBytes(bodyparts[i]));
                     asset.Decode();
-                    asset.Owner = client.Self.AgentID;
+                    asset.Owner = Client.Self.AgentID;
                     asset.WearableType = GetWearableType(bodyparts[i]);
                     asset.Encode();
-                    transid = client.Assets.RequestUpload(asset,true);
-                    client.Inventory.RequestCreateItem(clothfolder.UUID, "MyBodyPart" + i.ToString(), "MyBodyPart", AssetType.Bodypart,
+                    transid = Client.Assets.RequestUpload(asset,true);
+                    Client.Inventory.RequestCreateItem(clothfolder.UUID, "MyBodyPart" + i.ToString(), "MyBodyPart", AssetType.Bodypart,
                          transid, InventoryType.Wearable, asset.WearableType, PermissionMask.All, delegate(bool success, InventoryItem item)
                     {
                         if (success)
@@ -324,7 +368,7 @@ namespace pCampBot
                 else
                 {
                     MainConsole.Instance.Output(String.Format("Sending {0} wearables...",listwearables.Count));
-                    client.Appearance.WearOutfit(listwearables, false);
+                    Client.Appearance.WearOutfit(listwearables, false);
                 }
             }
             catch (Exception ex)
@@ -335,8 +379,8 @@ namespace pCampBot
 
         public InventoryFolder FindClothingFolder()
         {
-            UUID rootfolder = client.Inventory.Store.RootFolder.UUID;
-            List<InventoryBase> listfolders = client.Inventory.Store.GetContents(rootfolder);
+            UUID rootfolder = Client.Inventory.Store.RootFolder.UUID;
+            List<InventoryBase> listfolders = Client.Inventory.Store.GetContents(rootfolder);
             InventoryFolder clothfolder = new InventoryFolder(UUID.Random());
             foreach (InventoryBase folder in listfolders)
             {
@@ -366,8 +410,21 @@ namespace pCampBot
 
         public void Network_OnDisconnected(object sender, DisconnectedEventArgs args)
         {
-            if (OnDisconnected != null)
+//            m_log.ErrorFormat("Fired Network_OnDisconnected");
+
+//           if (
+//               (args.Reason == NetworkManager.DisconnectType.SimShutdown
+//                    || args.Reason == NetworkManager.DisconnectType.NetworkTimeout)
+//               && OnDisconnected != null)
+
+           if (
+               (args.Reason == NetworkManager.DisconnectType.ClientInitiated
+                    || args.Reason == NetworkManager.DisconnectType.ServerInitiated
+                    || args.Reason == NetworkManager.DisconnectType.NetworkTimeout)
+               && OnDisconnected != null)
+//            if (OnDisconnected != null)
             {
+                IsConnected = false;
                 OnDisconnected(this, EventType.DISCONNECTED);
             }
         }
@@ -378,58 +435,59 @@ namespace pCampBot
 
             if (prim != null)
             {
+                lock (m_objects)
+                    m_objects[prim.ID] = prim;
+
                 if (prim.Textures != null)
                 {
                     if (prim.Textures.DefaultTexture.TextureID != UUID.Zero)
                     {
-                        client.Assets.RequestImage(prim.Textures.DefaultTexture.TextureID, ImageType.Normal, Asset_TextureCallback_Texture);
+                        GetTexture(prim.Textures.DefaultTexture.TextureID);
                     }
+
                     for (int i = 0; i < prim.Textures.FaceTextures.Length; i++)
                     {
-                        if (prim.Textures.FaceTextures[i] != null)
-                        {
-                            if (prim.Textures.FaceTextures[i].TextureID != UUID.Zero)
-                            {
-                                client.Assets.RequestImage(prim.Textures.FaceTextures[i].TextureID, ImageType.Normal, Asset_TextureCallback_Texture);
-                            }
+                        UUID textureID = prim.Textures.FaceTextures[i].TextureID;
 
-                        }
+                        if (textureID != UUID.Zero)
+                            GetTexture(textureID);
                     }
                 }
+
                 if (prim.Sculpt.SculptTexture != UUID.Zero)
                 {
-                    client.Assets.RequestImage(prim.Sculpt.SculptTexture, ImageType.Normal, Asset_TextureCallback_Texture);
+                    GetTexture(prim.Sculpt.SculptTexture);
                 }
             }
         }
 
+        private void GetTexture(UUID textureID)
+        {
+            lock (BotManager.AssetsReceived)
+            {
+                // Don't request assets more than once.
+                if (BotManager.AssetsReceived.ContainsKey(textureID))
+                    return;
+
+                BotManager.AssetsReceived[textureID] = false;
+                Client.Assets.RequestImage(textureID, ImageType.Normal, Asset_TextureCallback_Texture);
+            }
+        }
         
         public void Asset_TextureCallback_Texture(TextureRequestState state, AssetTexture assetTexture)
         {
             //TODO: Implement texture saving and applying
         }
         
-        public void Asset_ReceivedCallback(AssetDownload transfer,Asset asset)
+        public void Asset_ReceivedCallback(AssetDownload transfer, Asset asset)
         {
-            if (wear == "save")
-            {
-                SaveAsset((AssetWearable) asset);
-            }
-        }
+            lock (BotManager.AssetsReceived)
+                BotManager.AssetsReceived[asset.AssetID] = true;
 
-        public string[] readexcuses()
-        {
-            string allexcuses = "";
-
-            string file = Path.Combine(Util.configDir(), "pCampBotSentences.txt");
-            if (File.Exists(file))
-            {
-                StreamReader csr = File.OpenText(file);
-                allexcuses = csr.ReadToEnd();
-                csr.Close();
-            }
-
-            return allexcuses.Split(Environment.NewLine.ToCharArray());
+//            if (wear == "save")
+//            {
+//                SaveAsset((AssetWearable) asset);
+//            }
         }
     }
 }

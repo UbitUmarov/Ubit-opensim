@@ -55,7 +55,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Instance
 {
     public class ScriptInstance : MarshalByRefObject, IScriptInstance
     {
-        // private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         
         private IScriptEngine m_Engine;
         private IScriptWorkItem m_CurrentResult = null;
@@ -95,7 +95,6 @@ namespace OpenSim.Region.ScriptEngine.Shared.Instance
         private bool m_startedFromSavedState;
         private UUID m_CurrentStateHash;
         private UUID m_RegionID;
-        private bool m_Suspended = false;
 
         private Dictionary<KeyValuePair<int, int>, KeyValuePair<int, int>>
                 m_LineMap;
@@ -138,6 +137,32 @@ namespace OpenSim.Region.ScriptEngine.Shared.Instance
             get { return m_RunEvents; }
             set { m_RunEvents = value; }
         }
+
+        public bool Suspended
+        {
+            get { return m_Suspended; }
+
+            set
+            {
+                // Need to do this inside a lock in order to avoid races with EventProcessor()
+                lock (m_Script)
+                {
+                    bool wasSuspended = m_Suspended;
+                    m_Suspended = value;
+    
+                    if (wasSuspended && !m_Suspended)
+                    {
+                        lock (m_EventQueue)
+                        {
+                            // Need to place ourselves back in a work item if there are events to process
+                            if ((m_EventQueue.Count > 0) && m_RunEvents && (!m_ShuttingDown))
+                                m_CurrentResult = m_Engine.QueueEventHandler(this);
+                        }
+                    }
+                }
+            }
+        }
+        private bool m_Suspended;
 
         public bool ShuttingDown
         {
@@ -644,11 +669,13 @@ namespace OpenSim.Region.ScriptEngine.Shared.Instance
         /// <returns></returns>
         public object EventProcessor()
         {
-            if (m_Suspended)
-                return 0;
-
             lock (m_Script)
             {
+//                m_log.DebugFormat("[XEngine]: EventProcessor() invoked for {0}.{1}", PrimName, ScriptName);
+
+                if (Suspended)
+                    return 0;
+
                 EventParams data = null;
 
                 lock (m_EventQueue)
@@ -678,7 +705,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Instance
                         m_CollisionInQueue = false;
                 }
                 
-                //m_log.DebugFormat("[XEngine]: Processing event {0} for {1}", data.EventName, this);
+//                m_log.DebugFormat("[XEngine]: Processing event {0} for {1}", data.EventName, this);
 
                 m_DetectParams = data.DetectParams;
 
@@ -686,7 +713,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Instance
                 {
     //                m_log.DebugFormat("[Script] Script {0}.{1} state set to {2}",
     //                        m_PrimName, m_ScriptName, data.Params[0].ToString());
-                    m_State=data.Params[0].ToString();
+                    m_State = data.Params[0].ToString();
                     AsyncCommandManager.RemoveScript(m_Engine,
                         m_LocalID, m_ItemID);
 
@@ -1026,12 +1053,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Instance
 
         public void Suspend()
         {
-            m_Suspended = true;
+            Suspended = true;
         }
 
         public void Resume()
         {
-            m_Suspended = false;
+            Suspended = false;
         }
     }
 }

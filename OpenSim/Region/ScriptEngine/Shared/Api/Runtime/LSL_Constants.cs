@@ -321,6 +321,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public const int PRIM_NAME = 27;
         public const int PRIM_DESC = 28;
         public const int PRIM_ROT_LOCAL = 29;
+        public const int PRIM_OMEGA = 32;
+        public const int PRIM_LINK_TARGET = 34;
         public const int PRIM_TEXGEN_DEFAULT = 0;
         public const int PRIM_TEXGEN_PLANAR = 1;
 
@@ -599,6 +601,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public const int OS_NPC_FLY = 0;
         public const int OS_NPC_NO_FLY = 1;
         public const int OS_NPC_LAND_AT_TARGET = 2;
+
+        public const int OS_NPC_SIT_NOW = 0;
 
         public const string URL_REQUEST_GRANTED = "URL_REQUEST_GRANTED";
         public const string URL_REQUEST_DENIED = "URL_REQUEST_DENIED";

@@ -367,7 +367,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Attachments
                 so.AttachedAvatar = UUID.Zero;
                 rootPart.SetParentLocalId(0);
                 so.ClearPartAttachmentData();
-                rootPart.ApplyPhysics(rootPart.GetEffectiveObjectFlags(), rootPart.VolumeDetectActive, m_scene.m_physicalPrim);
+                rootPart.ApplyPhysics(rootPart.GetEffectiveObjectFlags(), rootPart.VolumeDetectActive);
                 so.HasGroupChanged = true;
                 rootPart.Rezzed = DateTime.Now;
                 rootPart.RemFlag(PrimFlags.TemporaryOnRez);
@@ -530,10 +530,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Attachments
             so.AttachedAvatar = sp.UUID;
 
             if (so.RootPart.PhysActor != null)
-            {
-                m_scene.PhysicsScene.RemovePrim(so.RootPart.PhysActor);
-                so.RootPart.PhysActor = null;
-            }
+                so.RootPart.RemoveFromPhysics();
 
             so.AbsolutePosition = attachOffset;
             so.RootPart.AttachedPos = attachOffset;

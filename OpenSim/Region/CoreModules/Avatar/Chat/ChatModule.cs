@@ -45,7 +45,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
         private const int DEBUG_CHANNEL = 2147483647;
 
         private bool m_enabled = true;
-        private int m_saydistance = 30;
+        private int m_saydistance = 20;
         private int m_shoutdistance = 100;
         private int m_whisperdistance = 10;
         private List<Scene> m_scenes = new List<Scene>();
@@ -228,7 +228,9 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
             
             foreach (Scene s in m_scenes)
             {
-                s.ForEachScenePresence(
+                // This should use ForEachClient, but clients don't have a position.
+                // If camera is moved into client, then camera position can be used
+                s.ForEachRootScenePresence(
                     delegate(ScenePresence presence)
                     {
                         if (TrySendChatMessage(presence, fromPos, regionPos, fromID, fromName, c.Type, message, sourceType))
@@ -279,14 +281,9 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
 
             HashSet<UUID> receiverIDs = new HashSet<UUID>();
             
-            ((Scene)c.Scene).ForEachScenePresence(
-                delegate(ScenePresence presence)
-                {
-                    // ignore chat from child agents
-                    if (presence.IsChildAgent) return;
-                    
-                    IClientAPI client = presence.ControllingClient;
-                    
+            ((Scene)c.Scene).ForEachRootClient(
+                delegate(IClientAPI client)
+                {   
                     // don't forward SayOwner chat from objects to
                     // non-owner agents
                     if ((c.Type == ChatTypeEnum.Owner) &&
@@ -295,8 +292,8 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
                         return;
                     
                     client.SendChatMessage(c.Message, (byte)cType, CenterOfRegion, fromName, fromID, 
-                                           (byte)sourceType, (byte)ChatAudibleLevel.Fully);
-                    receiverIDs.Add(presence.UUID);
+                                            (byte)sourceType, (byte)ChatAudibleLevel.Fully);
+                    receiverIDs.Add(client.AgentId);
                 });
             
             (c.Scene as Scene).EventManager.TriggerOnChatToClients(

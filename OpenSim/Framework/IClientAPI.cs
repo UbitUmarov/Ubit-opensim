@@ -1006,11 +1006,11 @@ namespace OpenSim.Framework
         event MuteListEntryRemove OnRemoveMuteListEntry;
         event GodlikeMessage onGodlikeMessage;
         event GodUpdateRegionInfoUpdate OnGodUpdateRegionInfoUpdate;
-        
+
         /// <summary>
         /// Set the debug level at which packet output should be printed to console.
         /// </summary>
-        void SetDebugPacketLevel(int newDebug);
+        int DebugPacketLevel { get; set; }
 
         void InPacket(object NewPack);
         void ProcessInPacket(Packet NewPack);
@@ -1095,7 +1095,14 @@ namespace OpenSim.Framework
         void SetChildAgentThrottle(byte[] throttle);
 
         void SendAvatarDataImmediate(ISceneEntity avatar);
-        void SendPrimUpdate(ISceneEntity entity, PrimUpdateFlags updateFlags);
+
+        /// <summary>
+        /// Send a positional, velocity, etc. update to the viewer for a given entity.
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="updateFlags"></param>
+        void SendEntityUpdate(ISceneEntity entity, PrimUpdateFlags updateFlags);
+
         void ReprioritizeUpdates();
         void FlushPrimUpdates();
 

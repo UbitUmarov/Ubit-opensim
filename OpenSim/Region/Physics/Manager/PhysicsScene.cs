@@ -39,6 +39,10 @@ namespace OpenSim.Region.Physics.Manager
     public delegate void RaycastCallback(bool hitYN, Vector3 collisionPoint, uint localid, float distance, Vector3 normal);
     public delegate void RayCallback(List<ContactResult> list);
 
+    public delegate void JointMoved(PhysicsJoint joint);
+    public delegate void JointDeactivated(PhysicsJoint joint);
+    public delegate void JointErrorMessage(PhysicsJoint joint, string message); // this refers to an "error message due to a problem", not "amount of joint constraint violation"
+
     /// <summary>
     /// Contact result from a raycast.
     /// </summary>
@@ -53,6 +57,11 @@ namespace OpenSim.Region.Physics.Manager
     public abstract class PhysicsScene
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
+        /// <summary>
+        /// Name of this scene.  Useful in debug messages to distinguish one OdeScene instance from another.
+        /// </summary>
+        public string Name { get; protected set; }
 
         // The only thing that should register for this event is the SceneGraph
         // Anything else could cause problems.
@@ -75,8 +84,25 @@ namespace OpenSim.Region.Physics.Manager
 
         public abstract void Initialise(IMesher meshmerizer, IConfigSource config);
 
+        /// <summary>
+        /// Add an avatar
+        /// </summary>
+        /// <param name="avName"></param>
+        /// <param name="position"></param>
+        /// <param name="size"></param>
+        /// <param name="isFlying"></param>
+        /// <returns></returns>
         public abstract PhysicsActor AddAvatar(string avName, Vector3 position, Vector3 size, bool isFlying);
 
+        /// <summary>
+        /// Add an avatar
+        /// </summary>
+        /// <param name="localID"></param>
+        /// <param name="avName"></param>
+        /// <param name="position"></param>
+        /// <param name="size"></param>
+        /// <param name="isFlying"></param>
+        /// <returns></returns>
         public virtual PhysicsActor AddAvatar(uint localID, string avName, Vector3 position, Vector3 size, bool isFlying)
         {
             PhysicsActor ret = AddAvatar(avName, position, size, isFlying);
@@ -84,10 +110,14 @@ namespace OpenSim.Region.Physics.Manager
             return ret;
         }
 
+        /// <summary>
+        /// Remove an avatar.
+        /// </summary>
+        /// <param name="actor"></param>
         public abstract void RemoveAvatar(PhysicsActor actor);
 
         /// <summary>
-        /// Remove a prim from the physics scene.
+        /// Remove a prim.
         /// </summary>
         /// <param name="prim"></param>
         public abstract void RemovePrim(PhysicsActor prim);
@@ -159,7 +189,6 @@ namespace OpenSim.Region.Physics.Manager
 
         public virtual Vector3 GetJointAxis(PhysicsJoint joint)
         { return Vector3.Zero; }
-
 
         public abstract void AddPhysicsActorTaint(PhysicsActor prim);
 
@@ -237,93 +266,5 @@ namespace OpenSim.Region.Physics.Manager
         {
             return new List<ContactResult>();
         }
-
-        private class NullPhysicsScene : PhysicsScene
-        {
-            private static int m_workIndicator;
-
-
-            public override void Initialise(IMesher meshmerizer, IConfigSource config)
-            {
-                // Does nothing right now
-            }
-
-            public override PhysicsActor AddAvatar(string avName, Vector3 position, Vector3 size, bool isFlying)
-            {
-                m_log.InfoFormat("[PHYSICS]: NullPhysicsScene : AddAvatar({0})", position);
-                return PhysicsActor.Null;
-            }
-
-            public override void RemoveAvatar(PhysicsActor actor)
-            {
-            }
-
-            public override void RemovePrim(PhysicsActor prim)
-            {
-            }
-            public override void SetWaterLevel(float baseheight)
-            {
-
-            }
-
-/*
-            public override PhysicsActor AddPrim(Vector3 position, Vector3 size, Quaternion rotation)
-            {
-                m_log.InfoFormat("NullPhysicsScene : AddPrim({0},{1})", position, size);
-                return PhysicsActor.Null;
-            }
-*/
-
-            public override PhysicsActor AddPrimShape(string primName, PrimitiveBaseShape pbs, Vector3 position,
-                                                      Vector3 size, Quaternion rotation, bool isPhysical, uint localid)
-            {
-                m_log.InfoFormat("[PHYSICS]: NullPhysicsScene : AddPrim({0},{1})", position, size);
-                return PhysicsActor.Null;
-            }
-
-            public override void AddPhysicsActorTaint(PhysicsActor prim)
-            {
-            }
-
-            public override float Simulate(float timeStep)
-            {
-                m_workIndicator = (m_workIndicator + 1) % 10;
-
-                return 0f;
-            }
-
-            public override void GetResults()
-            {
-                m_log.Info("[PHYSICS]: NullPhysicsScene : GetResults()");
-            }
-
-            public override void SetTerrain(float[] heightMap)
-            {
-                m_log.InfoFormat("[PHYSICS]: NullPhysicsScene : SetTerrain({0} items)", heightMap.Length);
-            }
-
-            public override void DeleteTerrain()
-            {
-            }
-
-            public override bool IsThreaded
-            {
-                get { return false; }
-            }
-
-            public override void Dispose()
-            {
-            }
-
-            public override Dictionary<uint,float> GetTopColliders()
-            {
-                Dictionary<uint, float> returncolliders = new Dictionary<uint, float>();
-                return returncolliders;
-            }
-            
-        }
     }
-    public delegate void JointMoved(PhysicsJoint joint);
-    public delegate void JointDeactivated(PhysicsJoint joint);
-    public delegate void JointErrorMessage(PhysicsJoint joint, string message); // this refers to an "error message due to a problem", not "amount of joint constraint violation"
 }

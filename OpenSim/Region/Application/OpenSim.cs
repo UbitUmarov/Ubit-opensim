@@ -37,6 +37,7 @@ using Nini.Config;
 using OpenMetaverse;
 using OpenSim.Framework;
 using OpenSim.Framework.Console;
+using OpenSim.Framework.Servers;
 using OpenSim.Framework.Statistics;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
@@ -216,14 +217,15 @@ namespace OpenSim
                                           HandleForceUpdate);
 
             m_console.Commands.AddCommand("region", false, "debug packet",
-                                          "debug packet <level>",
+                                          "debug packet <level> [<avatar-first-name> <avatar-last-name>]",
                                           "Turn on packet debugging",
                                             "If level >  255 then all incoming and outgoing packets are logged.\n"
                                           + "If level <= 255 then incoming AgentUpdate and outgoing SimStats and SimulatorViewerTimeMessage packets are not logged.\n"
                                           + "If level <= 200 then incoming RequestImage and outgoing ImagePacket, ImageData, LayerData and CoarseLocationUpdate packets are not logged.\n"
                                           + "If level <= 100 then incoming ViewerEffect and AgentAnimation and outgoing ViewerEffect and AvatarAnimation packets are not logged.\n"
                                           + "If level <=  50 then outgoing ImprovedTerseObjectUpdate packets are not logged.\n"
-                                          + "If level <= 0 then no packets are logged.",
+                                          + "If level <= 0 then no packets are logged.\n"
+                                          + "If an avatar name is given then only packets from that avatar are logged",
                                           Debug);
 
             m_console.Commands.AddCommand("region", false, "debug scene",
@@ -845,18 +847,21 @@ namespace OpenSim
             switch (args[1])
             {
                 case "packet":
+                    string name = null;
+                    if (args.Length == 5)
+                        name = string.Format("{0} {1}", args[3], args[4]);
+
                     if (args.Length > 2)
                     {
                         int newDebug;
                         if (int.TryParse(args[2], out newDebug))
                         {
-                            m_sceneManager.SetDebugPacketLevelOnCurrentScene(newDebug);
+                            m_sceneManager.SetDebugPacketLevelOnCurrentScene(newDebug, name);
                         }
                         else
                         {
                             MainConsole.Instance.Output("packet debug should be 0..255");
                         }
-                        MainConsole.Instance.Output(String.Format("New packet debug: {0}", newDebug));
                     }
 
                     break;
@@ -1039,6 +1044,19 @@ namespace OpenSim
                     {
                         MainConsole.Instance.Output("Shared Module: " + module.Name);
                     }
+
+                    m_sceneManager.ForEachScene(
+                        delegate(Scene scene)
+                        {
+                            m_log.Error("The currently loaded modules in " + scene.RegionInfo.RegionName + " are:");
+                            foreach (IRegionModule module in scene.Modules.Values)
+                            {
+                                if (!module.IsSharedModule)
+                                {
+                                    m_log.Error("Region Module: " + module.Name);
+                                }
+                            }
+                        });
 
                     MainConsole.Instance.Output("");
                     break;

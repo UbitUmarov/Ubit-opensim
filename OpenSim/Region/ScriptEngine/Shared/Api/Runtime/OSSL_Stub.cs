@@ -528,6 +528,16 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             m_OSSL_Functions.osNpcSay(npc, message);
         }
 
+        public void osNpcSit(LSL_Key npc, LSL_Key target, int options)
+        {
+            m_OSSL_Functions.osNpcSit(npc, target, options);
+        }
+
+        public void osNpcStand(LSL_Key npc)
+        {
+            m_OSSL_Functions.osNpcStand(npc);
+        }
+
         public void osNpcRemove(key npc)
         {
             m_OSSL_Functions.osNpcRemove(npc);

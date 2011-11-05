@@ -488,12 +488,9 @@ namespace OpenSim.Region.CoreModules
 
         private void SunUpdateToAllClients()
         {
-            m_scene.ForEachScenePresence(delegate(ScenePresence sp)
+            m_scene.ForEachRootClient(delegate(IClientAPI client)
             {
-                if (!sp.IsChildAgent)
-                {
-                    SunToClient(sp.ControllingClient);
-                }
+                    SunToClient(client);
             });
         }
 

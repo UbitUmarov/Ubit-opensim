@@ -351,7 +351,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                 // the avatar.Close below will clear the child region list. We need this below for (possibly)
                 // closing the child agents, so save it here (we need a copy as it is Clear()-ed).
-                //List<ulong> childRegions = new List<ulong>(avatar.GetKnownRegionList());
+                //List<ulong> childRegions = avatar.KnownRegionHandles;
                 // Compared to ScenePresence.CrossToNewRegion(), there's no obvious code to handle a teleport
                 // failure at this point (unlike a border crossing failure).  So perhaps this can never fail
                 // once we reach here...
@@ -1684,13 +1684,19 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 // y + 1
             }
 
+            // Offset the positions for the new region across the border
+            Vector3 oldGroupPosition = grp.RootPart.GroupPosition;
+            grp.OffsetForNewRegion(pos);
+
             // If we fail to cross the border, then reset the position of the scene object on that border.
             uint x = 0, y = 0;
             Utils.LongToUInts(newRegionHandle, out x, out y);
             GridRegion destination = scene.GridService.GetRegionByPosition(scene.RegionInfo.ScopeID, (int)x, (int)y);
+            if (destination != null && !CrossPrimGroupIntoNewRegion(destination, grp, silent))
 
             if (destination == null)
             {
+                grp.OffsetForNewRegion(oldGroupPosition);
                 // let physics know (for now ode needs this)
                 if (!grp.IsDeleted)
                 {
@@ -1736,7 +1742,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             //m_log.Debug("  >>> CrossPrimGroupIntoNewRegion <<<");
 
             bool successYN = false;
-            grp.RootPart.UpdateFlag = 0;
+            grp.RootPart.ClearUpdateSchedule();
             //int primcrossingXMLmethod = 0;
 
             if (destination != null)
@@ -1783,6 +1789,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                             grp.RootPart.PhysActor.CrossingFailure();
                         }
                     }
+
 */
                     m_log.ErrorFormat("[ENTITY TRANSFER MODULE]: Prim crossing failed for {0}", grp);
                 }

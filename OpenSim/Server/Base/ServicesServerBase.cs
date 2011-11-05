@@ -30,6 +30,7 @@ using System.IO;
 using System.Xml;
 using System.Threading;
 using System.Reflection;
+using OpenSim.Framework;
 using OpenSim.Framework.Console;
 using log4net;
 using log4net.Config;
@@ -208,7 +209,7 @@ namespace OpenSim.Server.Base
             }
             else
             {
-                consoleAppender.Console = MainConsole.Instance;
+                consoleAppender.Console = (ConsoleBase)MainConsole.Instance;
 
                 if (null == consoleAppender.Threshold)
                     consoleAppender.Threshold = Level.All;
@@ -265,7 +266,14 @@ namespace OpenSim.Server.Base
         {
             while (m_Running)
             {
-                MainConsole.Instance.Prompt();
+                try
+                {
+                    MainConsole.Instance.Prompt();
+                }
+                catch (Exception e)
+                {
+                    m_log.ErrorFormat("Command error: {0}", e);
+                }
             }
 
             if (m_pidFile != String.Empty)

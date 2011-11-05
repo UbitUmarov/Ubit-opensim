@@ -881,7 +881,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.XmlRpcGroups
             msg.dialog = dialog;
             // msg.dialog = (byte)OpenMetaverse.InstantMessageDialog.GroupNotice;
             msg.fromGroup = true;
-            msg.offline = (byte)1; // Allow this message to be stored for offline use
+            msg.offline = (byte)0;
             msg.ParentEstateID = 0;
             msg.Position = Vector3.Zero;
             msg.RegionID = UUID.Zero.Guid;
@@ -1076,17 +1076,16 @@ namespace OpenSim.Region.OptionalModules.Avatar.XmlRpcGroups
             // Try root avatar first
             foreach (Scene scene in m_sceneList)
             {
-                if (scene.Entities.ContainsKey(agentID) &&
-                        scene.Entities[agentID] is ScenePresence)
+                ScenePresence sp = scene.GetScenePresence(agentID);
+                if (sp != null)
                 {
-                    ScenePresence user = (ScenePresence)scene.Entities[agentID];
-                    if (!user.IsChildAgent)
+                    if (!sp.IsChildAgent)
                     {
-                        return user.ControllingClient;
+                        return sp.ControllingClient;
                     }
                     else
                     {
-                        child = user.ControllingClient;
+                        child = sp.ControllingClient;
                     }
                 }
             }

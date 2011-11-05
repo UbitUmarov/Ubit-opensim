@@ -373,6 +373,14 @@ namespace OpenSim.Region.Framework.Scenes
         public virtual Quaternion Rotation
         {
             get { return m_rotation; }
+            set { m_rotation = value; }
+        }
+
+        protected Quaternion m_rotation = Quaternion.Identity;
+
+        public virtual Quaternion Rotation
+        {
+            get { return m_rotation; }
             set
             {
                 m_rotation = value;
@@ -1407,14 +1415,14 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 SceneObjectPart part = parts[i];
 
-                Scene.ForEachScenePresence(delegate(ScenePresence avatar)
+                Scene.ForEachRootScenePresence(delegate(ScenePresence avatar)
                 {
                     if (avatar.ParentID == LocalId)
                         avatar.StandUp();
 
                     if (!silent)
                     {
-                        part.UpdateFlag = 0;
+                        part.ClearUpdateSchedule();
                         if (part == m_rootPart)
                         {
                             if (!IsAttachment || (AttachedAvatar == avatar.ControllingClient.AgentId) ||
@@ -1500,7 +1508,7 @@ namespace OpenSim.Region.Framework.Scenes
         public void ApplyPhysics(bool m_physicalPrim)
         {
             // Apply physics to the root prim
-            m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive, m_physicalPrim);
+            m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive);
 
             // Apply physics to child prims
             SceneObjectPart[] parts = m_parts.GetArray();
@@ -1512,7 +1520,7 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     SceneObjectPart part = parts[i];
                     if (part.LocalId != m_rootPart.LocalId)
-                        part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive, m_physicalPrim);
+                        part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive);
                 }
             }
         }
@@ -1999,13 +2007,13 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (UsePhysics && !AbsolutePosition.ApproxEquals(lastPhysGroupPos, 0.02f))
             {
-                m_rootPart.UpdateFlag = 1;
+                m_rootPart.UpdateFlag = UpdateRequired.TERSE;
                 lastPhysGroupPos = AbsolutePosition;
             }
 
             if (UsePhysics && !GroupRotation.ApproxEquals(lastPhysGroupRot, 0.1f))
             {
-                m_rootPart.UpdateFlag = 1;
+                m_rootPart.UpdateFlag = UpdateRequired.TERSE;
                 lastPhysGroupRot = GroupRotation;
             }
 
@@ -2229,16 +2237,6 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="objectGroup">The group of prims which should be linked to this group</param>
         public void LinkToGroup(SceneObjectGroup objectGroup)
         {
-            // Make sure we have sent any pending unlinks or stuff.
-            //if (objectGroup.RootPart.UpdateFlag > 0)
-            //{
-            //    m_log.WarnFormat(
-            //        "[SCENE OBJECT GROUP]: Forcing send of linkset {0}, {1} to {2}, {3} as its still waiting.",
-            //        objectGroup.RootPart.Name, objectGroup.RootPart.UUID, RootPart.Name, RootPart.UUID);
-
-            //    objectGroup.RootPart.SendScheduledUpdates();
-            //}
-
             //            m_log.DebugFormat(
             //                "[SCENE OBJECT GROUP]: Linking group with root part {0}, {1} to group with root part {2}, {3}",
             //                objectGroup.RootPart.Name, objectGroup.RootPart.UUID, RootPart.Name, RootPart.UUID);
@@ -2263,42 +2261,28 @@ namespace OpenSim.Region.Framework.Scenes
             Quaternion newRot = Quaternion.Inverse(parentRot) * oldRot;
             linkPart.RotationOffset = newRot;
 
+            linkPart.ParentID = m_rootPart.LocalId;
+
             if (m_rootPart.LinkNum == 0)
                 m_rootPart.LinkNum = 1;
 
             lock (m_parts.SyncRoot)
             {
+                int linkNum = PrimCount + 1;
+
                 m_parts.Add(linkPart.UUID, linkPart);
-
-                // Insert in terms of link numbers, the new links
-                // before the current ones (with the exception of 
-                // the root prim. Shuffle the old ones up
-                SceneObjectPart[] parts = m_parts.GetArray();
-                for (int i = 0; i < parts.Length; i++)
-                {
-                    SceneObjectPart part = parts[i];
-                    if (part.LinkNum != 1)
-                    {
-                        // Don't update root prim link number
-                        part.LinkNum += objectGroup.PrimCount;
-                    }
-                }
-
-                linkPart.LinkNum = 2;
 
                 linkPart.SetParent(this);
                 linkPart.CreateSelected = true;
 
-                //if (linkPart.PhysActor != null)
-                //{
-                // m_scene.PhysicsScene.RemovePrim(linkPart.PhysActor);
+                linkPart.LinkNum = linkNum++;
 
-                //linkPart.PhysActor = null;
-                //}
-
-                //TODO: rest of parts
-                int linkNum = 3;
                 SceneObjectPart[] ogParts = objectGroup.Parts;
+                Array.Sort(ogParts, delegate(SceneObjectPart a, SceneObjectPart b)
+                        {
+                            return a.LinkNum - b.LinkNum;
+                        });
+
                 for (int i = 0; i < ogParts.Length; i++)
                 {
                     SceneObjectPart part = ogParts[i];
@@ -3071,17 +3055,12 @@ namespace OpenSim.Region.Framework.Scenes
             ScheduleGroupForTerseUpdate();
         }
 
-        public void OffsetForNewRegion(Vector3 offset)
-        {
-            m_rootPart.GroupPosition = offset;
-        }
-
         #endregion
 
         #region Rotation
 
         /// <summary>
-        ///
+        /// Update the rotation of the group.
         /// </summary>
         /// <param name="rot"></param>
         public void UpdateGroupRotationR(Quaternion rot)
@@ -3111,7 +3090,7 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        ///
+        /// Update the position and rotation of a group simultaneously.
         /// </summary>
         /// <param name="pos"></param>
         /// <param name="rot"></param>
@@ -3147,7 +3126,7 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        ///
+        /// Update the rotation of a single prim within the group.
         /// </summary>
         /// <param name="rot"></param>
         /// <param name="localID"></param>
@@ -3181,7 +3160,7 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        ///
+        /// Update the position and rotation simultaneously of a single prim within the group.
         /// </summary>
         /// <param name="rot"></param>
         /// <param name="localID"></param>
@@ -3215,7 +3194,7 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        ///
+        /// Update the entire rotation of the group.
         /// </summary>
         /// <param name="rot"></param>
         public void UpdateRootRotation(Quaternion rot)
@@ -3250,8 +3229,8 @@ namespace OpenSim.Region.Framework.Scenes
                                         axPos *= Quaternion.Inverse(axRot);
                                         prim.OffsetPosition = axPos;
                                         Quaternion primsRot = prim.RotationOffset;
-                                        Quaternion newRot = primsRot * oldParentRot;
-                                        newRot *= Quaternion.Inverse(axRot);
+                    Quaternion newRot = oldParentRot * primsRot;
+                    newRot = Quaternion.Inverse(axRot) * newRot;
                                         prim.RotationOffset = newRot;
                      */
                     // bring into world

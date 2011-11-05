@@ -104,9 +104,9 @@ namespace OpenSim.Region.OptionalModules.World.NPC.Tests
 
             // We also need to add the texture to the asset service, otherwise the AvatarFactoryModule will tell
             // ScenePresence.SendInitialData() to reset our entire appearance.
-            scene.AssetService.Store(AssetHelpers.CreateAsset(originalFace8TextureId));
+            scene.AssetService.Store(AssetHelpers.CreateNotecardAsset(originalFace8TextureId));
 
-            afm.SetAppearanceFromClient(sp.ControllingClient, originalTe, null);
+            afm.SetAppearance(sp, originalTe, null);
 
             INPCModule npcModule = scene.RequestModuleInterface<INPCModule>();
             UUID npcId = npcModule.CreateNPC("John", "Smith", new Vector3(128, 128, 30), scene, sp.Appearance);
@@ -228,6 +228,71 @@ namespace OpenSim.Region.OptionalModules.World.NPC.Tests
             distanceToTarget = Util.GetDistanceTo(npc.AbsolutePosition, targetPos);
             Assert.That(distanceToTarget, Is.LessThan(1), "NPC not within 1 unit of target position on second move");
             Assert.That(npc.AbsolutePosition, Is.EqualTo(targetPos));
+        }
+
+        [Test]
+        public void TestSitAndStandWithSitTarget()
+        {
+            TestHelpers.InMethod();
+//            log4net.Config.XmlConfigurator.Configure();
+
+            ScenePresence sp = SceneHelpers.AddScenePresence(scene, TestHelpers.ParseTail(0x1));
+
+            Vector3 startPos = new Vector3(128, 128, 30);
+            INPCModule npcModule = scene.RequestModuleInterface<INPCModule>();
+            UUID npcId = npcModule.CreateNPC("John", "Smith", startPos, scene, sp.Appearance);
+
+            ScenePresence npc = scene.GetScenePresence(npcId);
+            SceneObjectPart part = SceneHelpers.AddSceneObject(scene);
+
+            part.SitTargetPosition = new Vector3(0, 0, 1);
+            npcModule.Sit(npc.UUID, part.UUID, scene);
+
+            Assert.That(part.SitTargetAvatar, Is.EqualTo(npcId));
+            Assert.That(npc.ParentID, Is.EqualTo(part.LocalId));
+            Assert.That(
+                npc.AbsolutePosition,
+                Is.EqualTo(part.AbsolutePosition + part.SitTargetPosition + ScenePresence.SIT_TARGET_ADJUSTMENT));
+
+            npcModule.Stand(npc.UUID, scene);
+
+            Assert.That(part.SitTargetAvatar, Is.EqualTo(UUID.Zero));
+            Assert.That(npc.ParentID, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void TestSitAndStandWithNoSitTarget()
+        {
+            TestHelpers.InMethod();
+//            log4net.Config.XmlConfigurator.Configure();
+
+            ScenePresence sp = SceneHelpers.AddScenePresence(scene, TestHelpers.ParseTail(0x1));
+
+            // FIXME: To get this to work for now, we are going to place the npc right next to the target so that
+            // the autopilot doesn't trigger
+            Vector3 startPos = new Vector3(1, 1, 1);
+
+            INPCModule npcModule = scene.RequestModuleInterface<INPCModule>();
+            UUID npcId = npcModule.CreateNPC("John", "Smith", startPos, scene, sp.Appearance);
+
+            ScenePresence npc = scene.GetScenePresence(npcId);
+            SceneObjectPart part = SceneHelpers.AddSceneObject(scene);
+
+            npcModule.Sit(npc.UUID, part.UUID, scene);
+
+            Assert.That(part.SitTargetAvatar, Is.EqualTo(UUID.Zero));
+            Assert.That(npc.ParentID, Is.EqualTo(part.LocalId));
+
+            // FIXME: This is different for live avatars - z position is adjusted.  This is half the height of the
+            // default avatar.
+            Assert.That(
+                npc.AbsolutePosition,
+                Is.EqualTo(part.AbsolutePosition + new Vector3(0, 0, 0.8857438f)));
+
+            npcModule.Stand(npc.UUID, scene);
+
+            Assert.That(part.SitTargetAvatar, Is.EqualTo(UUID.Zero));
+            Assert.That(npc.ParentID, Is.EqualTo(0));
         }
     }
 }

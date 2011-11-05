@@ -84,7 +84,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC
             sp.Appearance = npcAppearance;
             scene.AttachmentsModule.RezAttachments(sp);
 
-            IAvatarFactory module = scene.RequestModuleInterface<IAvatarFactory>();
+            IAvatarFactoryModule module = scene.RequestModuleInterface<IAvatarFactoryModule>();
             module.SendAppearance(sp.UUID);
 
             return true;
@@ -191,6 +191,41 @@ namespace OpenSim.Region.OptionalModules.World.NPC
                     scene.TryGetScenePresence(agentID, out sp);
 
                     m_avatars[agentID].Say(text);
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool Sit(UUID agentID, UUID partID, Scene scene)
+        {
+            lock (m_avatars)
+            {
+                if (m_avatars.ContainsKey(agentID))
+                {
+                    ScenePresence sp;
+                    scene.TryGetScenePresence(agentID, out sp);
+                    sp.HandleAgentRequestSit(m_avatars[agentID], agentID, partID, Vector3.Zero);
+//                    sp.HandleAgentSit(m_avatars[agentID], agentID);
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool Stand(UUID agentID, Scene scene)
+        {
+            lock (m_avatars)
+            {
+                if (m_avatars.ContainsKey(agentID))
+                {
+                    ScenePresence sp;
+                    scene.TryGetScenePresence(agentID, out sp);
+                    sp.StandUp();
 
                     return true;
                 }

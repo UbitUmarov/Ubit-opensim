@@ -106,6 +106,13 @@ namespace OpenSim.Region.Framework.Scenes
         SCULPT = 7
     }
 
+    public enum UpdateRequired : byte
+    {
+        NONE = 0,
+        TERSE = 1,
+        FULL = 2
+    }
+
     #endregion Enumerations
 
     public class SceneObjectPart : IScriptHost, ISceneEntity
@@ -130,18 +137,17 @@ namespace OpenSim.Region.Framework.Scenes
 
         public bool AllowedDrop;
 
-
         public bool DIE_AT_EDGE;
-
 
         public bool RETURN_AT_EDGE;
 
-
         public bool BlockGrab;
 
+        
 
         public bool StatusSandbox;
 
+        
 
         public Vector3 StatusSandboxPos;
 
@@ -165,39 +171,48 @@ namespace OpenSim.Region.Framework.Scenes
         //        for SL compatibility it should be persisted though (set sound / displaytext / particlesystem, kill script)
 
         public UUID Sound;
+        
+        
 
 
         public byte SoundFlags;
+        
 
 
         public double SoundGain;
+ 
 
 
         public double SoundRadius;
 
 
+
         public uint TimeStampFull;
+
 
 
         public uint TimeStampLastActivity; // Will be used for AutoReturn
 
 
         public uint TimeStampTerse;
-
-
+        
         public UUID FromItemID;
 
+        
 
         public UUID FromFolderID;
 
+        
 
         public int STATUS_ROTATE_X;
 
+        
 
         public int STATUS_ROTATE_Y;
 
-
         public int STATUS_ROTATE_Z;
+        
+        
 
 
         private Dictionary<int, string> m_CollisionFilter = new Dictionary<int, string>();
@@ -216,33 +231,41 @@ namespace OpenSim.Region.Framework.Scenes
 
         public scriptEvents AggregateScriptEvents;
 
+        
 
         public Vector3 AttachedPos;
 
+        
 
         public Vector3 RotationAxis = Vector3.One;
 
+        
 
         public bool VolumeDetectActive; // XmlIgnore set to avoid problems with persistance until I come to care for this
         // Certainly this must be a persistant setting finally
 
+        
 
         public bool IsWaitingForFirstSpinUpdatePacket;
 
+        
 
         public Quaternion SpinOldOrientation = Quaternion.Identity;
 
+        
 
         public Quaternion m_APIDTarget = Quaternion.Identity;
 
+        
 
         public float m_APIDDamp = 0;
-
 
         public float m_APIDStrength = 0;
 
         /// <summary>
         /// This part's inventory
+        /// </summary>
+        
         /// </summary>
 
         public IEntityInventory Inventory
@@ -280,15 +303,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         private bool m_passTouches;
 
-        /// <summary>
-        /// Only used internally to schedule client updates.
-        /// 0 - no update is scheduled
-        /// 1 - terse update scheduled
-        /// 2 - full update scheduled
-        ///
-        /// TODO - This should be an enumeration
-        /// </summary>
-        private byte m_updateFlag;
+        private UpdateRequired m_updateFlag;
 
         private PhysicsActor m_physActor;
         protected Vector3 m_acceleration;
@@ -934,6 +949,7 @@ namespace OpenSim.Region.Framework.Scenes
                             ValidpartOOB = false;
                         }
                     }
+                
                 }
 
                 return m_rotationOffset;
@@ -979,6 +995,13 @@ namespace OpenSim.Region.Framework.Scenes
                         m_log.Error("[SCENEOBJECTPART]: ROTATIONOFFSET" + ex.Message);
                     }
                 }
+
+//                float roll, pitch, yaw = 0;
+//                m_rotationOffset.GetEulerAngles(out roll, out pitch, out yaw);
+//
+//                m_log.DebugFormat(
+//                    "[SCENE OBJECT PART]: Set euler {0} for RotationOffset on {1} {2}",
+//                    new Vector3(roll, pitch, yaw), Name, LocalId);
             }
         }
 
@@ -1016,7 +1039,15 @@ namespace OpenSim.Region.Framework.Scenes
             }
         }
 
-        /// <summary></summary>
+        /// <summary>Update angular velocity and schedule terse update.</summary>
+        public void UpdateAngularVelocity(Vector3 avel)
+        {
+            AngularVelocity = avel;
+            ScheduleTerseUpdate();
+            ParentGroup.HasGroupChanged = true;
+        }
+
+        /// <summary>Get or set angular velocity. Does not schedule update.</summary>
         public Vector3 AngularVelocity
         {
             get
@@ -1117,7 +1148,7 @@ namespace OpenSim.Region.Framework.Scenes
         public PrimitiveBaseShape Shape
         {
             get { return m_shape; }
-            set { m_shape = value; }
+            set { m_shape = value;}
         }
 
         /// <summary>
@@ -1160,7 +1191,7 @@ namespace OpenSim.Region.Framework.Scenes
             }
         }
 
-        public byte UpdateFlag
+        public UpdateRequired UpdateFlag
         {
             get { return m_updateFlag; }
             set { m_updateFlag = value; }
@@ -1226,13 +1257,21 @@ namespace OpenSim.Region.Framework.Scenes
         public Quaternion SitTargetOrientation
         {
             get { return m_sitTargetOrientation; }
-            set { m_sitTargetOrientation = value; }
+            set
+            {
+                m_sitTargetOrientation = value;
+//                m_log.DebugFormat("[SCENE OBJECT PART]: Set sit target orientation {0} for {1} {2}", m_sitTargetOrientation, Name, LocalId);
+        }
         }
 
         public Vector3 SitTargetPosition
         {
             get { return m_sitTargetPosition; }
-            set { m_sitTargetPosition = value; }
+            set
+            {
+                m_sitTargetPosition = value;
+//                m_log.DebugFormat("[SCENE OBJECT PART]: Set sit target position to {0} for {1} {2}", m_sitTargetPosition, Name, LocalId);
+        }
         }
 
         // This sort of sucks, but I'm adding these in to make some of
@@ -1374,13 +1413,14 @@ namespace OpenSim.Region.Framework.Scenes
             }
         }
 
-
+        /// <summary>
+        /// ID of the avatar that is sat on us.  If there is no such avatar then is UUID.Zero
+        /// </summary>
         public UUID SitTargetAvatar
         {
             get { return m_sitTargetAvatar; }
             set { m_sitTargetAvatar = value; }
         }
-
 
         public virtual UUID RegionID
         {
@@ -1448,9 +1488,9 @@ namespace OpenSim.Region.Framework.Scenes
         /// <summary>
         /// Clear all pending updates of parts to clients
         /// </summary>
-        private void ClearUpdateSchedule()
+        public void ClearUpdateSchedule()
         {
-            m_updateFlag = 0;
+            UpdateFlag = UpdateRequired.NONE;
         }
 
         /// <summary>
@@ -1468,12 +1508,12 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="AgentID"></param>
         private void SendRootPartPropertiesToClient(UUID AgentID)
         {
-            m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
+            m_parentGroup.Scene.ForEachClient(delegate(IClientAPI client)
             {
                 // Ugly reference :(
-                if (avatar.UUID == AgentID)
+                if (client.AgentId == AgentID)
                 {
-                    m_parentGroup.SendPropertiesToClient(avatar.ControllingClient);
+                    m_parentGroup.SendPropertiesToClient(client);
                 }
             });
         }
@@ -1764,10 +1804,9 @@ namespace OpenSim.Region.Framework.Scenes
             if (volume < 0)
                 volume = 0;
 
-            m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence sp)
+            m_parentGroup.Scene.ForEachRootClient(delegate(IClientAPI client)
             {
-                if (!sp.IsChildAgent)
-                    sp.ControllingClient.SendAttachedSoundGainChange(UUID, (float)volume);
+                client.SendAttachedSoundGainChange(UUID, (float)volume);
             });
         }
 
@@ -1839,13 +1878,15 @@ namespace OpenSim.Region.Framework.Scenes
         /// Apply physics to this part.
         /// </summary>
         /// <param name="rootObjectFlags"></param>
-        /// <param name="m_physicalPrim"></param>
-        public void ApplyPhysics(uint rootObjectFlags, bool VolumeDetectActive, bool m_physicalPrim)
+        /// <param name="VolumeDetectActive"></param>
+        public void ApplyPhysics(uint rootObjectFlags, bool VolumeDetectActive)
         {
-            //            m_log.DebugFormat("[SCENE OBJECT PART]: Applying physics to {0} {1} {2}", Name, LocalId, UUID);
+//            m_log.DebugFormat(
+//                "[SCENE OBJECT PART]: Applying physics to {0} {1}, m_physicalPrim {2}",
+//                Name, LocalId, UUID, m_physicalPrim);
 
-            bool isPhysical = (((rootObjectFlags & (uint)PrimFlags.Physics) != 0) && m_physicalPrim);
-            bool isPhantom = ((rootObjectFlags & (uint)PrimFlags.Phantom) != 0);
+            bool isPhysical = (rootObjectFlags & (uint) PrimFlags.Physics) != 0;
+            bool isPhantom = (rootObjectFlags & (uint) PrimFlags.Phantom) != 0;
 
             if (IsJoint())
             {
@@ -1880,6 +1921,7 @@ namespace OpenSim.Region.Framework.Scenes
                         m_log.ErrorFormat("[SCENE]: caught exception meshing object {0}. Object set to phantom.", m_uuid);
                         PhysActor = null;
                     }
+
                     // Basic Physics returns null..  joy joy joy.
                     if (PhysActor != null)
                     {
@@ -2118,6 +2160,9 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="isNew"></param>
         public void DoPhysicsPropertyUpdate(bool UsePhysics, bool isNew)
         {
+            if (!ParentGroup.Scene.m_physicalPrim && UsePhysics)
+                return;
+
             if (IsJoint())
             {
                 DoPhysicsPropertyUpdateForNinjaJoint(UsePhysics, isNew);
@@ -2215,11 +2260,6 @@ namespace OpenSim.Region.Framework.Scenes
                 part.ResetExpire();
 
             return part;
-        }
-
-        public UUID GetAvatarOnSitTarget()
-        {
-            return m_sitTargetAvatar;
         }
 
         public bool GetDieAtEdge()
@@ -2444,11 +2484,9 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void PhysicsCollision(EventArgs e)
         {
+//            m_log.DebugFormat("Invoking PhysicsCollision on {0} {1} {2}", Name, LocalId, UUID);
+
             // single threaded here
-            if (e == null)
-            {
-                return;
-            }
 
             CollisionEventUpdate a = (CollisionEventUpdate)e;
             Dictionary<uint, ContactPoint> collissionswith = a.m_objCollisionList;
@@ -2560,7 +2598,7 @@ namespace OpenSim.Region.Framework.Scenes
                         }
                         else
                         {
-                            m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence av)
+                            m_parentGroup.Scene.ForEachRootScenePresence(delegate(ScenePresence av)
                             {
                                 if (av.LocalId == localId)
                                 {
@@ -2610,6 +2648,7 @@ namespace OpenSim.Region.Framework.Scenes
                             });
                         }
                     }
+
                     if (colliding.Count > 0)
                     {
                         StartCollidingMessage.Colliders = colliding;
@@ -2617,10 +2656,11 @@ namespace OpenSim.Region.Framework.Scenes
                         if (m_parentGroup.Scene == null)
                             return;
 
-                        if (m_parentGroup.PassCollision == true)
-                        {
-                            //TODO: Add pass to root prim!
-                        }
+//                        if (m_parentGroup.PassCollision == true)
+//                        {
+//                            //TODO: Add pass to root prim!
+//                        }
+
                         m_parentGroup.Scene.EventManager.TriggerScriptCollidingStart(LocalId, StartCollidingMessage);
                     }
                 }
@@ -2689,7 +2729,7 @@ namespace OpenSim.Region.Framework.Scenes
                         }
                         else
                         {
-                            m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence av)
+                            m_parentGroup.Scene.ForEachRootScenePresence(delegate(ScenePresence av)
                             {
                                 if (av.LocalId == localId)
                                 {
@@ -2812,7 +2852,7 @@ namespace OpenSim.Region.Framework.Scenes
                         }
                         else
                         {
-                            m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence av)
+                            m_parentGroup.Scene.ForEachRootScenePresence(delegate(ScenePresence av)
                             {
                                 if (av.LocalId == localId)
                                 {
@@ -3038,10 +3078,8 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             }
 
-            m_parentGroup.Scene.ForEachScenePresence(delegate(ScenePresence sp)
+            m_parentGroup.Scene.ForEachRootScenePresence(delegate(ScenePresence sp)
             {
-                if (sp.IsChildAgent)
-                    return;
                 if (!(Util.GetDistanceTo(sp.AbsolutePosition, AbsolutePosition) >= 100))
                     sp.ControllingClient.SendPreLoadSound(objectID, objectID, soundID);
             });
@@ -3183,7 +3221,7 @@ namespace OpenSim.Region.Framework.Scenes
                 TimeStampFull = (uint)timeNow;
             }
 
-            m_updateFlag = 2;
+            UpdateFlag = UpdateRequired.FULL;
 
             //            m_log.DebugFormat(
             //                "[SCENE OBJECT PART]: Scheduling full  update for {0}, {1} at {2}",
@@ -3199,13 +3237,13 @@ namespace OpenSim.Region.Framework.Scenes
             if (m_parentGroup == null)
                 return;
 
-            if (m_updateFlag < 1)
+            if (UpdateFlag == UpdateRequired.NONE)
             {
                 m_parentGroup.HasGroupChanged = true;
                 m_parentGroup.QueueForUpdateCheck();
 
                 TimeStampTerse = (uint)Util.UnixTimeSinceEpoch();
-                m_updateFlag = 1;
+                UpdateFlag = UpdateRequired.TERSE;
 
                 //                m_log.DebugFormat(
                 //                    "[SCENE OBJECT PART]: Scheduling terse update for {0}, {1} at {2}",
@@ -3358,7 +3396,7 @@ namespace OpenSim.Region.Framework.Scenes
             //if (LocalId != ParentGroup.RootPart.LocalId)
             //isattachment = ParentGroup.RootPart.IsAttachment;
 
-            remoteClient.SendPrimUpdate(this, PrimUpdateFlags.FullUpdate);
+            remoteClient.SendEntityUpdate(this, PrimUpdateFlags.FullUpdate);
             ParentGroup.Scene.StatsReporter.AddObjectUpdates(1);
         }
 
@@ -3372,8 +3410,10 @@ namespace OpenSim.Region.Framework.Scenes
             const float POSITION_TOLERANCE = 0.05f;
             const int TIME_MS_TOLERANCE = 3000;
 
-            if (m_updateFlag == 1)
+            switch (UpdateFlag)
             {
+                case UpdateRequired.TERSE:
+                {
                 // Throw away duplicate or insignificant updates
                 if (!RotationOffset.ApproxEquals(m_lastRotation, ROTATION_TOLERANCE) ||
                     !Acceleration.Equals(m_lastAcceleration) ||
@@ -3386,14 +3426,6 @@ namespace OpenSim.Region.Framework.Scenes
                     AddTerseUpdateToAllAvatars();
                     ClearUpdateSchedule();
 
-                    // This causes the Scene to 'poll' physical objects every couple of frames
-                    // bad, so it's been replaced by an event driven method.
-                    //if ((ObjectFlags & (uint)PrimFlags.Physics) != 0)
-                    //{
-                    // Only send the constant terse updates on physical objects!
-                    //ScheduleTerseUpdate();
-                    //}
-
                     // Update the "last" values
                     m_lastPosition = OffsetPosition;
                     m_lastRotation = RotationOffset;
@@ -3402,15 +3434,15 @@ namespace OpenSim.Region.Framework.Scenes
                     m_lastAngularVelocity = AngularVelocity;
                     m_lastTerseSent = Environment.TickCount;
                 }
+                    break;
             }
-            else
+                case UpdateRequired.FULL:
             {
-                if (m_updateFlag == 2) // is a new prim, just created/reloaded or has major changes
-                {
                     AddFullUpdateToAllAvatars();
-                    ClearUpdateSchedule();
+                    break;
                 }
             }
+
             ClearUpdateSchedule();
         }
 
@@ -3791,7 +3823,7 @@ namespace OpenSim.Region.Framework.Scenes
             if (client != null)
                 //                GetProperties(client);
                 SendPropertiesToClient(client);
-            m_updateFlag = 2;
+            UpdateFlag = UpdateRequired.FULL;
         }
 
         /// <summary>
@@ -4682,9 +4714,7 @@ namespace OpenSim.Region.Framework.Scenes
             bool wasVD = VolumeDetectActive;
 
             if ((UsePhysics == wasUsingPhysics) && (wasTemporary == SetTemporary) && (wasPhantom == SetPhantom) && (SetVD == wasVD))
-            {
                 return;
-            }
 
             // Special cases for VD. VD can only be called from a script 
             // and can't be combined with changes to other states. So we can rely
@@ -4748,13 +4778,10 @@ namespace OpenSim.Region.Framework.Scenes
                 || (Shape.PathCurve == (byte)Extrusion.Flexible)) // note: this may have been changed above in the case of joints
             {
                 AddFlag(PrimFlags.Phantom);
+
                 if (PhysActor != null)
-                {
-                    m_parentGroup.Scene.PhysicsScene.RemovePrim(PhysActor);
-                    /// that's not wholesome.  Had to make Scene public
-                    PhysActor = null;
+                    RemoveFromPhysics();
                 }
-            }
             else // Not phantom
             {
                 RemFlag(PrimFlags.Phantom);
@@ -4762,9 +4789,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (ParentGroup.Scene == null)
                     return;
 
-                PhysicsActor pa = PhysActor;
-
-                if (pa == null)
+                if (PhysActor == null)
                 {
                     // It's not phantom anymore. So make sure the physics engine get's knowledge of it
                     PhysActor = m_parentGroup.Scene.PhysicsScene.AddPrimShape(
@@ -4777,9 +4802,6 @@ namespace OpenSim.Region.Framework.Scenes
                         UsePhysics,
                         m_localId);
 
-                    pa = PhysActor;
-                    if (pa != null)
-                    {
                         PhysActor.SetMaterial(Material);
                         DoPhysicsPropertyUpdate(UsePhysics, true);
 
@@ -4805,9 +4827,9 @@ namespace OpenSim.Region.Framework.Scenes
                             PhysActor.SubscribeEvents(1000);
                         }
                     }
-                }
                 else // it already has a physical representation
                 {
+
 //                    pa.IsPhysical = UsePhysics;
 
                     DoPhysicsPropertyUpdate(UsePhysics, false); // Update physical status. If it's phantom this will remove the prim
@@ -4868,8 +4890,27 @@ namespace OpenSim.Region.Framework.Scenes
             //            m_log.DebugFormat("[SCENE OBJECT PART]: Updated PrimFlags on {0} {1} to {2}", Name, LocalId, Flags);
         }
 
+        /// <summary>
+        /// This removes the part from physics
+        /// </summary>
+        /// <remarks>
+        /// This isn't the same as turning off physical, since even without being physical the prim has a physics
+        /// representation for collision detection.  Rather, this would be used in situations such as making a prim
+        /// phantom.
+        /// </remarks>
+        public void RemoveFromPhysics()
+        {
+            ParentGroup.Scene.PhysicsScene.RemovePrim(PhysActor);
+            PhysActor = null;
+        }
+
+        /// <summary>
+        /// This updates the part's rotation and sends out an update to clients if necessary.
+        /// </summary>
+        /// <param name="rot"></param>
         public void UpdateRotation(Quaternion rot)
         {
+ 
             Quaternion tq = RotationOffset;
             if ((rot.X != tq.X) ||
                 (rot.Y != tq.Y) ||
@@ -5149,7 +5190,7 @@ namespace OpenSim.Region.Framework.Scenes
 
             // Causes this thread to dig into the Client Thread Data.
             // Remember your locking here!
-            remoteClient.SendPrimUpdate(
+            remoteClient.SendEntityUpdate(
                 this,
                 PrimUpdateFlags.Position | PrimUpdateFlags.Rotation | PrimUpdateFlags.Velocity
                     | PrimUpdateFlags.Acceleration | PrimUpdateFlags.AngularVelocity);

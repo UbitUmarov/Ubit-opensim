@@ -640,7 +640,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         {
         }
 
-        public void SendPrimUpdate(ISceneEntity entity, PrimUpdateFlags updateFlags)
+        public void SendEntityUpdate(ISceneEntity entity, PrimUpdateFlags updateFlags)
         {
         }
 
@@ -823,9 +823,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         {
         }
 
-        public void SetDebugPacketLevel(int newDebug)
-        {
-        }
+        public int DebugPacketLevel { get; set; }
 
         public void InPacket(object NewPack)
         {

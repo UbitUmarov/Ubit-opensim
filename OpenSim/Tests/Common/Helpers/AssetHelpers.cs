@@ -27,6 +27,7 @@
 
 using System.Text;
 using OpenMetaverse;
+using OpenMetaverse.Assets;
 using OpenSim.Framework;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Region.Framework.Scenes.Serialization;
@@ -40,32 +41,43 @@ namespace OpenSim.Tests.Common
         /// Create a notecard asset with a random uuids and dummy text.
         /// </summary>
         /// <returns></returns>
-        public static AssetBase CreateAsset()
+        public static AssetBase CreateNotecardAsset()
         {
-            return CreateAsset(UUID.Random());
+            return CreateNotecardAsset(UUID.Random());
         }
 
         /// <summary>
-        /// Create a notecard asset with a random uuid and dummy text.
+        /// Create a notecard asset with dummy text and a random owner.
         /// </summary>
-        /// <param name="creatorId">/param>
+        /// <param name="assetId">/param>
         /// <returns></returns>
-        public static AssetBase CreateAsset(UUID id)
+        public static AssetBase CreateNotecardAsset(UUID assetId)
         {
-            return CreateAsset(id, AssetType.Notecard, "hello", UUID.Random());
+            return CreateNotecardAsset(assetId, "hello");
+        }
+
+        /// <summary>
+        /// Create a notecard asset with a random owner.
+        /// </summary>
+        /// <param name="assetId">/param>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        public static AssetBase CreateNotecardAsset(UUID assetId, string text)
+        {
+            return CreateAsset(assetId, AssetType.Notecard, text, UUID.Random());
         }
         
-        /// <summary>
-        /// Create and store a notecard asset with a random uuid and dummy text.
-        /// </summary>
-        /// <param name="creatorId">/param>
-        /// <returns></returns>
-        public static AssetBase CreateAsset(Scene scene, UUID creatorId)
-        {
-            AssetBase asset = CreateAsset(UUID.Random(), AssetType.Notecard, "hello", creatorId);
-            scene.AssetService.Store(asset);
-            return asset;
-        }
+//        /// <summary>
+//        /// Create and store a notecard asset with a random uuid and dummy text.
+//        /// </summary>
+//        /// <param name="creatorId">/param>
+//        /// <returns></returns>
+//        public static AssetBase CreateNotecardAsset(Scene scene, UUID creatorId)
+//        {
+//            AssetBase asset = CreateAsset(UUID.Random(), AssetType.Notecard, "hello", creatorId);
+//            scene.AssetService.Store(asset);
+//            return asset;
+//        }
 
         /// <summary>
         /// Create an asset from the given object.
@@ -128,9 +140,13 @@ namespace OpenSim.Tests.Common
         /// <summary>
         /// Create an asset from the given data.
         /// </summary>
-        public static AssetBase CreateAsset(UUID assetUuid, AssetType assetType, string data, UUID creatorID)
+        public static AssetBase CreateAsset(UUID assetUuid, AssetType assetType, string text, UUID creatorID)
         {
-            return CreateAsset(assetUuid, assetType, Encoding.ASCII.GetBytes(data), creatorID);
+            AssetNotecard anc = new AssetNotecard();
+            anc.BodyText = text;
+            anc.Encode();
+
+            return CreateAsset(assetUuid, assetType, anc.AssetData, creatorID);
         }
         
         /// <summary>

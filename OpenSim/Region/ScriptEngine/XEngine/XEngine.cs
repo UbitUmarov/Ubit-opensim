@@ -41,6 +41,7 @@ using log4net;
 using Nini.Config;
 using Amib.Threading;
 using OpenSim.Framework;
+using OpenSim.Framework.Console;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.ScriptEngine.Shared;
@@ -265,10 +266,186 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                 OnScriptRemoved += m_XmlRpcRouter.ScriptRemoved;
                 OnObjectRemoved += m_XmlRpcRouter.ObjectRemoved;
             }
+
+            MainConsole.Instance.Commands.AddCommand(
+                "scripts", false, "scripts show", "scripts show", "Show script information",
+                "Show information on all scripts known to the script engine", HandleShowScripts);
+
+            MainConsole.Instance.Commands.AddCommand(
+                "scripts", false, "show scripts", "show scripts", "Show script information",
+                "Synonym for scripts show command", HandleShowScripts);
+
+            MainConsole.Instance.Commands.AddCommand(
+                "scripts", false, "scripts suspend", "scripts suspend [<script-item-uuid>]", "Suspends all running scripts",
+                "Suspends all currently running scripts.  This only suspends event delivery, it will not suspend a"
+                    + " script that is currently processing an event.\n"
+                    + "Suspended scripts will continue to accumulate events but won't process them.\n"
+                    + "If a <script-item-uuid> is given then only that script will be suspended.  Otherwise, all suitable scripts are suspended.",
+                 (module, cmdparams) => HandleScriptsAction(cmdparams, HandleSuspendScript));
+
+            MainConsole.Instance.Commands.AddCommand(
+                "scripts", false, "scripts resume", "scripts resume [<script-item-uuid>]", "Resumes all suspended scripts",
+                "Resumes all currently suspended scripts.\n"
+                    + "Resumed scripts will process all events accumulated whilst suspended."
+                    + "If a <script-item-uuid> is given then only that script will be resumed.  Otherwise, all suitable scripts are resumed.",
+                (module, cmdparams) => HandleScriptsAction(cmdparams, HandleResumeScript));
+
+            MainConsole.Instance.Commands.AddCommand(
+                "scripts", false, "scripts stop", "scripts stop [<script-item-uuid>]", "Stops all running scripts",
+                "Stops all running scripts."
+                    + "If a <script-item-uuid> is given then only that script will be stopped.  Otherwise, all suitable scripts are stopped.",
+                (module, cmdparams) => HandleScriptsAction(cmdparams, HandleStopScript));
+
+            MainConsole.Instance.Commands.AddCommand(
+                "scripts", false, "scripts start", "scripts start [<script-item-uuid>]", "Starts all stopped scripts",
+                "Starts all stopped scripts."
+                    + "If a <script-item-uuid> is given then only that script will be started.  Otherwise, all suitable scripts are started.",
+                (module, cmdparams) => HandleScriptsAction(cmdparams, HandleStartScript));
+        }
+
+        public void HandleShowScripts(string module, string[] cmdparams)
+        {
+            lock (m_Scripts)
+            {
+                MainConsole.Instance.OutputFormat(
+                    "Showing {0} scripts in {1}", m_Scripts.Count, m_Scene.RegionInfo.RegionName);
+
+                foreach (IScriptInstance instance in m_Scripts.Values)
+                {
+                    SceneObjectPart sop = m_Scene.GetSceneObjectPart(instance.ObjectID);
+                    string status;
+
+                    if (instance.ShuttingDown)
+                    {
+                        status = "shutting down";
+                    }
+                    else if (instance.Suspended)
+                    {
+                        status = "suspended";
+                    }
+                    else if (!instance.Running)
+                    {
+                        status = "stopped";
+                    }
+                    else
+                    {
+                        status = "running";
+                    }
+
+                    MainConsole.Instance.OutputFormat(
+                        "{0}.{1}, item UUID {2}, prim UUID {3} @ {4} ({5})",
+                        instance.PrimName, instance.ScriptName, instance.ItemID, instance.ObjectID,
+                        sop.AbsolutePosition, status);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Parse the raw item id into a script instance from the command params if it's present.
+        /// </summary>
+        /// <param name="cmdparams"></param>
+        /// <param name="instance"></param>
+        /// <returns>true if we're okay to proceed, false if not.</returns>
+        private void HandleScriptsAction(string[] cmdparams, Action<IScriptInstance> action)
+        {
+            lock (m_Scripts)
+            {
+                string rawItemId;
+                UUID itemId = UUID.Zero;
+    
+                if (cmdparams.Length == 2)
+                {
+                    foreach (IScriptInstance instance in m_Scripts.Values)
+                        action(instance);
+
+                    return;
+                }
+    
+                rawItemId = cmdparams[2];
+    
+                if (!UUID.TryParse(rawItemId, out itemId))
+                {
+                    MainConsole.Instance.OutputFormat("Error - {0} is not a valid UUID", rawItemId);
+                    return;
+                }
+    
+                if (itemId != UUID.Zero)
+                {
+                    IScriptInstance instance = GetInstance(itemId);
+                    if (instance == null)
+                    {
+                        // Commented out for now since this will cause false reports on simulators with more than
+                        // one scene where the current command line set region is 'root' (which causes commands to
+                        // go to both regions... (sigh)
+//                        MainConsole.Instance.OutputFormat("Error - No item found with id {0}", itemId);
+                        return;
+                    }
+                    else
+                    {
+                        action(instance);
+                        return;
+                    }
+                }
+            }
+        }
+
+        private void HandleSuspendScript(IScriptInstance instance)
+        {
+            if (!instance.Suspended)
+            {
+                instance.Suspend();
+
+                SceneObjectPart sop = m_Scene.GetSceneObjectPart(instance.ObjectID);
+                MainConsole.Instance.OutputFormat(
+                    "Suspended {0}.{1}, item UUID {2}, prim UUID {3} @ {4}",
+                    instance.PrimName, instance.ScriptName, instance.ItemID, instance.ObjectID, sop.AbsolutePosition);
+            }
+        }
+
+        private void HandleResumeScript(IScriptInstance instance)
+        {
+            if (instance.Suspended)
+            {
+                instance.Resume();
+
+                SceneObjectPart sop = m_Scene.GetSceneObjectPart(instance.ObjectID);
+                MainConsole.Instance.OutputFormat(
+                    "Resumed {0}.{1}, item UUID {2}, prim UUID {3} @ {4}",
+                    instance.PrimName, instance.ScriptName, instance.ItemID, instance.ObjectID, sop.AbsolutePosition);
+            }
+        }
+
+        private void HandleStartScript(IScriptInstance instance)
+        {
+            if (!instance.Running)
+            {
+                instance.Start();
+
+                SceneObjectPart sop = m_Scene.GetSceneObjectPart(instance.ObjectID);
+                MainConsole.Instance.OutputFormat(
+                    "Started {0}.{1}, item UUID {2}, prim UUID {3} @ {4}",
+                    instance.PrimName, instance.ScriptName, instance.ItemID, instance.ObjectID, sop.AbsolutePosition);
+            }
+        }
+
+        private void HandleStopScript(IScriptInstance instance)
+        {
+            if (instance.Running)
+            {
+                instance.Stop(0);
+
+                SceneObjectPart sop = m_Scene.GetSceneObjectPart(instance.ObjectID);
+                MainConsole.Instance.OutputFormat(
+                    "Stopped {0}.{1}, item UUID {2}, prim UUID {3} @ {4}",
+                    instance.PrimName, instance.ScriptName, instance.ItemID, instance.ObjectID, sop.AbsolutePosition);
+            }
         }
 
         public void RemoveRegion(Scene scene)
         {
+            if (!m_Enabled)
+                return;
+
             lock (m_Scripts)
             {
                 m_log.InfoFormat(
@@ -351,6 +528,9 @@ namespace OpenSim.Region.ScriptEngine.XEngine
 
         public void Close()
         {
+            if (!m_Enabled)
+                return;
+            
             lock (m_ScriptEngines)
             {
                 if (m_ScriptEngines.Contains(this))
@@ -788,8 +968,8 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                                                   stateSource, m_MaxScriptQueue);
                     
                     m_log.DebugFormat(
-                        "[XEngine] Loaded script {0}.{1}, script UUID {2}, prim UUID {3} @ {4}.{5}",
-                        part.ParentGroup.RootPart.Name, item.Name, assetID, part.UUID, 
+                        "[XEngine] Loaded script {0}.{1}, item UUID {2}, prim UUID {3} @ {4}.{5}",
+                        part.ParentGroup.RootPart.Name, item.Name, itemID, part.UUID,
                         part.ParentGroup.RootPart.AbsolutePosition, part.ParentGroup.Scene.RegionInfo.RegionName);
 
                     if (presence != null)
@@ -846,7 +1026,7 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                 if (!m_Scripts.ContainsKey(itemID))
                     return;
 
-                instance=m_Scripts[itemID];
+                instance = m_Scripts[itemID];
                 m_Scripts.Remove(itemID);
             }
 
@@ -1621,19 +1801,15 @@ namespace OpenSim.Region.ScriptEngine.XEngine
         public void SuspendScript(UUID itemID)
         {
             IScriptInstance instance = GetInstance(itemID);
-            if (instance == null)
-                return;
-
-            instance.Suspend();
+            if (instance != null)
+                instance.Suspend();
         }
 
         public void ResumeScript(UUID itemID)
         {
             IScriptInstance instance = GetInstance(itemID);
-            if (instance == null)
-                return;
-
-            instance.Resume();
+            if (instance != null)
+                instance.Resume();
         }
     }
 }

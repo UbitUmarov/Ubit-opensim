@@ -26,7 +26,10 @@
  */
 
 using System;
+using System.Reflection;
+using log4net;
 using Nini.Config;
+using OpenSim.Framework;
 using OpenSim.Framework.Console;
 
 namespace pCampBot
@@ -43,6 +46,8 @@ namespace pCampBot
 
     public class pCampBot
     {
+        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
         [STAThread]
         public static void Main(string[] args)
         {
@@ -59,9 +64,17 @@ namespace pCampBot
 
                 //startup specified number of bots.  1 is the default
                 bm.dobotStartup(botcount, config);
+
                 while (true)
                 {
-                    MainConsole.Instance.Prompt();
+                    try
+                    {
+                        MainConsole.Instance.Prompt();
+                    }
+                    catch (Exception e)
+                    {
+                        m_log.ErrorFormat("Command error: {0}", e);
+                    }
                 }
             }
         }
@@ -71,12 +84,13 @@ namespace pCampBot
             //Set up our nifty config..  thanks to nini
             ArgvConfigSource cs = new ArgvConfigSource(args);
 
-            cs.AddSwitch("Startup", "botcount","n");
-            cs.AddSwitch("Startup", "loginuri","l");
+            cs.AddSwitch("Startup", "botcount", "n");
+            cs.AddSwitch("Startup", "loginuri", "l");
             cs.AddSwitch("Startup", "firstname");
             cs.AddSwitch("Startup", "lastname");
             cs.AddSwitch("Startup", "password");
-            cs.AddSwitch("Startup", "help","h");
+            cs.AddSwitch("Startup", "behaviours", "b");
+            cs.AddSwitch("Startup", "help", "h");
             cs.AddSwitch("Startup", "wear");
 
             IConfig ol = cs.Configs["Startup"];
@@ -94,9 +108,10 @@ namespace pCampBot
                                      "Spawns a set of bots to test an OpenSim region\n\n" +
                                      "  -l, -loginuri      loginuri for sim to log into (required)\n" +
                                      "  -n, -botcount      number of bots to start (default: 1)\n" +
-                                     "  -firstname         first name for the bot(s) (default: random string)\n" +
-                                     "  -lastname          lastname for the bot(s) (default: random string)\n" +
-                                     "  -password          password for the bots(s) (default: random string)\n" +
+                                     "  -firstname         first name for the bots\n" +
+                                     "  -lastname          lastname for the bots.  Each lastname will have _<bot-number> appended, e.g. Ima Bot_0\n" +
+                                     "  -password          password for the bots\n" +
+                                     "  -b, behaviours     behaviours for bots.  Current options p (physics), g (grab).  Comma separated, e.g. p,g.  Default is p",
                                      "  -wear              set appearance folder to load from (default: no)\n" +
                                      "  -h, -help          show this message"
                                      );

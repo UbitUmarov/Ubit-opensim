@@ -113,11 +113,13 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
     {
         public List<UUID> AllowedCreators;
         public List<UUID> AllowedOwners;
+        public List<string> AllowedOwnerClasses;
 
         public FunctionPerms()
         {
             AllowedCreators = new List<UUID>();
             AllowedOwners = new List<UUID>();
+            AllowedOwnerClasses = new List<string>();
         }
     }
 
@@ -245,6 +247,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                     // Default behavior
                     perms.AllowedOwners = null;
                     perms.AllowedCreators = null;
+                    perms.AllowedOwnerClasses = null;
                 }
                 else
                 {
@@ -265,12 +268,20 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                         foreach (string id in ids)
                         {
                             string current = id.Trim();
-                            UUID uuid;
-
-                            if (UUID.TryParse(current, out uuid))
+                            if (current.ToUpper() == "PARCEL_GROUP_MEMBER" || current.ToUpper() == "PARCEL_OWNER" || current.ToUpper() == "ESTATE_MANAGER" || current.ToUpper() == "ESTATE_OWNER")
                             {
-                                if (uuid != UUID.Zero)
-                                    perms.AllowedOwners.Add(uuid);
+                                if (!perms.AllowedOwnerClasses.Contains(current))
+                                    perms.AllowedOwnerClasses.Add(current.ToUpper());
+                            }
+                            else
+                            {
+                                UUID uuid;
+
+                                if (UUID.TryParse(current, out uuid))
+                                {
+                                    if (uuid != UUID.Zero)
+                                        perms.AllowedOwners.Add(uuid);
+                                }
                             }
                         }
 
@@ -326,11 +337,55 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                             String.Format("{0} permission error. Can't find script in prim inventory.",
                             function));
                     }
+
+                    UUID ownerID = ti.OwnerID;
+
+                    //OSSL only may be used if objet is in the same group as the parcel
+                    if (m_FunctionPerms[function].AllowedOwnerClasses.Contains("PARCEL_GROUP_MEMBER"))
+                    {
+                        ILandObject land = World.LandChannel.GetLandObject(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y);
+
+                        if (land.LandData.GroupID == ti.GroupID && land.LandData.GroupID != UUID.Zero)
+                        {
+                            return;
+                        }
+                    }
+
+                    //Only Parcelowners may use the function
+                    if (m_FunctionPerms[function].AllowedOwnerClasses.Contains("PARCEL_OWNER"))
+                    {
+                        ILandObject land = World.LandChannel.GetLandObject(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y);
+
+                        if (land.LandData.OwnerID == ownerID)
+                        {
+                            return;
+                        }
+                    }
+
+                    //Only Estate Managers may use the function
+                    if (m_FunctionPerms[function].AllowedOwnerClasses.Contains("ESTATE_MANAGER"))
+                    {
+                        //Only Estate Managers may use the function
+                        if (World.RegionInfo.EstateSettings.IsEstateManager(ownerID) && World.RegionInfo.EstateSettings.EstateOwner != ownerID)
+                        {
+                            return;
+                        }
+                    }
+
+                    //Only regionowners may use the function
+                    if (m_FunctionPerms[function].AllowedOwnerClasses.Contains("ESTATE_OWNER"))
+                    {
+                        if (World.RegionInfo.EstateSettings.EstateOwner == ownerID)
+                        {
+                            return;
+                        }
+                    }
+
                     if (!m_FunctionPerms[function].AllowedCreators.Contains(ti.CreatorID))
                         OSSLError(
                             String.Format("{0} permission denied. Script creator is not in the list of users allowed to execute this function and prim owner also has no permission.",
                             function));
-                    if (ti.CreatorID != ti.OwnerID)
+                    if (ti.CreatorID != ownerID)
                     {
                         if ((ti.CurrentPermissions & (uint)PermissionMask.Modify) != 0)
                             OSSLError(
@@ -486,7 +541,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 if (World.Entities.TryGetValue(target, out entity))
                 {
                     if (entity is SceneObjectGroup)
-                        ((SceneObjectGroup)entity).Rotation = rotation;
+                        ((SceneObjectGroup)entity).UpdateGroupRotationR(rotation);
                     else if (entity is ScenePresence)
                         ((ScenePresence)entity).Rotation = rotation;
                 }
@@ -818,10 +873,9 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             CheckThreatLevel(ThreatLevel.None, "osGetAgents");
 
             LSL_List result = new LSL_List();
-            World.ForEachScenePresence(delegate(ScenePresence sp)
+            World.ForEachRootScenePresence(delegate(ScenePresence sp)
             {
-                if (!sp.IsChildAgent)
-                    result.Add(new LSL_String(sp.Name));
+                result.Add(new LSL_String(sp.Name));
             });
             return result;
         }
@@ -2351,6 +2405,28 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             }
         }
 
+        public void osNpcSit(LSL_Key npc, LSL_Key target, int options)
+        {
+            CheckThreatLevel(ThreatLevel.High, "osNpcSit");
+
+            INPCModule module = World.RequestModuleInterface<INPCModule>();
+            if (module != null)
+            {
+                module.Sit(new UUID(npc.m_string), new UUID(target.m_string), World);
+            }
+        }
+
+        public void osNpcStand(LSL_Key npc)
+        {
+            CheckThreatLevel(ThreatLevel.High, "osNpcStand");
+
+            INPCModule module = World.RequestModuleInterface<INPCModule>();
+            if (module != null)
+            {
+                module.Stand(new UUID(npc.m_string), World);
+            }
+        }
+
         public void osNpcRemove(LSL_Key npc)
         {
             CheckThreatLevel(ThreatLevel.High, "osNpcRemove");
@@ -2383,7 +2459,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 
         protected LSL_Key SaveAppearanceToNotecard(ScenePresence sp, string notecard)
         {
-            IAvatarFactory appearanceModule = World.RequestModuleInterface<IAvatarFactory>();
+            IAvatarFactoryModule appearanceModule = World.RequestModuleInterface<IAvatarFactoryModule>();
 
             if (appearanceModule != null)
             {
@@ -2505,11 +2581,9 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             CheckThreatLevel(ThreatLevel.Severe, "osKickAvatar");
             if (World.Permissions.CanRunConsoleCommand(m_host.OwnerID))
             {
-                World.ForEachScenePresence(delegate(ScenePresence sp)
+                World.ForEachRootScenePresence(delegate(ScenePresence sp)
                 {
-                    if (!sp.IsChildAgent &&
-                        sp.Firstname == FirstName &&
-                        sp.Lastname == SurName)
+                    if (sp.Firstname == FirstName && sp.Lastname == SurName)
                     {
                         // kick client...
                         if (alert != null)
@@ -2641,17 +2715,14 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             CheckThreatLevel(ThreatLevel.None, "osGetAvatarList");
 
             LSL_List result = new LSL_List();
-            World.ForEachScenePresence(delegate (ScenePresence avatar)
+            World.ForEachRootScenePresence(delegate (ScenePresence avatar)
             {
                 if (avatar != null && avatar.UUID != m_host.OwnerID)
                 {
-                    if (avatar.IsChildAgent == false)
-                    {
-                        result.Add(new LSL_String(avatar.UUID.ToString()));
-                        OpenMetaverse.Vector3 ap = avatar.AbsolutePosition;
-                        result.Add(new LSL_Vector(ap.X, ap.Y, ap.Z));
-                        result.Add(new LSL_String(avatar.Name));
-                    }
+                    result.Add(new LSL_String(avatar.UUID.ToString()));
+                    OpenMetaverse.Vector3 ap = avatar.AbsolutePosition;
+                    result.Add(new LSL_Vector(ap.X, ap.Y, ap.Z));
+                    result.Add(new LSL_String(avatar.Name));
                 }
             });
 

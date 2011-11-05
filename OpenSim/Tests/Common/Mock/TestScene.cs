@@ -41,19 +41,19 @@ namespace OpenSim.Tests.Common.Mock
         public TestScene(
             RegionInfo regInfo, AgentCircuitManager authen,
             SceneCommunicationService sceneGridService, ISimulationDataService simDataService, IEstateDataService estateDataService,
-            ModuleLoader moduleLoader, bool dumpAssetsToFile, bool physicalPrim,
-            bool SeeIntoRegionFromNeighbor, IConfigSource config, string simulatorVersion)
+            ModuleLoader moduleLoader, bool dumpAssetsToFile,
+            IConfigSource config, string simulatorVersion)
             : base(regInfo, authen, sceneGridService, simDataService, estateDataService, moduleLoader,
-                   dumpAssetsToFile, physicalPrim, SeeIntoRegionFromNeighbor, config, simulatorVersion)
+                   dumpAssetsToFile, config, simulatorVersion)
         {
         }
         
         /// <summary>
         /// Temporarily override session authentication for tests (namely teleport).
         /// </summary>
-        /// 
+        /// <remarks>
         /// TODO: This needs to be mocked out properly.
-        /// 
+        /// </remarks>
         /// <param name="agent"></param>
         /// <returns></returns>
         public override bool VerifyUserPresence(AgentCircuitData agent, out string reason)

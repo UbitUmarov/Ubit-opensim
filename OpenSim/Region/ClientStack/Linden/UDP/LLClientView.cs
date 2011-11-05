@@ -64,7 +64,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <value>
         /// Debug packet level.  See OpenSim.RegisterConsoleCommands() for more details.
         /// </value>
-        protected int m_debugPacketLevel = 0;
+        public int DebugPacketLevel { get; set; }
 
         #region Events
 
@@ -475,11 +475,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             m_prioritizer = new Prioritizer(m_scene);
 
             RegisterLocalPacketHandlers();
-        }
-
-        public void SetDebugPacketLevel(int newDebug)
-        {
-            m_debugPacketLevel = newDebug;
         }
 
         #region Client Methods
@@ -1963,8 +1958,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 SendBulkUpdateInventoryItem((InventoryItemBase)node);
             else if (node is InventoryFolderBase)
                 SendBulkUpdateInventoryFolder((InventoryFolderBase)node);
+            else if (node != null)
+                m_log.ErrorFormat("[CLIENT]: {0} sent unknown inventory node named {1}", Name, node.Name);
             else
-                m_log.ErrorFormat("[CLIENT]: Client for {0} sent unknown inventory node named {1}", Name, node.Name);
+                m_log.ErrorFormat("[CLIENT]: {0} sent null inventory node", Name);
         }
 
         protected void SendBulkUpdateInventoryItem(InventoryItemBase item)
@@ -3592,7 +3589,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// Generate one of the object update packets based on PrimUpdateFlags
         /// and broadcast the packet to clients
         /// </summary>
-        public void SendPrimUpdate(ISceneEntity entity, PrimUpdateFlags updateFlags)
+        public void SendEntityUpdate(ISceneEntity entity, PrimUpdateFlags updateFlags)
         {
             //double priority = m_prioritizer.GetUpdatePriority(this, entity);
             uint priority = m_prioritizer.GetUpdatePriority(this, entity);
@@ -4789,6 +4786,12 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 position = presence.OffsetPosition;
                 velocity = presence.Velocity;
                 acceleration = Vector3.Zero;
+
+                // Interestingly, sending this to non-zero will cause the client's avatar to start moving & accelerating
+                // in that direction, even though we don't model this on the server.  Implementing this in the future
+                // may improve movement smoothness.
+//                acceleration = new Vector3(1, 0, 0);
+                
                 angularVelocity = Vector3.Zero;
                 rotation = presence.Rotation;
 
@@ -4899,8 +4902,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             data.CollisionPlane.ToBytes(objectData, 0);
             data.OffsetPosition.ToBytes(objectData, 16);
-            //data.Velocity.ToBytes(objectData, 28);
-            //data.Acceleration.ToBytes(objectData, 40);
+//            data.Velocity.ToBytes(objectData, 28);
+//            data.Acceleration.ToBytes(objectData, 40);
             data.Rotation.ToBytes(objectData, 52);
             //data.AngularVelocity.ToBytes(objectData, 64);
 
@@ -11634,29 +11637,29 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// provide your own method.</param>
         protected void OutPacket(Packet packet, ThrottleOutPacketType throttlePacketType, bool doAutomaticSplitting, UnackedPacketMethod method)
         {
-            if (m_debugPacketLevel > 0)
+            if (DebugPacketLevel > 0)
             {
                 bool logPacket = true;
 
-                if (m_debugPacketLevel <= 255
+                if (DebugPacketLevel <= 255
                     && (packet.Type == PacketType.SimStats || packet.Type == PacketType.SimulatorViewerTimeMessage))
                     logPacket = false;
 
-                if (m_debugPacketLevel <= 200
+                if (DebugPacketLevel <= 200
                     && (packet.Type == PacketType.ImagePacket
                         || packet.Type == PacketType.ImageData
                         || packet.Type == PacketType.LayerData
                         || packet.Type == PacketType.CoarseLocationUpdate))
                     logPacket = false;
 
-                if (m_debugPacketLevel <= 100 && (packet.Type == PacketType.AvatarAnimation || packet.Type == PacketType.ViewerEffect))
+                if (DebugPacketLevel <= 100 && (packet.Type == PacketType.AvatarAnimation || packet.Type == PacketType.ViewerEffect))
                     logPacket = false;
                 
-                if (m_debugPacketLevel <= 50 && packet.Type == PacketType.ImprovedTerseObjectUpdate)
+                if (DebugPacketLevel <= 50 && packet.Type == PacketType.ImprovedTerseObjectUpdate)
                     logPacket = false;
 
                 if (logPacket)
-                    m_log.DebugFormat("[CLIENT]: Packet OUT {0}", packet.Type);
+                    m_log.DebugFormat("[CLIENT]: Packet OUT {0} to {1}", packet.Type, Name);
             }
             
             m_udpServer.SendPacket(m_udpClient, packet, throttlePacketType, doAutomaticSplitting, method);
@@ -11697,21 +11700,21 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <param name="Pack">OpenMetaverse.packet</param>
         public void ProcessInPacket(Packet packet)
         {
-            if (m_debugPacketLevel > 0)
+            if (DebugPacketLevel > 0)
             {
                 bool outputPacket = true;
 
-                if (m_debugPacketLevel <= 255 && packet.Type == PacketType.AgentUpdate)
+                if (DebugPacketLevel <= 255 && packet.Type == PacketType.AgentUpdate)
                     outputPacket = false;
 
-                if (m_debugPacketLevel <= 200 && packet.Type == PacketType.RequestImage)
+                if (DebugPacketLevel <= 200 && packet.Type == PacketType.RequestImage)
                     outputPacket = false;
 
-                if (m_debugPacketLevel <= 100 && (packet.Type == PacketType.ViewerEffect || packet.Type == PacketType.AgentAnimation))
+                if (DebugPacketLevel <= 100 && (packet.Type == PacketType.ViewerEffect || packet.Type == PacketType.AgentAnimation))
                     outputPacket = false;
 
                 if (outputPacket)
-                    m_log.DebugFormat("[CLIENT]: Packet IN {0}", packet.Type);
+                    m_log.DebugFormat("[CLIENT]: Packet IN {0} from {1}", packet.Type, Name);
             }
 
             if (!ProcessPacketMethod(packet))

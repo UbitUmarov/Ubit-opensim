@@ -66,42 +66,31 @@ namespace OpenSim.Region.Physics.Manager
         }
     }
 
+    /// <summary>
+    /// Used to pass collision information to OnCollisionUpdate listeners.
+    /// </summary>
     public class CollisionEventUpdate : EventArgs
     {
-        // Raising the event on the object, so don't need to provide location..  further up the tree knows that info.
+        /// <summary>
+        /// Number of collision events in this update.
+        /// </summary>
+        public int Count { get { return m_objCollisionList.Count; } }
 
-        public int m_colliderType;
-        public int m_GenericStartEnd;
-        //public uint m_LocalID;
-        public Dictionary<uint, ContactPoint> m_objCollisionList = new Dictionary<uint, ContactPoint>();
+        public bool CollisionsOnPreviousFrame { get; private set; }
 
-        public CollisionEventUpdate(uint localID, int colliderType, int GenericStartEnd, Dictionary<uint, ContactPoint> objCollisionList)
+        public Dictionary<uint, ContactPoint> m_objCollisionList;
+
+        public CollisionEventUpdate(Dictionary<uint, ContactPoint> objCollisionList)
         {
-            m_colliderType = colliderType;
-            m_GenericStartEnd = GenericStartEnd;
             m_objCollisionList = objCollisionList;
         }
 
         public CollisionEventUpdate()
         {
-            m_colliderType = (int) ActorTypes.Unknown;
-            m_GenericStartEnd = 1;
             m_objCollisionList = new Dictionary<uint, ContactPoint>();
         }
 
-        public int collidertype
-        {
-            get { return m_colliderType; }
-            set { m_colliderType = value; }
-        }
-
-        public int GenericStartEnd
-        {
-            get { return m_GenericStartEnd; }
-            set { m_GenericStartEnd = value; }
-        }
-
-        public void addCollider(uint localID, ContactPoint contact)
+        public void AddCollider(uint localID, ContactPoint contact)
         {
             if (!m_objCollisionList.ContainsKey(localID))
             {
@@ -112,6 +101,14 @@ namespace OpenSim.Region.Physics.Manager
                 if (m_objCollisionList[localID].PenetrationDepth < contact.PenetrationDepth)
                     m_objCollisionList[localID] = contact;
             }
+        }
+
+        /// <summary>
+        /// Clear added collision events.
+        /// </summary>
+        public void Clear()
+        {
+            m_objCollisionList.Clear();
         }
     }
 
@@ -127,7 +124,13 @@ namespace OpenSim.Region.Physics.Manager
         public event VelocityUpdate OnVelocityUpdate;
         public event OrientationUpdate OnOrientationUpdate;
         public event RequestTerseUpdate OnRequestTerseUpdate;
+
+        /// <summary>
+        /// Subscribers to this event must synchronously handle the dictionary of collisions received, since the event
+        /// object is reused in subsequent physics frames.
+        /// </summary>
         public event CollisionUpdate OnCollisionUpdate;
+
         public event OutOfBounds OnOutOfBounds;
 #pragma warning restore 67
 
@@ -202,10 +205,18 @@ namespace OpenSim.Region.Physics.Manager
 
         public virtual void SetMaterial (int material)
         {
-            
         }
 
+        /// <summary>
+        /// Position of this actor.
+        /// </summary>
+        /// <remarks>
+        /// Setting this directly moves the actor to a given position.
+        /// Getting this retrieves the position calculated by physics scene updates, using factors such as velocity and
+        /// collisions.
+        /// </remarks>
         public abstract Vector3 Position { get; set; }
+
         public abstract float Mass { get; }
         public abstract Vector3 Force { get; set; }
 
@@ -215,11 +226,24 @@ namespace OpenSim.Region.Physics.Manager
         public abstract void VehicleRotationParam(int param, Quaternion rotation);
         public abstract void VehicleFlags(int param, bool remove);
 
-        public abstract void SetVolumeDetect(int param);    // Allows the detection of collisions with inherently non-physical prims. see llVolumeDetect for more
+        /// <summary>
+        /// Allows the detection of collisions with inherently non-physical prims. see llVolumeDetect for more
+        /// </summary>
+        public abstract void SetVolumeDetect(int param);
 
         public abstract Vector3 GeometricCenter { get; }
         public abstract Vector3 CenterOfMass { get; }
+
+        /// <summary>
+        /// Velocity of this actor.
+        /// </summary>
+        /// <remarks>
+        /// Setting this provides a target velocity for physics scene updates.
+        /// Getting this returns the velocity calculated by physics scene updates, using factors such as target velocity,
+        /// time to accelerate and collisions.
+        /// </remarks>
         public abstract Vector3 Velocity { get; set; }
+
         public abstract Vector3 Torque { get; set; }
         public abstract float CollisionScore { get; set;}
         public abstract Vector3 Acceleration { get; }

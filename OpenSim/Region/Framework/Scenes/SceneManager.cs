@@ -452,21 +452,22 @@ namespace OpenSim.Region.Framework.Scenes
         /// console.
         /// </summary>
         /// <param name="newDebug"></param>
-        public void SetDebugPacketLevelOnCurrentScene(int newDebug)
+        /// <param name="name">Name of avatar to debug</param>
+        public void SetDebugPacketLevelOnCurrentScene(int newDebug, string name)
         {
             ForEachCurrentScene(
                 delegate(Scene scene)
                 {
-                    scene.ForEachScenePresence(delegate(ScenePresence scenePresence)
+                    scene.ForEachRootClient(delegate(IClientAPI client)
                     {
-                        if (!scenePresence.IsChildAgent)
+                        if (name == null || client.Name == name)
                         {
                             m_log.DebugFormat("Packet debug for {0} {1} set to {2}",
-                                              scenePresence.Firstname,
-                                              scenePresence.Lastname,
+                                              client.FirstName,
+                                              client.LastName,
                                               newDebug);
 
-                            scenePresence.ControllingClient.SetDebugPacketLevel(newDebug);
+                            client.DebugPacketLevel = newDebug;
                         }
                     });
                 }
@@ -480,10 +481,9 @@ namespace OpenSim.Region.Framework.Scenes
             ForEachCurrentScene(
                 delegate(Scene scene)
                 {
-                    scene.ForEachScenePresence(delegate(ScenePresence scenePresence)
+                    scene.ForEachRootScenePresence(delegate(ScenePresence scenePresence)
                     {
-                        if (!scenePresence.IsChildAgent)
-                            avatars.Add(scenePresence);
+                        avatars.Add(scenePresence);
                     });
                 }
             );

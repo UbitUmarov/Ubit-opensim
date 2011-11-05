@@ -46,14 +46,28 @@ namespace OpenSim.Server.Handlers.Authentication
 {
     public class AuthenticationServerPostHandler : BaseStreamHandler
     {
-        // private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private IAuthenticationService m_AuthenticationService;
 
+        private bool m_AllowGetAuthInfo = false;
+        private bool m_AllowSetAuthInfo = false;
+        private bool m_AllowSetPassword = false;
+
         public AuthenticationServerPostHandler(IAuthenticationService service) :
+                this(service, null) {}
+
+        public AuthenticationServerPostHandler(IAuthenticationService service, IConfig config) :
                 base("POST", "/auth")
         {
             m_AuthenticationService = service;
+
+            if (config != null)
+            {
+                m_AllowGetAuthInfo = config.GetBoolean("AllowGetAuthInfo", m_AllowGetAuthInfo);
+                m_AllowSetAuthInfo = config.GetBoolean("AllowSetAuthInfo", m_AllowSetAuthInfo);
+                m_AllowSetPassword = config.GetBoolean("AllowSetPassword", m_AllowSetPassword);
+            }
         }
 
         public override byte[] Handle(string path, Stream request,
@@ -113,31 +127,57 @@ namespace OpenSim.Server.Handlers.Authentication
 
             switch (method)
             {
-            case "authenticate":
-                if (!request.ContainsKey("PASSWORD"))
+                case "authenticate":
+                    if (!request.ContainsKey("PASSWORD"))
+                        return FailureResult();
+                    
+                    token = m_AuthenticationService.Authenticate(principalID, request["PASSWORD"].ToString(), lifetime);
+    
+                    if (token != String.Empty)
+                        return SuccessResult(token);
                     return FailureResult();
-                
-                token = m_AuthenticationService.Authenticate(principalID, request["PASSWORD"].ToString(), lifetime);
+    
+                case "setpassword":
+                    if (!m_AllowSetPassword)
+                        return FailureResult();
 
-                if (token != String.Empty)
-                    return SuccessResult(token);
-                return FailureResult();
-            case "verify":
-                if (!request.ContainsKey("TOKEN"))
+                    if (!request.ContainsKey("PASSWORD"))
+                        return FailureResult();
+    
+                    if (m_AuthenticationService.SetPassword(principalID, request["PASSWORD"].ToString()))
+                        return SuccessResult();
+                    else
+                        return FailureResult();
+    
+                case "verify":
+                    if (!request.ContainsKey("TOKEN"))
+                        return FailureResult();
+                    
+                    if (m_AuthenticationService.Verify(principalID, request["TOKEN"].ToString(), lifetime))
+                        return SuccessResult();
+    
                     return FailureResult();
-                
-                if (m_AuthenticationService.Verify(principalID, request["TOKEN"].ToString(), lifetime))
-                    return SuccessResult();
-
-                return FailureResult();
-            case "release":
-                if (!request.ContainsKey("TOKEN"))
+    
+                case "release":
+                    if (!request.ContainsKey("TOKEN"))
+                        return FailureResult();
+    
+                    if (m_AuthenticationService.Release(principalID, request["TOKEN"].ToString()))
+                        return SuccessResult();
+    
                     return FailureResult();
 
-                if (m_AuthenticationService.Release(principalID, request["TOKEN"].ToString()))
-                    return SuccessResult();
+                case "getauthinfo":
+                    if (m_AllowGetAuthInfo)
+                        return GetAuthInfo(principalID);
 
-                return FailureResult();
+                    break;
+
+                case "setauthinfo":
+                    if (m_AllowSetAuthInfo)
+                        return SetAuthInfo(principalID, request);
+
+                    break;
             }
 
             return FailureResult();
@@ -168,6 +208,54 @@ namespace OpenSim.Server.Handlers.Authentication
             rootElement.AppendChild(result);
 
             return DocToBytes(doc);
+        }
+
+        byte[] GetAuthInfo(UUID principalID)
+        {
+            AuthInfo info = m_AuthenticationService.GetAuthInfo(principalID);
+
+            if (info != null)
+            {
+                Dictionary<string, object> result = new Dictionary<string, object>();
+                result["result"] = info.ToKeyValuePairs();
+
+                return ResultToBytes(result);
+            }
+            else
+            {
+                return FailureResult();
+            }
+        }
+
+        byte[] SetAuthInfo(UUID principalID, Dictionary<string, object> request)
+        {
+            AuthInfo existingInfo = m_AuthenticationService.GetAuthInfo(principalID);
+
+            if (existingInfo == null)
+                return FailureResult();
+
+            if (request.ContainsKey("AccountType"))
+                existingInfo.AccountType = request["AccountType"].ToString();
+
+            if (request.ContainsKey("PasswordHash"))
+                existingInfo.PasswordHash = request["PasswordHash"].ToString();
+
+            if (request.ContainsKey("PasswordSalt"))
+                existingInfo.PasswordSalt = request["PasswordSalt"].ToString();
+
+            if (request.ContainsKey("WebLoginKey"))
+                existingInfo.WebLoginKey = request["WebLoginKey"].ToString();
+
+            if (!m_AuthenticationService.SetAuthInfo(existingInfo))
+            {
+                m_log.ErrorFormat(
+                    "[AUTHENTICATION SERVER POST HANDLER]: Authentication info store failed for account {0} {1} {2}",
+                    existingInfo.PrincipalID);
+
+                return FailureResult();
+            }
+
+            return SuccessResult();
         }
 
         private byte[] FailureResult()
@@ -228,6 +316,13 @@ namespace OpenSim.Server.Handlers.Authentication
             xw.Flush();
 
             return ms.GetBuffer();
+        }
+
+        private byte[] ResultToBytes(Dictionary<string, object> result)
+        {
+            string xmlString = ServerUtils.BuildXmlResponse(result);
+            UTF8Encoding encoding = new UTF8Encoding();
+            return encoding.GetBytes(xmlString);
         }
     }
 }

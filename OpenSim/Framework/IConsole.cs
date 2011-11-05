@@ -25,40 +25,29 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+using System;
 using System.Collections.Generic;
-using OpenMetaverse;
-using OpenSim.Framework;
 
-namespace OpenSim.Region.Framework.Interfaces
+namespace OpenSim.Framework
 {
-    public interface IAvatarFactory
+    public interface IConsole
     {
-        /// <summary>
-        /// Send the appearance of an avatar to others in the scene.
-        /// </summary>
-        /// <param name="agentId"></param>
-        /// <returns></returns>
-        bool SendAppearance(UUID agentId);
+        object ConsoleScene { get; }
 
-        /// <summary>
-        /// Return the baked texture ids of the given agent.
-        /// </summary>
-        /// <param name="agentId"></param>
-        /// <returns>An empty list if this agent has no baked textures (e.g. because it's a child agent)</returns>
-        Dictionary<BakeType, Primitive.TextureEntryFace> GetBakedTextureFaces(UUID agentId);
+        void Output(string text, string level);
+        void Output(string text);
+        void OutputFormat(string format, params object[] components);
 
-        /// <summary>
-        /// Save the baked textures for the given agent permanently in the asset database.
-        /// </summary>
-        /// <remarks>
-        /// This is used to preserve apperance textures for NPCs
-        /// </remarks>
-        /// <param name="agentId"></param>
-        /// <returns>true if a valid agent was found, false otherwise</returns>
-        bool SaveBakedTextures(UUID agentId);
+        string CmdPrompt(string p);
+        string CmdPrompt(string p, string def);
+        string CmdPrompt(string p, List<char> excludedCharacters);
+        string CmdPrompt(string p, string def, List<char> excludedCharacters);
 
-        bool ValidateBakedTextureCache(IClientAPI client);
-        void QueueAppearanceSend(UUID agentid);
-        void QueueAppearanceSave(UUID agentid);
+        // Displays a command prompt and returns a default value, user may only enter 1 of 2 options
+        string CmdPrompt(string prompt, string defaultresponse, List<string> options);
+
+        // Displays a prompt and waits for the user to enter a string, then returns that string
+        // (Done with no echo and suitable for passwords)
+        string PasswdPrompt(string p);
     }
 }

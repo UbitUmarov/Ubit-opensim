@@ -51,7 +51,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.Appearance
 //        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);                
         
         protected Dictionary<UUID, Scene> m_scenes = new Dictionary<UUID, Scene>();
-        protected IAvatarFactory m_avatarFactory;
+        protected IAvatarFactoryModule m_avatarFactory;
         
         public string Name { get { return "Appearance Information Module"; } }        
         
@@ -98,7 +98,24 @@ namespace OpenSim.Region.OptionalModules.Avatar.Appearance
                 "Show appearance information for each avatar in the simulator.",
                 "At the moment this actually just checks that we have all the required baked textures.  If not, then appearance is 'corrupt' and other avatars will continue to see a cloud.",
                 ShowAppearanceInfo);
-        }                 
+
+            scene.AddCommand(
+                this, "appearance send",
+                "appearance send",
+                "Send appearance data for each avatar in the simulator to viewers.",
+                SendAppearance);
+        }
+
+        private void SendAppearance(string module, string[] cmd)
+        {
+            lock (m_scenes)
+            {
+                foreach (Scene scene in m_scenes.Values)
+                {
+                    scene.ForEachRootScenePresence(sp => scene.AvatarFactory.SendAppearance(sp.UUID));
+                }
+            }
+        }
 
         protected void ShowAppearanceInfo(string module, string[] cmd)
         {     
@@ -106,15 +123,12 @@ namespace OpenSim.Region.OptionalModules.Avatar.Appearance
             {   
                 foreach (Scene scene in m_scenes.Values)
                 {
-                    scene.ForEachClient(
-                        delegate(IClientAPI client)
+                    scene.ForEachRootScenePresence(
+                        delegate(ScenePresence sp)
                         {
-                            if (client is LLClientView && !((LLClientView)client).ChildAgentStatus())
-                            {
-                                bool bakedTextureValid = scene.AvatarFactory.ValidateBakedTextureCache(client);
-                                MainConsole.Instance.OutputFormat(
-                                    "{0} baked appearance texture is {1}", client.Name, bakedTextureValid ? "OK" : "corrupt");
-                            }
+                            bool bakedTextureValid = scene.AvatarFactory.ValidateBakedTextureCache(sp);
+                            MainConsole.Instance.OutputFormat(
+                                "{0} baked appearance texture is {1}", sp.Name, bakedTextureValid ? "OK" : "corrupt");
                         });
                 }
             }
