@@ -2132,6 +2132,10 @@ namespace OpenSim.Region.Framework.Scenes
                         {
                             if (!isNew)
                             {
+                                Velocity = new Vector3(0, 0, 0);
+                                Acceleration = new Vector3(0, 0, 0);
+                                AngularVelocity = new Vector3(0, 0, 0);
+
                                 ParentGroup.Scene.RemovePhysicalPrim(1);
                                 PhysActor.OnRequestTerseUpdate -= PhysicsRequestingTerseUpdate;
                                 PhysActor.OnOutOfBounds -= PhysicsOutOfBounds;
@@ -2146,7 +2150,7 @@ namespace OpenSim.Region.Framework.Scenes
                             else
                                 PhysActor.IsPhysical = UsePhysics;
                         }
-
+/*
                         if (!UsePhysics && !isNew)
                         {
                             // reset velocity to 0 on physics switch-off. Without that, the client thinks the
@@ -2157,7 +2161,7 @@ namespace OpenSim.Region.Framework.Scenes
                             AngularVelocity = new Vector3(0, 0, 0);
                             //RotationalVelocity = new Vector3(0, 0, 0);
                         }
-
+*/
                         // If we're not what we're supposed to be in the physics scene, recreate ourselves.
                         //m_parentGroup.Scene.PhysicsScene.RemovePrim(PhysActor);
                         /// that's not wholesome.  Had to make Scene public

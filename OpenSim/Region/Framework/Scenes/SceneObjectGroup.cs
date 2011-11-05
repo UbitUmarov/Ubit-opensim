@@ -613,7 +613,8 @@ namespace OpenSim.Region.Framework.Scenes
                     for (int i = 0; i < parts.Length; i++)
                     {
                         SceneObjectPart child = parts[i];
-                        if (child.PhysActor != null)
+
+                        if (child.ParentID != 0 && child.PhysActor != null)
                             child.PhysActor.Selected = value;
                     }
                 }

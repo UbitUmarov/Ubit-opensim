@@ -103,7 +103,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private float m_waterHeight;
         private float m_buoyancy;                //KF: m_buoyancy should be set by llSetBuoyancy() for non-vehicle. 
 
-        // private float m_tensor = 5f;
         private int body_autodisable_frames = 20;
 
         private const CollisionCategories m_default_collisionFlags = (CollisionCategories.Geom
@@ -139,7 +138,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private IntPtr _linkJointGroup = IntPtr.Zero;
         private PhysicsActor _parent;
-        private PhysicsActor m_taintparent;
 
         private List<OdePrim> childrenPrim = new List<OdePrim>();
 
@@ -2478,8 +2476,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                     else if (!d.BodyIsEnabled(Body))
                         d.BodyEnable(Body);
 
-                    _torque = newtorque;
                 }
+                _torque = newtorque;
             }
         }
 
@@ -2536,7 +2534,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (!m_isSelected)
             {
-                if (IsPhysical && Body != IntPtr.Zero)
+                if (Body != IntPtr.Zero)
                 {
                     if (m_disabled)
                         enableBodySoft();
@@ -2547,8 +2545,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
                 //resetCollisionAccounting();           
             }
-
-//            _velocity = newVel;
+            _velocity = newVel;
         }
 
         private void changeVolumedetetion(bool newVolDtc)

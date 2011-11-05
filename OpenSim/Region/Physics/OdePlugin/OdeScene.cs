@@ -2503,40 +2503,29 @@ namespace OpenSim.Region.Physics.OdePlugin
                         ODEchangeitem item;
 
                         int tlimit = 500;
-
-                        while (ChangesQueue.Dequeue(out item))
+                        
+                        
+                        if(ChangesQueue.Count >0)
                         {
-                            if (item.prim != null)
+                            while(ChangesQueue.Dequeue(out item))
                             {
-                                try
+                                if (item.prim != null)
                                 {
-                                    if (item.prim.DoAChange(item.what, item.arg))
-                                        RemovePrimThreadLocked(item.prim);
+                                    try
+                                    {
+                                        if (item.prim.DoAChange(item.what, item.arg))
+                                            RemovePrimThreadLocked(item.prim);
+                                    }
+                                    catch { };
                                 }
-                                catch { };
+                                if (tlimit-- <= 0)
+                                    break;
                             }
-                            if (tlimit-- <= 0)
-                                break;
-
-                        }/*
-                        lock (_taintedPrimLock)
-                        {
-                            numtaints = _taintedPrimQ.Count;
-                            //                            if (numtaints > 100)
-                            //                                numtaints = 100;
-                            while (numtaints > 0)
-                            {
-                                prim = _taintedPrimQ.Dequeue();
-                                _taintedPrimH.Remove(prim);
-                                numtaints--;
-                                if (prim.ProcessTaints(ODE_STEPSIZE)) // hack odeprim returns true if the prim is to be removed
-                                    RemovePrimThreadLocked(prim);
-                            }
-
-                            if (SupportsNINJAJoints)
-                                SimulatePendingNINJAJoints();
                         }
-*/
+
+                        if (SupportsNINJAJoints)
+                                SimulatePendingNINJAJoints();
+
                         // Move characters
                         lock (_characters)
                         {
