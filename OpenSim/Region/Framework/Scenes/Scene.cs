@@ -163,36 +163,13 @@ namespace OpenSim.Region.Framework.Scenes
         /// <summary>
         /// The time of the last frame update.
         /// </summary>
-        protected DateTime m_lastFrameUpdate = DateTime.UtcNow;
-
-        // TODO: Possibly stop other classes being able to manipulate this directly.
-        private SceneGraph m_sceneGraph;
-        private volatile int m_bordersLocked;
-//        private int m_RestartTimerCounter;
-        private readonly Timer m_restartTimer = new Timer(15000); // Wait before firing
-//        private int m_incrementsof15seconds;
-        private volatile bool m_backingup;
-        private Dictionary<UUID, ReturnInfo> m_returns = new Dictionary<UUID, ReturnInfo>();
-        private Dictionary<UUID, SceneObjectGroup> m_groupsWithTargets = new Dictionary<UUID, SceneObjectGroup>();
-        private Object m_heartbeatLock = new Object();
-
+//        protected DateTime m_lastFrameUpdate = DateTime.UtcNow;
 
         protected Stopwatch MyWatch;
         protected float m_simframetime = 0.022f;  // simulation loop period
         protected float m_simphysframetime = 0.022f; // physics simulation period must be >= simframetime
 
         protected TimeSpan m_lastphysupdate = TimeSpan.Zero;
-
-        // TODO: Possibly stop other classes being able to manipulate this directly.
-        private SceneGraph m_sceneGraph;
-        private volatile int m_bordersLocked;
-        //        private int m_RestartTimerCounter;
-        private readonly Timer m_restartTimer = new Timer(15000); // Wait before firing
-        //        private int m_incrementsof15seconds;
-        private volatile bool m_backingup;
-        private Dictionary<UUID, ReturnInfo> m_returns = new Dictionary<UUID, ReturnInfo>();
-        private Dictionary<UUID, SceneObjectGroup> m_groupsWithTargets = new Dictionary<UUID, SceneObjectGroup>();
-        private Object m_heartbeatLock = new Object();
 
         private int m_update_physics = 1;
         private int m_update_entitymovement = 1;
@@ -227,9 +204,7 @@ namespace OpenSim.Region.Framework.Scenes
         // TODO: Possibly stop other classes being able to manipulate this directly.
         private SceneGraph m_sceneGraph;
         private volatile int m_bordersLocked;
-//        private int m_RestartTimerCounter;
         private readonly Timer m_restartTimer = new Timer(15000); // Wait before firing
-//        private int m_incrementsof15seconds;
         private volatile bool m_backingup;
         private Dictionary<UUID, ReturnInfo> m_returns = new Dictionary<UUID, ReturnInfo>();
         private Dictionary<UUID, SceneObjectGroup> m_groupsWithTargets = new Dictionary<UUID, SceneObjectGroup>();
@@ -1258,19 +1233,11 @@ namespace OpenSim.Region.Framework.Scenes
 
         public override void Update()
         {        
-            TimeSpan SinceLastFrame = DateTime.UtcNow - m_lastFrameUpdate;
-        {
             TimeSpan Now;
             TimeSpan Start = MyWatch.Elapsed;
             tempOnRezMS = eventMS = backupMS = terrainMS = landMS = TimeSpan.Zero;
             float physicsFPS = 0f;
 
-            int maintc = Util.EnvironmentTickCount();
-            int tmpFrameMS = maintc;
-            agentMS = tempOnRezMS = eventMS = backupMS = terrainMS = landMS = 0;
-
-            // TODO: ADD AGENT TIME HERE
-            // Increment the frame counter
             // Increment the frame counter
             ++Frame;
 
@@ -1278,23 +1245,6 @@ namespace OpenSim.Region.Framework.Scenes
 
             try
             {
-                int tmpAgentMS = Util.EnvironmentTickCount();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                 // Check if any objects have reached their targets
                 CheckAtTargets();
 
@@ -1355,34 +1305,6 @@ namespace OpenSim.Region.Framework.Scenes
                             presence.SendCoarseLocations(coarseLocations, avatarUUIDs);
                         });
                 }
-
-                agentMS = Util.EnvironmentTickCountSubtract(tmpAgentMS);
-
-                int tmpPhysicsMS2 = Util.EnvironmentTickCount();
-                if ((Frame % m_update_physics == 0) && m_physics_enabled)
-                    m_sceneGraph.UpdatePreparePhysics();
-                physicsMS2 = Util.EnvironmentTickCountSubtract(tmpPhysicsMS2);
-
-                // Apply any pending avatar force input to the avatar's velocity
-                if (Frame % m_update_entitymovement == 0)
-                {
-                    tmpAgentMS = Util.EnvironmentTickCount();
-                    m_sceneGraph.UpdateScenePresenceMovement();
-                    agentMS += Util.EnvironmentTickCountSubtract(tmpAgentMS);
-                }
-
-                // Perform the main physics update.  This will do the actual work of moving objects and avatars according to their
-                // velocity
-                int tmpPhysicsMS = Util.EnvironmentTickCount();
-                if (Frame % m_update_physics == 0)
-                {
-                    if (m_physics_enabled)
-                        physicsFPS = m_sceneGraph.UpdatePhysics(Math.Max(SinceLastFrame.TotalSeconds, m_minFrameTimespan));
-                    if (SynchronizeScene != null)
-                        SynchronizeScene(this);
-                }
-                physicsMS = Util.EnvironmentTickCountSubtract(tmpPhysicsMS);
-
 
                 // Delete temp-on-rez stuff
                 if (Frame % m_update_temp_cleaning == 0 && !m_cleaningTemps)
@@ -1498,19 +1420,11 @@ namespace OpenSim.Region.Framework.Scenes
             }
             finally
             {
-                m_lastFrameUpdate = DateTime.UtcNow;
+//                m_lastFrameUpdate = DateTime.UtcNow;
             }
-            finally
-            {
-                //                m_lastupdate = DateTime.UtcNow;
-            }
-
-            maintc = Util.EnvironmentTickCountSubtract(maintc);
-            maintc = (int)(m_minFrameTimespan * 1000) - maintc;
+ 
             TimeSpan looptime = MyWatch.Elapsed - Start;
             int maintc = (int)m_simframetime - looptime.Milliseconds;
-
-
 
             if (maintc > 0)
                 Thread.Sleep(maintc);

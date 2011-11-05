@@ -148,7 +148,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public UUID m_uuid;
         public bool bad = false;
 
-        public OdeCharacter(String avName, OdeScene parent_scene, Vector3 pos, CollisionLocker dode, Vector3 size, float pid_d, float pid_p, float capsule_radius, float tensor, float density, float height_fudge_factor, float walk_divisor, float rundivisor)
+        public OdeCharacter(String avName, OdeScene parent_scene, Vector3 pos, Vector3 size, float pid_d, float pid_p, float capsule_radius, float tensor, float density, float height_fudge_factor, float walk_divisor, float rundivisor)
         {
             m_uuid = UUID.Random();
 
@@ -1153,7 +1153,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override void SubscribeEvents(int ms)
         {
-            m_requestedUpdateFrequency = ms;
+//            m_requestedUpdateFrequency = ms;
             m_eventsubscription = ms;
             _parent_scene.AddCollisionEventReporting(this);
         }
@@ -1161,19 +1161,19 @@ namespace OpenSim.Region.Physics.OdePlugin
         public override void UnSubscribeEvents()
         {
             _parent_scene.RemoveCollisionEventReporting(this);
-            m_requestedUpdateFrequency = 0;
+//            m_requestedUpdateFrequency = 0;
             m_eventsubscription = 0;
         }
 
         public void AddCollisionEvent(uint CollidedWith, ContactPoint contact)
         {
-            if (m_eventsubscription > 0)
-            {
+//            if (m_eventsubscription > 0)
+//            {
                 //                m_log.DebugFormat(
                 //                    "[PHYSICS]: Adding collision event for {0}, collidedWith {1}, contact {2}", "", CollidedWith, contact);
 
-                CollisionEventsThisFrame.addCollider(CollidedWith, contact);
-            }
+                CollisionEventsThisFrame.AddCollider(CollidedWith, contact);
+ //           }
         }
 
         public void SendCollisions()

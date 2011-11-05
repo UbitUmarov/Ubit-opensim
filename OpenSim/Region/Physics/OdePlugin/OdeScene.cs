@@ -151,8 +151,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly ILog m_log;
         // private Dictionary<string, sCollisionData> m_storedCollisions = new Dictionary<string, sCollisionData>();
 
-        CollisionLocker ode;
-
         private Random fluidRandomizer = new Random(Environment.TickCount);
 
 
@@ -348,14 +346,15 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// Sets many properties that ODE requires to be stable
         /// These settings need to be tweaked 'exactly' right or weird stuff happens.
         /// </summary>
-        public OdeScene(CollisionLocker dode, string sceneIdentifier)
+        public OdeScene(string sceneIdentifier)
             {
             m_log 
                 = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType.ToString() + "." + sceneIdentifier);
 
+            Name = sceneIdentifier;
+
             OdeLock = new Object();
             SimulationLock = new Object();
-            ode = dode;
 
             nearCallback = near;
 
@@ -800,7 +799,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             catch (SEHException)
             {
                 m_log.Error("[PHYSICS]: The Operating system shut down ODE because of corrupt memory.  This could be a result of really irregular terrain.  If this repeats continuously, restart using Basic Physics and terrain fill your terrain.  Restarting the sim.");
-                ode.drelease(world);
+//                ode.drelease(world);
                 base.TriggerPhysicsBasedRestart();
             }
             catch (Exception e)
@@ -1639,7 +1638,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             pos.X = position.X;
             pos.Y = position.Y;
             pos.Z = position.Z;
-            OdeCharacter newAv = new OdeCharacter(avName, this, pos, ode, size, avPIDD, avPIDP, avCapRadius, avStandupTensor, avDensity, avHeightFudgeFactor, avMovementDivisorWalk, avMovementDivisorRun);
+            OdeCharacter newAv = new OdeCharacter(avName, this, pos, size, avPIDD, avPIDP, avCapRadius, avStandupTensor, avDensity, avHeightFudgeFactor, avMovementDivisorWalk, avMovementDivisorRun);
             newAv.Flying = isFlying;
             newAv.MinimumGroundFlightOffset = minimumGroundFlightOffset;
             
@@ -1695,7 +1694,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             OdePrim newPrim;
             lock (OdeLock)
             {
-                newPrim = new OdePrim(name, this, pos, siz, rot, pbs, isphysical, ode);
+                newPrim = new OdePrim(name, this, pos, siz, rot, pbs, isphysical);
 
                 lock (_prims)
                     _prims.Add(newPrim);
@@ -2117,25 +2116,21 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// </summary>
         /// <param name="prim"></param>
         public void RemovePrimThreadLocked(OdePrim prim)
-            {
+        {
             //Console.WriteLine("RemovePrimThreadLocked " +  prim.m_primName);
             lock (prim)
-                {
+            {
                 RemoveCollisionEventReporting(prim);
-                lock (ode)
-                    {
-                    lock (_prims)
-                        _prims.Remove(prim);
+                lock (_prims)
+                    _prims.Remove(prim);
 
-                    if (SupportsNINJAJoints)
-                        {
-                        RemoveAllJointsConnectedToActorThreadLocked(prim);
-                        }
-                    }
-
+                if (SupportsNINJAJoints)
+                {
+                    RemoveAllJointsConnectedToActorThreadLocked(prim);
                 }
             }
 
+        }
         #endregion
 
         #region Space Separation Calculation
@@ -2468,7 +2463,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 catch (StackOverflowException)
                 {
                     m_log.Error("[PHYSICS]: The operating system wasn't able to allocate enough memory for the simulation.  Restarting the sim.");
-                    ode.drelease(world);
+//                    ode.drelease(world);
                     base.TriggerPhysicsBasedRestart();
                 }
 
@@ -2592,7 +2587,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     catch (Exception e)
                     {
                         m_log.ErrorFormat("[PHYSICS]: {0}, {1}, {2}", e.Message, e.TargetSite, e);
-                        ode.dunlock(world);
+//                        ode.dunlock(world);
                     }
 
                     step_time -= ODE_STEPSIZE;

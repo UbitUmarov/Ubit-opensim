@@ -181,7 +181,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private Quaternion fakeori;
 
         public int m_eventsubscription;
-        private CollisionEventUpdate CollisionEventsThisFrame;
+        private CollisionEventUpdate CollisionEventsThisFrame = new CollisionEventUpdate();
 
         private IntPtr m_linkJoint = IntPtr.Zero;
 
@@ -801,7 +801,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (CollisionEventsThisFrame == null)
                 CollisionEventsThisFrame = new CollisionEventUpdate();
 
-            CollisionEventsThisFrame.addCollider(CollidedWith, contact);
+            CollisionEventsThisFrame.AddCollider(CollidedWith, contact);
         }
 
         public void SendCollisions()
@@ -826,7 +826,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
 
         public OdePrim(String primName, OdeScene parent_scene, Vector3 pos, Vector3 size,
-                       Quaternion rotation, PrimitiveBaseShape pbs, bool pisPhysical, CollisionLocker dode)
+                       Quaternion rotation, PrimitiveBaseShape pbs, bool pisPhysical)
         {
             Name = primName;
             m_vehicle = null;

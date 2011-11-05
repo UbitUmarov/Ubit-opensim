@@ -373,14 +373,6 @@ namespace OpenSim.Region.Framework.Scenes
         public virtual Quaternion Rotation
         {
             get { return m_rotation; }
-            set { m_rotation = value; }
-        }
-
-        protected Quaternion m_rotation = Quaternion.Identity;
-
-        public virtual Quaternion Rotation
-        {
-            get { return m_rotation; }
             set
             {
                 m_rotation = value;
