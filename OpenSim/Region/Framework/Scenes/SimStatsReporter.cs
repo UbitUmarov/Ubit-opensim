@@ -106,21 +106,6 @@ namespace OpenSim.Region.Framework.Scenes
         private float m_timeDilation = 0;
         private int m_fps = 0;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         // saved last reported value so there is something available for llGetRegionFPS 
         private float lastReportedSimFPS = 0;
         private float[] lastReportedSimStats = new float[21];
@@ -167,7 +152,7 @@ namespace OpenSim.Region.Framework.Scenes
         public SimStatsReporter(Scene scene)
         {
 
-
+            m_scene = scene;
             statsUpdateFactor = (float)(statsUpdatesEveryMS / 1000);
             ReportingRegion = scene.RegionInfo;
 
@@ -213,11 +198,7 @@ namespace OpenSim.Region.Framework.Scenes
                     // leave region flags at 0
                 }
 
-#region various statistic googly moogly
-
-    
-
-
+#region various statistic googly moogly  
 
                 // Our FPS is actually 10fps, so multiplying by 5 to get the amount that people expect there
                 // 0-50 is pretty close to 0-45
