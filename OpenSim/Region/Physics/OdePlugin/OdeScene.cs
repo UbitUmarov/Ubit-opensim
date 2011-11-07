@@ -255,8 +255,10 @@ namespace OpenSim.Region.Physics.OdePlugin
         private bool m_NINJA_physics_joints_enabled = false;
         //private Dictionary<String, IntPtr> jointpart_name_map = new Dictionary<String,IntPtr>();
         private readonly Dictionary<String, List<PhysicsJoint>> joints_connecting_actor = new Dictionary<String, List<PhysicsJoint>>();
-        private d.ContactGeom[] contacts;
-        private GCHandle contactsPinnedHandle;
+
+        private int contactsPerCollision = 80;
+        private IntPtr ContactgeomsArray = IntPtr.Zero;
+        private IntPtr GlobalContactsArray = IntPtr.Zero;
 
         private readonly List<PhysicsJoint> requestedJointsToBeCreated = new List<PhysicsJoint>(); // lock only briefly. accessed by external code (to request new joints) and by OdeScene.Simulate() to move those joints into pending/active
         private readonly List<PhysicsJoint> pendingJoints = new List<PhysicsJoint>(); // can lock for longer. accessed only by OdeScene.
@@ -279,8 +281,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         const int maxContactsbeforedeath = 4000;
 
         private volatile int m_global_contactcount = 0;
-        private d.Contact[] globalContacts;
-        private GCHandle globalContactsPinnedHandle;
 
 //Ckrinke: Comment out until used. We declare it, initialize it, but do not use it
 //Ckrinke        private int m_randomizeWater = 200;
@@ -518,11 +518,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             float glassFriction = 2.0f;
-            contacts = new d.ContactGeom[contactsPerCollision];
-            contactsPinnedHandle = GCHandle.Alloc(contacts, GCHandleType.Pinned);
 
-            globalContacts = new d.Contact[maxContactsbeforedeath];
-            globalContactsPinnedHandle = GCHandle.Alloc(globalContacts, GCHandleType.Pinned); ;
+            ContactgeomsArray = Marshal.AllocHGlobal(contactsPerCollision * d.ContactGeom.unmanagedSizeOf);
+            GlobalContactsArray = GlobalContactsArray = Marshal.AllocHGlobal(maxContactsbeforedeath * d.Contact.unmanagedSizeOf);
 
             const d.ContactFlags comumContactFlagsMode = d.ContactFlags.SoftERP | d.ContactFlags.SoftERP;
             // Centeral contact friction and bounce
@@ -709,23 +707,32 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         // sets a global contact for a joint for contactgeom , and base contact description)
 
-        private bool SetGlobalContact(ref d.ContactGeom contactGeom, float mu, float bounce, float soft_cfm, float soft_erp)
+        private IntPtr CreateContacJoint(ref d.ContactGeom contactGeom, float mu, float bounce, float soft_cfm, float soft_erp)
         {
-            globalContacts[m_global_contactcount].geom.depth = contactGeom.depth;
-            globalContacts[m_global_contactcount].geom.g1 = contactGeom.g1;
-            globalContacts[m_global_contactcount].geom.g2 = contactGeom.g2;
-            globalContacts[m_global_contactcount].geom.pos = contactGeom.pos;
-            globalContacts[m_global_contactcount].geom.normal = contactGeom.normal;
-            globalContacts[m_global_contactcount].geom.side1 = contactGeom.side1;
-            globalContacts[m_global_contactcount].geom.side2 = contactGeom.side2;
+            if (GlobalContactsArray == IntPtr.Zero || m_global_contactcount >= maxContactsbeforedeath)
+                return IntPtr.Zero;
 
-            globalContacts[m_global_contactcount].surface.mode = d.ContactFlags.SoftERP | d.ContactFlags.SoftERP;
-            globalContacts[m_global_contactcount].surface.mu = mu;
-            globalContacts[m_global_contactcount].surface.bounce = bounce;
-            globalContacts[m_global_contactcount].surface.soft_cfm = soft_cfm;
-            globalContacts[m_global_contactcount].surface.soft_erp = soft_erp;
-            return true;
+            d.Contact newcontact = new d.Contact();
+            newcontact.geom.depth = contactGeom.depth;
+            newcontact.geom.g1 = contactGeom.g1;
+            newcontact.geom.g2 = contactGeom.g2;
+            newcontact.geom.pos = contactGeom.pos;
+            newcontact.geom.normal = contactGeom.normal;
+            newcontact.geom.side1 = contactGeom.side1;
+            newcontact.geom.side2 = contactGeom.side2;
+
+            // this needs bounce also
+            newcontact.surface.mode = d.ContactFlags.SoftERP | d.ContactFlags.SoftERP;
+            newcontact.surface.mu = mu;
+            newcontact.surface.bounce = bounce;
+            newcontact.surface.soft_cfm = soft_cfm;
+            newcontact.surface.soft_erp = soft_erp;
+
+            IntPtr contact = new IntPtr(GlobalContactsArray.ToInt64() + (Int64)(m_global_contactcount * d.Contact.unmanagedSizeOf));
+            Marshal.StructureToPtr(newcontact, contact, false);
+            return d.JointCreateContactPtr(world, contactgroup, contact);
         }
+
 
         /// <summary>
         /// This is our near callback.  A geometry is near a body
@@ -734,6 +741,18 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// <param name="g1">a geometry or space</param>
         /// <param name="g2">another geometry or space</param>
         /// 
+
+        private bool GetCurContactGeom(int index, ref d.ContactGeom newcontactgeom)
+        {
+            if (ContactgeomsArray == IntPtr.Zero || index >= contactsPerCollision)
+                return false;
+
+            IntPtr contactptr = new IntPtr(ContactgeomsArray.ToInt64() + (Int64)(index * d.ContactGeom.unmanagedSizeOf));
+            newcontactgeom = (d.ContactGeom)Marshal.PtrToStructure(contactptr, typeof(d.ContactGeom));
+            return true;
+        }
+
+
 
         private void near(IntPtr space, IntPtr g1, IntPtr g2)
         {
@@ -789,12 +808,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (b1 != IntPtr.Zero && b2 != IntPtr.Zero && d.AreConnectedExcluding(b1, b2, d.JointType.Contact))
                     return;
 
-                lock (contacts)
-                {
-                    count = d.Collide(g1, g2, contacts.Length, (d.ContactGeom[])contactsPinnedHandle.Target, d.ContactGeom.SizeOf);
-                    if (count > contacts.Length)
-                        m_log.Error("[PHYSICS]: Got " + count + " contacts when we asked for a maximum of " + contacts.Length);
-                }
+                count = d.CollidePtr(g1, g2, (contactsPerCollision & 0xffff), ContactgeomsArray, d.ContactGeom.unmanagedSizeOf);
             }
             catch (SEHException)
             {
@@ -853,11 +867,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             ContactPoint maxDepthContact = new ContactPoint();
+            d.ContactGeom curContact = new d.ContactGeom();
 
             for (int i = 0; i < count; i++)
             {
-
-                d.ContactGeom curContact = contacts[i];
+                if (!GetCurContactGeom(i, ref curContact))
+                    break;
 
                 if(curContact.g1 == IntPtr.Zero)
                     curContact.g1 = g1;
@@ -875,7 +890,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         );
                 }
 
-                IntPtr joint;
+                IntPtr Joint;
 
                 // inform actors about colision
 
@@ -956,7 +971,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 //                if (!skipThisContact && checkDupe(curContact, p2.PhysicsActorType))
                 //                    skipThisContact = true;
 
-                bool doJoint = false;
+                Joint = IntPtr.Zero;
                 if (!skipThisContact)
                 {
                    
@@ -1016,7 +1031,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             float bounce = m_materialContactsSurf[material, movintYN].bounce;
                             float soft_cfm = m_materialContactsSurf[material, movintYN].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, movintYN].soft_erp;
-                            doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                         }
                     }
 
@@ -1076,7 +1091,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             float bounce = m_materialContactsSurf[material, movintYN].bounce;
                             float soft_cfm = m_materialContactsSurf[material, movintYN].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, movintYN].soft_erp;
-                            doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                         }
                     }
 
@@ -1093,7 +1108,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         float bounce = WaterContactSurf.bounce;
                         float soft_cfm = WaterContactSurf.soft_cfm;
                         float soft_erp = WaterContactSurf.soft_erp;
-                        doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                        Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                     }
 
                     else
@@ -1109,7 +1124,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
-                                doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                                Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                             }
                             else
                             {
@@ -1118,7 +1133,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
-                                doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                                Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                             }
                         }
                         else if ((p1.PhysicsActorType == (int)ActorTypes.Agent))
@@ -1130,7 +1145,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
-                                doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                                Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                             }
                             else
                             {
@@ -1139,7 +1154,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
-                                doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                                Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                             }
                         }
 
@@ -1153,7 +1168,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
-                                doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                                Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                             }
                             else
                             {
@@ -1162,7 +1177,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
-                                doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                                Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                             }
                         }
                         else if (p1.PhysicsActorType == (int)ActorTypes.Prim && p2.PhysicsActorType == (int)ActorTypes.Prim)
@@ -1221,7 +1236,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if (soft_erp < soft_erp2)
                                 soft_erp = soft_erp2;
 
-                            doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                         }
                         else if (p1.PhysicsActorType == (int)ActorTypes.Prim)
                         {
@@ -1243,7 +1258,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             float bounce = m_materialContactsSurf[material, 0].bounce;
                             float soft_cfm = m_materialContactsSurf[material, 0].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, 0].soft_erp;
-                            doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                         }
                         else if (p2.PhysicsActorType == (int)ActorTypes.Prim)
                         {
@@ -1265,15 +1280,14 @@ namespace OpenSim.Region.Physics.OdePlugin
                             float bounce = m_materialContactsSurf[material, 0].bounce;
                             float soft_cfm = m_materialContactsSurf[material, 0].soft_cfm;
                             float soft_erp = m_materialContactsSurf[material, 0].soft_erp;
-                            doJoint = SetGlobalContact(ref curContact, mu, bounce, soft_cfm, soft_erp);
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, soft_cfm, soft_erp);
                         }
                     }
 
-                    if (doJoint) // stack collide!
+                    if (Joint != IntPtr.Zero) // stack collide!
                     {
-                        joint = d.JointCreateContact(world, contactgroup, ref globalContacts[m_global_contactcount]);
                         m_global_contactcount++;
-                        d.JointAttach(joint, b1, b2);
+                        d.JointAttach(Joint, b1, b2);
                     }
                 }
             }
@@ -2096,7 +2110,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             // removed in the next physics simulate pass.
             if (prim is OdePrim)
             {
-                lock (OdeLock)
+//                lock (OdeLock)
                 {
                     OdePrim p = (OdePrim)prim;
                     p.setPrimForRemoval();
@@ -3457,11 +3471,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                     }
                 }
 
+                if (ContactgeomsArray != IntPtr.Zero)
+                    Marshal.FreeHGlobal(ContactgeomsArray);
+                if (GlobalContactsArray != IntPtr.Zero)
+                    Marshal.FreeHGlobal(GlobalContactsArray);
+
                 d.WorldDestroy(world);
                 //d.CloseODE();
-                globalContactsPinnedHandle.Free();
-                contactsPinnedHandle.Free();
-                
             }
         }
 

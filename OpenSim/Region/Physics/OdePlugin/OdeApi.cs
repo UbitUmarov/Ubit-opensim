@@ -61,7 +61,6 @@ namespace OdeAPI
 
 		#region Flags and Enumerations
 
-        [CLSCompliant(false)]
         [Flags]
         public enum AllocateODEDataFlags : uint
         {
@@ -70,7 +69,6 @@ namespace OdeAPI
             All = ~0u
         }
 
-        [CLSCompliant(false)]
         [Flags]
         public enum IniteODEFlags : uint
         {
@@ -235,13 +233,13 @@ namespace OdeAPI
 			public SurfaceParameters surface;
 			public ContactGeom geom;
 			public Vector3 fdir1;
+            public static readonly int unmanagedSizeOf = Marshal.SizeOf(typeof(Contact));
 		}
 
 
 		[StructLayout(LayoutKind.Sequential)]
 		public struct ContactGeom
 		{
-			public static readonly int SizeOf = Marshal.SizeOf(typeof(ContactGeom));
 
 			public Vector3 pos;
 			public Vector3 normal;
@@ -250,7 +248,8 @@ namespace OdeAPI
 			public IntPtr g2;
 			public int side1;
 			public int side2;
-		}
+            public static readonly int unmanagedSizeOf = Marshal.SizeOf(typeof(ContactGeom));
+        }
 
 		[StructLayout(LayoutKind.Sequential)]
 		public struct GeomClass
@@ -663,8 +662,10 @@ namespace OdeAPI
 		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dCloseODE"), SuppressUnmanagedCodeSecurity]
 		public static extern void CloseODE();
 
-		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dCollide"), SuppressUnmanagedCodeSecurity]
-		public static extern int Collide(IntPtr o1, IntPtr o2, int flags, [In, Out] ContactGeom[] contact, int skip);
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dCollide"), SuppressUnmanagedCodeSecurity]
+        public static extern int Collide(IntPtr o1, IntPtr o2, int flags, [In, Out] ContactGeom[] contact, int skip);
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dCollide"), SuppressUnmanagedCodeSecurity]
+        public static extern int CollidePtr(IntPtr o1, IntPtr o2, int flags, IntPtr contactgeomarray, int skip);
 
 		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dConnectingJoint"), SuppressUnmanagedCodeSecurity]
 		public static extern IntPtr ConnectingJoint(IntPtr j1, IntPtr j2);
@@ -1241,8 +1242,10 @@ namespace OdeAPI
 		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dJointCreateBall"), SuppressUnmanagedCodeSecurity]
 		public static extern IntPtr JointCreateBall(IntPtr world, IntPtr group);
 
-		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dJointCreateContact"), SuppressUnmanagedCodeSecurity]
-		public static extern IntPtr JointCreateContact(IntPtr world, IntPtr group, ref Contact contact);
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dJointCreateContact"), SuppressUnmanagedCodeSecurity]
+        public static extern IntPtr JointCreateContact(IntPtr world, IntPtr group, ref Contact contact);
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dJointCreateContact"), SuppressUnmanagedCodeSecurity]
+        public static extern IntPtr JointCreateContactPtr(IntPtr world, IntPtr group, IntPtr contact);
 
 		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dJointCreateFixed"), SuppressUnmanagedCodeSecurity]
 		public static extern IntPtr JointCreateFixed(IntPtr world, IntPtr group);

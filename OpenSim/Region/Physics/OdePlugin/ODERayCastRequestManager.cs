@@ -346,7 +346,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 lock (contacts)
                 {
-                    count = d.Collide(g1, g2, contacts.GetLength(0), contacts, d.ContactGeom.SizeOf);
+                    count = d.Collide(g1, g2, contacts.GetLength(0), contacts, d.ContactGeom.unmanagedSizeOf);
                 }
             }
             catch (SEHException)
