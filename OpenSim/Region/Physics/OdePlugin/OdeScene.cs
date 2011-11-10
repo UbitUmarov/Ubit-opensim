@@ -170,7 +170,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private float waterlevel = 0f;
         private int framecount = 0;
 
-        private readonly IntPtr contactgroup;
 
         internal IntPtr LandGeom;
         internal IntPtr WaterGeom;
@@ -257,8 +256,10 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly Dictionary<String, List<PhysicsJoint>> joints_connecting_actor = new Dictionary<String, List<PhysicsJoint>>();
 
         private int contactsPerCollision = 80;
-        private IntPtr ContactgeomsArray = IntPtr.Zero;
+        internal IntPtr ContactgeomsArray = IntPtr.Zero;
         private IntPtr GlobalContactsArray = IntPtr.Zero;
+
+        private readonly IntPtr contactgroup;
 
         private readonly List<PhysicsJoint> requestedJointsToBeCreated = new List<PhysicsJoint>(); // lock only briefly. accessed by external code (to request new joints) and by OdeScene.Simulate() to move those joints into pending/active
         private readonly List<PhysicsJoint> pendingJoints = new List<PhysicsJoint>(); // can lock for longer. accessed only by OdeScene.
@@ -3525,6 +3526,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
+        // don't like this
         public override List<ContactResult> RaycastWorld(Vector3 position, Vector3 direction, float length, int Count)
         {
             ContactResult[] ourResults = null;
@@ -3541,8 +3543,78 @@ namespace OpenSim.Region.Physics.OdePlugin
                 waitTime++;
             }
             if (ourResults == null)
-                return new List<ContactResult> ();
+                return new List<ContactResult>();
             return new List<ContactResult>(ourResults);
+        }
+
+        public override void RaycastActor(PhysicsActor actor, Vector3 position, Vector3 direction, float length, RaycastCallback retMethod)
+        {
+            if (retMethod != null && actor !=null)
+            {
+                IntPtr geom;
+                if (actor is OdePrim)
+                    geom = ((OdePrim)actor).prim_geom;
+                else if (actor is OdeCharacter)
+                    geom = ((OdePrim)actor).prim_geom;
+                else
+                    return;
+                if (geom == IntPtr.Zero)
+                    return;
+                m_rayCastManager.QueueRequest(geom, position, direction, length, retMethod);
+            }
+        }
+
+        public override void RaycastActor(PhysicsActor actor, Vector3 position, Vector3 direction, float length, int Count, RayCallback retMethod)
+        {
+            if (retMethod != null && actor != null)
+            {
+                IntPtr geom;
+                if (actor is OdePrim)
+                    geom = ((OdePrim)actor).prim_geom;
+                else if (actor is OdeCharacter)
+                    geom = ((OdePrim)actor).prim_geom;
+                else
+                    return;
+                if (geom == IntPtr.Zero)
+                    return;
+
+                m_rayCastManager.QueueRequest(geom,position, direction, length, Count, retMethod);
+            }
+        }
+
+        // don't like this
+        public override List<ContactResult> RaycastActor(PhysicsActor actor, Vector3 position, Vector3 direction, float length, int Count)
+        {
+            if (actor != null)
+            {
+                IntPtr geom;
+                if (actor is OdePrim)
+                    geom = ((OdePrim)actor).prim_geom;
+                else if (actor is OdeCharacter)
+                    geom = ((OdePrim)actor).prim_geom;
+                else
+                    return new List<ContactResult>();
+                if (geom == IntPtr.Zero)
+                    return new List<ContactResult>();
+
+                ContactResult[] ourResults = null;
+                RayCallback retMethod = delegate(List<ContactResult> results)
+                {
+                    ourResults = new ContactResult[results.Count];
+                    results.CopyTo(ourResults, 0);
+                };
+                int waitTime = 0;
+                m_rayCastManager.QueueRequest(geom,position, direction, length, Count, retMethod);
+                while (ourResults == null && waitTime < 1000)
+                {
+                    Thread.Sleep(1);
+                    waitTime++;
+                }
+                if (ourResults == null)
+                    return new List<ContactResult>();
+                return new List<ContactResult>(ourResults);
+            }
+            return new List<ContactResult>();
         }
 
 #if USE_DRAWSTUFF

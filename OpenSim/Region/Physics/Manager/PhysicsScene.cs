@@ -266,5 +266,24 @@ namespace OpenSim.Region.Physics.Manager
         {
             return new List<ContactResult>();
         }
+
+        // methods as above but only probing a single actor and not the world
+        public virtual void RaycastActor(PhysicsActor actor, Vector3 position, Vector3 direction, float length, RaycastCallback retMethod)
+        {
+            if (retMethod != null)
+                retMethod(false, Vector3.Zero, 0, 999999999999f, Vector3.Zero);
+        }
+
+        public virtual void RaycastActor(PhysicsActor actor, Vector3 position, Vector3 direction, float length, int Count, RayCallback retMethod)
+        {
+            if (retMethod != null)
+                retMethod(new List<ContactResult>());
+        }
+
+        public virtual List<ContactResult> RaycastActor(PhysicsActor actor, Vector3 position, Vector3 direction, float length, int Count)
+        {
+            return new List<ContactResult>();
+        }
+
     }
 }
