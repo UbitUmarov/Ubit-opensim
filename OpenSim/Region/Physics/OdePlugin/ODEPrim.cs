@@ -716,7 +716,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (force.IsFinite())
             {
-                AddChange(changes.AddForce, force * 100f);
+                AddChange(changes.AddForce, force / _parent_scene.ODE_STEPSIZE);
             }
             else
             {
@@ -729,7 +729,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (force.IsFinite())
             {
-                AddChange(changes.AddAngForce,force * 100);
+                AddChange(changes.AddAngForce, force / _parent_scene.ODE_STEPSIZE);
             }
             else
             {
@@ -860,6 +860,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (size.Z <= 0) size.Z = 0.01f;
 
             _size = size;
+
+           
 
             if (!QuaternionIsFinite(rotation))
             {
