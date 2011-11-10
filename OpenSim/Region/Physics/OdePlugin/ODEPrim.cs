@@ -2751,7 +2751,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     fz += forceacc.Z;
 
                     forceacc = Vector3.Zero;
-
+                    
                     //m_log.Info("[OBJPID]: X:" + fx.ToString() + " Y:" + fy.ToString() + " Z:" + fz.ToString());
                     if (fx != 0 || fy != 0 || fz != 0)
                     {
@@ -2767,6 +2767,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
 */
                         // 35x10 = 350n times the mass per second applied maximum.
+/*
                         float nmax = 35f * m_mass;
                         float nmin = -35f * m_mass;
 
@@ -2779,6 +2780,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             fy = nmax;
                         if (fy < nmin)
                             fy = nmin;
+ */
                         d.BodyAddForce(Body, fx, fy, fz);
                         //Console.WriteLine("AddForce " + fx + "," + fy + "," + fz);
                     }
