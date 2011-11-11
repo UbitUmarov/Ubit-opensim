@@ -47,7 +47,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// <summary>
         /// Pending ray requests
         /// </summary>
-        protected List<ODERayRequest> m_PendingRequests = new List<ODERayRequest>();
+        protected OpenSim.Framework.LocklessQueue<ODERayRequest> m_PendingRequests = new OpenSim.Framework.LocklessQueue<ODERayRequest>();
 
         /// <summary>
         /// Scene that created this object.
@@ -89,8 +89,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Normal = direction;
             req.Origin = position;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         public void QueueRequest(IntPtr geom, Vector3 position, Vector3 direction, float length, RayCallback retMethod)
@@ -103,8 +102,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Origin = position;
             req.Count = 0;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         public void QueueRequest(Vector3 position, Vector3 direction, float length, RaycastCallback retMethod)
@@ -117,8 +115,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Normal = direction;
             req.Origin = position;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         public void QueueRequest(IntPtr geom, Vector3 position, Vector3 direction, float length, RaycastCallback retMethod)
@@ -131,8 +128,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Origin = position;
             req.Count = 0;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         /// <summary>
@@ -153,8 +149,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Origin = position;
             req.Count = count;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         public void QueueRequest(IntPtr geom, Vector3 position, Vector3 direction, float length, int count, RayCallback retMethod)
@@ -167,8 +162,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Origin = position;
             req.Count = count;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         public void QueueRequest(Vector3 position, Vector3 direction, float length, int count, RaycastCallback retMethod)
@@ -181,8 +175,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Origin = position;
             req.Count = count;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         public void QueueRequest(IntPtr geom, Vector3 position, Vector3 direction, float length, int count, RaycastCallback retMethod)
@@ -195,8 +188,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             req.Origin = position;
             req.Count = count;
 
-            lock (m_PendingRequests)
-                m_PendingRequests.Add(req);
+            m_PendingRequests.Enqueue(req);
         }
 
         /// <summary>
@@ -207,29 +199,27 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             int time = System.Environment.TickCount;
 
+            if (m_PendingRequests.Count <= 0)
+                return 0;
+
             if (m_scene.ContactgeomsArray == IntPtr.Zero) // oops something got wrong or scene isn't ready still
             {
                 m_PendingRequests.Clear();
                 return 0;
             }
 
-            ODERayRequest[] reqs;
+            ODERayRequest req;
 
-            lock (m_PendingRequests)
+            int i = 50; // arbitary limit of processed tests per frame
+
+            while(m_PendingRequests.Dequeue(out req))
             {
-                if (m_PendingRequests.Count <= 0)
-                    return 0;
-
-                reqs = m_PendingRequests.ToArray();
-                m_PendingRequests.Clear();
-            }
-
-            for (int i = 0; i < reqs.Length; i++)
-            {
-                if (reqs[i].geom == IntPtr.Zero)
-                    doSpaceRay(reqs[i]);
+                if (req.geom == IntPtr.Zero)
+                    doSpaceRay(req);
                 else
-                    doGeomRay(reqs[i]);
+                    doGeomRay(req);
+            if(--i < 0)
+                break;
             }
 
             lock (m_contactResults)
