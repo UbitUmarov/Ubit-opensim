@@ -1531,45 +1531,50 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             OutPacket(pc, ThrottleOutPacketType.Unknown);
         }
 
-        public void SendKillObject(ulong regionHandle, uint localID)
+        public void SendKillObject(ulong regionHandle, List<uint> localIDs)
         {
 //            m_log.DebugFormat("[CLIENT]: Sending KillObjectPacket to {0} for {1} in {2}", Name, localID, regionHandle);
 
             KillObjectPacket kill = (KillObjectPacket)PacketPool.Instance.GetPacket(PacketType.KillObject);
             // TODO: don't create new blocks if recycling an old packet
-            kill.ObjectData = new KillObjectPacket.ObjectDataBlock[1];
-            kill.ObjectData[0] = new KillObjectPacket.ObjectDataBlock();
-            kill.ObjectData[0].ID = localID;
+            kill.ObjectData = new KillObjectPacket.ObjectDataBlock[localIDs.Count];
+            for (int i = 0 ; i < localIDs.Count ; i++ )
+            {
+                kill.ObjectData[i] = new KillObjectPacket.ObjectDataBlock();
+                kill.ObjectData[i].ID = localIDs[i];
+            }
             kill.Header.Reliable = true;
             kill.Header.Zerocoded = true;
 
-            if (m_scene.GetScenePresence(localID) == null)
+            if (localIDs.Count == 1 && m_scene.GetScenePresence(localIDs[0]) != null)
             {
-                // We must lock for both manipulating the kill record and sending the packet, in order to avoid a race
+                OutPacket(kill, ThrottleOutPacketType.State);
+            }
+            else
+            {
+                // We MUST lock for both manipulating the kill record and sending the packet, in order to avoid a race
                 // condition where a kill can be processed before an out-of-date update for the same object.
+                // ProcessEntityUpdates() also takes the m_killRecord lock.
                 lock (m_killRecord)
                 {
-                    m_killRecord.Add(localID);
-                    
-                    // The throttle queue used here must match that being used for updates.  Otherwise, there is a 
+                    foreach (uint localID in localIDs)
+                        m_killRecord.Add(localID);
+
+                    // The throttle queue used here must match that being used for updates.  Otherwise, there is a
                     // chance that a kill packet put on a separate queue will be sent to the client before an existing
                     // update packet on another queue.  Receiving updates after kills results in unowned and undeletable
                     // scene objects in a viewer until that viewer is relogged in.
                     OutPacket(kill, ThrottleOutPacketType.Task);
                 }
             }
-            else
-            {
-                // OutPacket(kill, ThrottleOutPacketType.State);
-                OutPacket(kill, ThrottleOutPacketType.Task);
-            }
         }
 
         /// <summary>
         /// Send information about the items contained in a folder to the client.
-        ///
-        /// XXX This method needs some refactoring loving
         /// </summary>
+        /// <remarks>
+        /// XXX This method needs some refactoring loving
+        /// </remarks>
         /// <param name="ownerID">The owner of the folder</param>
         /// <param name="folderID">The id of the folder</param>
         /// <param name="items">The items contained in the folder identified by folderID</param>
@@ -11310,7 +11315,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     {
                         // It's a ghost! tell the client to delete it from view.
                         simClient.SendKillObject(Scene.RegionInfo.RegionHandle,
-                                                 localId);
+                                                 new List<uint> { localId });
                     }
                     else
                     {

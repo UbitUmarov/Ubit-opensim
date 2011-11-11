@@ -85,7 +85,6 @@ namespace OpenSim.Region.Framework.Scenes
         public bool m_trustBinaries;
         public bool m_allowScriptCrossings;
         public bool m_useFlySlow;
-        public bool m_usePreJump;
 
         protected float m_defaultDrawDistance = 255.0f;
         public float DefaultDrawDistance 
@@ -658,8 +657,6 @@ namespace OpenSim.Region.Framework.Scenes
 
                 //Animation states
                 m_useFlySlow = startupConfig.GetBoolean("enableflyslow", false);
-                // TODO: Change default to true once the feature is supported
-                m_usePreJump = startupConfig.GetBoolean("enableprejump", false);
 
                 m_physicalPrim = startupConfig.GetBoolean("physical_prim", true);
 
@@ -3161,7 +3158,7 @@ namespace OpenSim.Region.Framework.Scenes
                     delegate(IClientAPI client)
                     {
                         //We can safely ignore null reference exceptions.  It means the avatar is dead and cleaned up anyway
-                        try { client.SendKillObject(avatar.RegionHandle, avatar.LocalId); }
+                        try { client.SendKillObject(avatar.RegionHandle, new List<uint> { avatar.LocalId }); }
                         catch (NullReferenceException) { }
                     });
 
@@ -3220,19 +3217,24 @@ namespace OpenSim.Region.Framework.Scenes
 
         #region Entities
 
-        public void SendKillObject(uint localID)
+        public void SendKillObject(List<uint> localIDs)
         {
-            SceneObjectPart part = GetSceneObjectPart(localID);
-            if (part != null) // It is a prim
-            {
-                if (!part.ParentGroup.IsDeleted) // Valid
-                {
-                    if (part.ParentGroup.RootPart != part) // Child part
-                        return;
-                }
-            }
+            List<uint> deleteIDs = new List<uint>();
 
-            ForEachClient(delegate(IClientAPI client) { client.SendKillObject(m_regionHandle, localID); });
+            foreach (uint localID in localIDs)
+            {
+                SceneObjectPart part = GetSceneObjectPart(localID);
+                if (part != null) // It is a prim
+                {
+                    if (part.ParentGroup != null && !part.ParentGroup.IsDeleted) // Valid
+                    {
+                        if (part.ParentGroup.RootPart != part) // Child part
+                            continue;
+                    }
+                }
+                deleteIDs.Add(localID);
+            }
+            ForEachClient(delegate(IClientAPI client) { client.SendKillObject(m_regionHandle, deleteIDs); });
         }
 
         #endregion
@@ -3250,7 +3252,6 @@ namespace OpenSim.Region.Framework.Scenes
             //m_sceneGridService.OnChildAgentUpdate += IncomingChildAgentDataUpdate;
             //m_sceneGridService.OnRemoveKnownRegionFromAvatar += HandleRemoveKnownRegionsFromAvatar;
             m_sceneGridService.OnLogOffUser += HandleLogOffUserFromGrid;
-            m_sceneGridService.KiPrimitive += SendKillObject;
             m_sceneGridService.OnGetLandData += GetLandData;
         }
 
@@ -3259,7 +3260,6 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public void UnRegisterRegionWithComms()
         {
-            m_sceneGridService.KiPrimitive -= SendKillObject;
             m_sceneGridService.OnLogOffUser -= HandleLogOffUserFromGrid;
             //m_sceneGridService.OnRemoveKnownRegionFromAvatar -= HandleRemoveKnownRegionsFromAvatar;
             //m_sceneGridService.OnChildAgentUpdate -= IncomingChildAgentDataUpdate;
