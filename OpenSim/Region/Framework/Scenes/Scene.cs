@@ -168,7 +168,7 @@ namespace OpenSim.Region.Framework.Scenes
         public float m_simframetime = 0.022f;  // simulation loop period
         protected float m_simphysframetime = 0.022f; // physics simulation period must be >= simframetime
 
-        protected TimeSpan m_lastphysupdate = TimeSpan.Zero;
+        private TimeSpan m_lastphysupdate = TimeSpan.Zero;
 
         private int m_update_physics = 1;
         private int m_update_entitymovement = 1;
@@ -182,15 +182,15 @@ namespace OpenSim.Region.Framework.Scenes
         private int m_update_coarse_locations = 50;
 
         private TimeSpan frameMS;
-        private TimeSpan physicsMS2;
         private TimeSpan physicsMS;
-        private TimeSpan otherMS;
         private TimeSpan sleepMS;
         private TimeSpan tempOnRezMS;
         private TimeSpan eventMS;
         private TimeSpan backupMS;
         private TimeSpan terrainMS;
         private TimeSpan landMS;
+
+        private float frameErrorMS;
         private int lastCompletedFrame;
         
         /// <summary>
@@ -456,15 +456,16 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_capsModule; }
         }
 
-        public int MonitorFrameTime { get { return (int)frameMS.TotalMilliseconds; } }
-        public int MonitorPhysicsUpdateTime { get { return (int)physicsMS.TotalMilliseconds; } }
-        public int MonitorPhysicsSyncTime { get { return (int)physicsMS2.TotalMilliseconds; } }
-        public int MonitorOtherTime { get { return (int)otherMS.TotalMilliseconds; } }
-        public int MonitorTempOnRezTime { get { return (int)tempOnRezMS.TotalMilliseconds; } }
-        public int MonitorEventTime { get { return (int)eventMS.TotalMilliseconds; } } // This may need to be divided into each event?
-        public int MonitorBackupTime { get { return (int)backupMS.TotalMilliseconds; } }
-        public int MonitorTerrainTime { get { return (int)terrainMS.TotalMilliseconds; } }
-        public int MonitorLandTime { get { return (int)landMS.TotalMilliseconds; } }
+        public int MonitorFrameTime { get { return frameMS.Milliseconds; } }
+        public int MonitorPhysicsUpdateTime { get { return physicsMS.Milliseconds; } }
+//        public int MonitorPhysicsSyncTime { get { return physicsMS2.Milliseconds; } }
+        public int MonitorPhysicsSyncTime { get { return 0; } }
+//        public int MonitorOtherTime { get { return (int)otherMS.Milliseconds; } }
+        public int MonitorTempOnRezTime { get { return tempOnRezMS.Milliseconds; } }
+        public int MonitorEventTime { get { return eventMS.Milliseconds; } } // This may need to be divided into each event?
+        public int MonitorBackupTime { get { return backupMS.Milliseconds; } }
+        public int MonitorTerrainTime { get { return terrainMS.Milliseconds; } }
+        public int MonitorLandTime { get { return landMS.Milliseconds; } }
         public int MonitorLastFrameTick { get { return lastCompletedFrame; } }
 
         public UpdatePrioritizationSchemes UpdatePrioritizationScheme { get { return m_priorityScheme; } }
@@ -1211,6 +1212,8 @@ namespace OpenSim.Region.Framework.Scenes
                 MyWatch = new Stopwatch();
                 MyWatch.Start();
                 m_lastphysupdate = MyWatch.Elapsed;
+                frameErrorMS = 0;
+
                 while (!shuttingdown)
                     Update();
 
@@ -1234,8 +1237,9 @@ namespace OpenSim.Region.Framework.Scenes
         {        
             TimeSpan Now;
             TimeSpan Start = MyWatch.Elapsed;
-            tempOnRezMS = eventMS = backupMS = terrainMS = landMS = TimeSpan.Zero;
-            float physicsFPS = 0f;
+            physicsMS = tempOnRezMS = eventMS = backupMS = terrainMS = landMS = TimeSpan.Zero;
+            float physicsFPS;
+            int maintc;
 
             // Increment the frame counter
             ++Frame;
@@ -1247,10 +1251,13 @@ namespace OpenSim.Region.Framework.Scenes
                 // Check if any objects have reached their targets
                 CheckAtTargets();
 
-                physicsMS2 = MyWatch.Elapsed;
-                if ((Frame % m_update_physics == 0) && m_physics_enabled)
-                    m_sceneGraph.UpdatePreparePhysics();
-                physicsMS2 = MyWatch.Elapsed - physicsMS2;
+                if (m_physics_enabled)
+                {
+                    Now = MyWatch.Elapsed;
+                    if ((Frame % m_update_physics == 0) && m_physics_enabled)
+                        m_sceneGraph.UpdatePreparePhysics();
+                    physicsMS = MyWatch.Elapsed - Now;
+                }
 
                 // Apply any pending avatar force input to the avatar's velocity
                 if (Frame % m_update_entitymovement == 0)
@@ -1263,22 +1270,17 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     Now = MyWatch.Elapsed;
                     TimeSpan SincePhysUpdate = Now - m_lastphysupdate;
-                    if (SincePhysUpdate.Milliseconds >= m_simphysframetime)
+//                    if (SincePhysUpdate.Milliseconds >= m_simphysframetime)
                     {
                         // we must tell physics real time since last frame, so it can try to keep time sync
-                        physicsFPS = m_sceneGraph.UpdatePhysics(SincePhysUpdate.TotalSeconds);
+                        physicsFPS = 1000.0f * m_sceneGraph.UpdatePhysics(SincePhysUpdate.TotalSeconds) / m_simphysframetime;
                         m_lastphysupdate = Now;
-                        // ignore number of ode loops that's engine specific
-                        // other engines may have other internal timings
-                        // so count the calls above since that's the physics simulation update rate
-                        // the adding in reporter will do the average
-                        physicsFPS = 1.0f;
                         StatsReporter.AddPhysicsFPS(physicsFPS);
 
                         if (SynchronizeScene != null)
                             SynchronizeScene(this);
                     }
-                    physicsMS = MyWatch.Elapsed - Now;
+                    physicsMS += MyWatch.Elapsed - Now;
                 }
 
 
@@ -1308,31 +1310,31 @@ namespace OpenSim.Region.Framework.Scenes
                 // Delete temp-on-rez stuff
                 if (Frame % m_update_temp_cleaning == 0 && !m_cleaningTemps)
                 {
-                    tempOnRezMS = MyWatch.Elapsed;
+                    Now = MyWatch.Elapsed;
                     m_cleaningTemps = true;
                     Util.FireAndForget(delegate { CleanTempObjects(); m_cleaningTemps = false; });
-                    tempOnRezMS = MyWatch.Elapsed - tempOnRezMS;
+                    tempOnRezMS = MyWatch.Elapsed - Now;
                 }
 
                 if (Frame % m_update_events == 0)
                 {
-                    eventMS = MyWatch.Elapsed;
+                    Now = MyWatch.Elapsed;
                     UpdateEvents();
-                    eventMS = MyWatch.Elapsed - eventMS;
+                    eventMS = MyWatch.Elapsed - Now;
                 }
 
                 if (Frame % m_update_backup == 0)
                 {
-                    backupMS = MyWatch.Elapsed;
+                    Now = MyWatch.Elapsed;
                     UpdateStorageBackup();
-                    backupMS = MyWatch.Elapsed - backupMS;
+                    backupMS = MyWatch.Elapsed - Now;
                 }
 
                 if (Frame % m_update_terrain == 0)
                 {
-                    terrainMS = MyWatch.Elapsed;
+                    Now = MyWatch.Elapsed;
                     UpdateTerrain();
-                    terrainMS = MyWatch.Elapsed - terrainMS;
+                    terrainMS = MyWatch.Elapsed - Now;
                 }
 
 
@@ -1407,39 +1409,40 @@ namespace OpenSim.Region.Framework.Scenes
 
 //                otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
 
-            lastCompletedFrame = Util.EnvironmentTickCount();
 
             // if (Frame%m_update_avatars == 0)
             //   UpdateInWorldTime();
+
             StatsReporter.AddTimeDilation(TimeDilation);
             StatsReporter.SetRootAgents(m_sceneGraph.GetRootAgentCount());
             StatsReporter.SetChildAgents(m_sceneGraph.GetChildAgentCount());
             StatsReporter.SetObjects(m_sceneGraph.GetTotalObjectsCount());
             StatsReporter.SetActiveObjects(m_sceneGraph.GetActiveObjectsCount());
-            StatsReporter.addPhysicsMS((float)(physicsMS.TotalMilliseconds + physicsMS2.TotalMilliseconds));
-            //                StatsReporter.addOtherMS((float)otherMS.TotalMilliseconds);
+            StatsReporter.addPhysicsMS((float)physicsMS.TotalMilliseconds);
             StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
             StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
+
+            lastCompletedFrame = Util.EnvironmentTickCount();
 
             frameMS = MyWatch.Elapsed - Start;
             StatsReporter.addFrameMS((float)frameMS.TotalMilliseconds);
 
-            int maintc = (int)(m_simframetime - (float)frameMS.TotalMilliseconds);
+            maintc = (int)(m_simframetime - (float)frameMS.TotalMilliseconds + frameErrorMS);
 
             if (maintc > 0)
             {
-                sleepMS = MyWatch.Elapsed;
+                Now = MyWatch.Elapsed;
                 Thread.Sleep(maintc);
 
-                sleepMS = MyWatch.Elapsed - sleepMS;
+                sleepMS = MyWatch.Elapsed - Now;
                 StatsReporter.addSleepMS((float)sleepMS.TotalMilliseconds);
             }
-            else
-            {
-                StatsReporter.addSleepMS(0);
-            }
 
-           StatsReporter.AddFPS(1);
+            Now = MyWatch.Elapsed - Start;
+            frameErrorMS += m_simframetime - (float)Now.TotalMilliseconds;
+            if(Math.Abs(frameErrorMS) > 100) // don't over do it
+                frameErrorMS = 0;
+            StatsReporter.AddFPS(1);
 
             // Tell the watchdog that this thread is still alive
             Watchdog.UpdateThread();

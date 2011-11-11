@@ -2452,7 +2452,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             step_time += timeStep;
 
             if (step_time < ODE_STEPSIZE)
-                return 1;
+                return 0;
 
             int curphysiteractions = m_physicsiterations;
 
@@ -2468,6 +2468,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                 CreateRequestedJoints(); // this must be outside of the lock (OdeLock) to avoid deadlocks
             }
 
+            int nodeframes = 0;
+
             lock (SimulationLock)
             {
                 // adjust number of iterations per step
@@ -2482,9 +2484,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                     base.TriggerPhysicsBasedRestart();
                 }
 
-                int nodeframes = 0;
 
-                while (step_time > 0.0f && nodeframes < 10) //limit number of steps so we don't say here for ever
+                while (step_time > ODE_STEPSIZE && nodeframes < 10) //limit number of steps so we don't say here for ever
                 {
                     try
                     {
@@ -2684,7 +2685,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
 
-            return 1;
+            return nodeframes * ODE_STEPSIZE;
         }
 
         /// <summary>

@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* Revision September 2011 by Ubit Umarov
+/* Revision 2011 by Ubit Umarov
  *
  * 
  */
@@ -129,14 +129,13 @@ namespace OpenSim.Region.Physics.OdePlugin
         private OdeScene _parent_scene;
 
         /// <summary>
-        /// The physics space which contains prim geometries
+        /// The physics space which contains prim geometry
         /// </summary>
         public IntPtr m_targetSpace = IntPtr.Zero;
 
         public IntPtr prim_geom;
         public IntPtr _triMeshData;
 
-        private IntPtr _linkJointGroup = IntPtr.Zero;
         private PhysicsActor _parent;
 
         private List<OdePrim> childrenPrim = new List<OdePrim>();
@@ -144,7 +143,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private bool m_iscolliding;
         private bool m_wascolliding;
         private bool m_isSelected;
-
 
         internal bool m_isVolumeDetect; // If true, this prim only detects collisions but doesn't collide actively
 
@@ -184,6 +182,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private CollisionEventUpdate CollisionEventsThisFrame = new CollisionEventUpdate();
 
         private IntPtr m_linkJoint = IntPtr.Zero;
+        private IntPtr _linkJointGroup = IntPtr.Zero;
 
         public volatile bool childPrim;
 
@@ -345,10 +344,9 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             get
             {
-                if (givefakepos >0)
+                if (givefakepos > 0)
                     return fakepos;
                 else
-
                     return _position;
             }
 
