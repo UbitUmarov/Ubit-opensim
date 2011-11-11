@@ -281,8 +281,11 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[11].StatValue = m_imageMS * factorByframe;
 
                 sb[12].StatID = (uint)Stats.OtherMS;
-//                sb[12].StatValue = m_otherMS * factorByframe;
-                sb[12].StatValue = m_frameMS * factorByframe;
+                float othertmp = m_frameMS - m_physicsMS - m_imageMS - m_netMS - m_agentMS;
+                if (othertmp < 0)
+                    othertmp = 0;
+
+                sb[12].StatValue = othertmp * factorByframe;
 
                 sb[13].StatID = (uint)Stats.InPacketsPerSecond;
                 sb[13].StatValue = (m_inPacketsPerSecond * factor);
