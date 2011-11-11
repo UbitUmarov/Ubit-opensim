@@ -75,7 +75,20 @@ namespace OpenSim.Region.Framework.Scenes
             OutPacketsPerSecond = 18,
             PendingDownloads = 19,
             PendingUploads = 20,
+            VirtualSizeKB = 21,
+            ResidentSizeKB = 22,
+            PendingLocalUploads = 23,
             UnAckedBytes = 24,
+            PhysicsPinnedTasks = 25,
+            PhysicsLODTasks = 26,
+            PhysicsStepMS = 27,
+            PhysicsShapeMS = 28,
+            PhysicsOtherMS = 29,
+            PhysicsMemory = 30,
+            ScriptEPS = 31,
+            SimSpareTime = 32,
+            SimSleepTime = 33,
+            IOPumpTime = 34
         }
 
         /// <summary>
@@ -108,7 +121,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         // saved last reported value so there is something available for llGetRegionFPS 
         private float lastReportedSimFPS = 0;
-        private float[] lastReportedSimStats = new float[21];
+        private float[] lastReportedSimStats = new float[23];
         private float m_pfps = 0;
 
         /// <summary>
@@ -123,6 +136,7 @@ namespace OpenSim.Region.Framework.Scenes
         private float m_physicsMS = 0;
         private int m_imageMS = 0;
         private float m_otherMS = 0;
+        private float m_sleeptimeMS = 0;
 
 //Ckrinke: (3-21-08) Comment out to remove a compiler warning. Bring back into play when needed.
 //Ckrinke        private int m_scriptMS = 0;
@@ -175,7 +189,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         private void statsHeartBeat(object sender, EventArgs e)
         {
-            SimStatsPacket.StatBlock[] sb = new SimStatsPacket.StatBlock[21];
+            SimStatsPacket.StatBlock[] sb = new SimStatsPacket.StatBlock[23];
             SimStatsPacket.RegionBlock rb = new SimStatsPacket.RegionBlock();
             
             float factorByframe;
@@ -204,11 +218,14 @@ namespace OpenSim.Region.Framework.Scenes
                 // 0-50 is pretty close to 0-45
  // show real
                 float simfps = (int) ((m_fps));
+                if (simfps == 0.0)
+                    simfps = 10; //  we still don't have stats on this
 
                 // factor to convert things to per second
                 factor = 1 / statsUpdateFactor;
                 // factor to convert things for time per frame need because how acumulators work
-                factorByframe = factor / simfps;
+                //                factorByframe = factor / simfps;
+                factorByframe = 1 / simfps;
                 				
                 // save the reported value so there is something available for llGetRegionFPS 
                 lastReportedSimFPS = simfps * factor;
@@ -220,7 +237,7 @@ namespace OpenSim.Region.Framework.Scenes
 
 #endregion
                 
-                for (int i = 0; i < 21; i++)
+                for (int i = 0; i < 23; i++)
                 {
                     sb[i] = new SimStatsPacket.StatBlock();
                 }
@@ -229,8 +246,6 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[0].StatValue = (Single.IsNaN(m_timeDilation)) ? 0.1f : m_timeDilation ; //((((m_timeDilation + (0.10f * statsUpdateFactor)) /10)  / statsUpdateFactor));
 
                 sb[1].StatID = (uint) Stats.SimFPS;
-                sb[1].StatValue = m_fps/statsUpdateFactor;
-
                 sb[1].StatValue = simfps * factor;
 				
                 sb[2].StatID = (uint) Stats.PhysicsFPS;
@@ -252,7 +267,9 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[7].StatValue = m_activePrim;
 
                 sb[8].StatID = (uint)Stats.FrameMS;
-                sb[8].StatValue = m_frameMS * factorByframe;
+                //                sb[8].StatValue = m_frameMS * factorByframe;
+                float simFrameTime = 1000.0f / (simfps * factor);
+                sb[8].StatValue = simFrameTime;
 
                 sb[9].StatID = (uint)Stats.NetMS;
                 sb[9].StatValue = m_netMS * factorByframe;
@@ -264,7 +281,8 @@ namespace OpenSim.Region.Framework.Scenes
                 sb[11].StatValue = m_imageMS * factorByframe;
 
                 sb[12].StatID = (uint)Stats.OtherMS;
-                sb[12].StatValue = m_otherMS * factorByframe;
+//                sb[12].StatValue = m_otherMS * factorByframe;
+                sb[12].StatValue = m_frameMS * factorByframe;
 
                 sb[13].StatID = (uint)Stats.InPacketsPerSecond;
                 sb[13].StatValue = (m_inPacketsPerSecond * factor);
@@ -289,8 +307,17 @@ namespace OpenSim.Region.Framework.Scenes
 
                 sb[20].StatID = (uint)Stats.ScriptLinesPerSecond;
                 sb[20].StatValue = m_scriptLinesPerSecond * factor;
-                
-                for (int i = 0; i < 21; i++)
+
+                float spare = m_scene.m_simframetime - m_frameMS * factorByframe;
+                if (spare < 0)
+                    spare = 0;
+                sb[21].StatID = (uint)Stats.SimSpareTime;
+                sb[21].StatValue = spare;
+
+                sb[22].StatID = (uint)Stats.SimSleepTime;
+                sb[22].StatValue = m_sleeptimeMS * factorByframe;
+
+                for (int i = 0; i < 23; i++)
                 {
                     lastReportedSimStats[i] = sb[i].StatValue;
                 }
@@ -331,6 +358,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_physicsMS = 0;
             m_imageMS = 0;
             m_otherMS = 0;
+            m_sleeptimeMS = 0;
 
 //Ckrinke This variable is not used, so comment to remove compiler warning until it is used.
 //Ckrinke            m_scriptMS = 0;
@@ -453,6 +481,11 @@ namespace OpenSim.Region.Framework.Scenes
         public void addOtherMS(float ms)
         {
             m_otherMS += ms;
+        }
+
+        public void addSleepMS(float ms)
+        {
+            m_sleeptimeMS += ms;
         }
 
         public void AddPendingDownloads(int count)

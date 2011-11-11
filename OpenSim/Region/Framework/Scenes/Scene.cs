@@ -157,8 +157,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// One can tweak this number to experiment.  One current effect of reducing it is to make avatar animations
         /// occur too quickly (viewer 1) or with even more slide (viewer 2).
         /// </remarks>
-        protected float m_minFrameTimespan = 0.089f;
-        //        protected float m_timespan = 0.089f;
+//        protected float m_minFrameTimespan = 0.089f;
 
         /// <summary>
         /// The time of the last frame update.
@@ -166,7 +165,7 @@ namespace OpenSim.Region.Framework.Scenes
 //        protected DateTime m_lastFrameUpdate = DateTime.UtcNow;
 
         protected Stopwatch MyWatch;
-        protected float m_simframetime = 0.022f;  // simulation loop period
+        public float m_simframetime = 0.022f;  // simulation loop period
         protected float m_simphysframetime = 0.022f; // physics simulation period must be >= simframetime
 
         protected TimeSpan m_lastphysupdate = TimeSpan.Zero;
@@ -186,13 +185,14 @@ namespace OpenSim.Region.Framework.Scenes
         private TimeSpan physicsMS2;
         private TimeSpan physicsMS;
         private TimeSpan otherMS;
+        private TimeSpan sleepMS;
         private TimeSpan tempOnRezMS;
         private TimeSpan eventMS;
         private TimeSpan backupMS;
         private TimeSpan terrainMS;
         private TimeSpan landMS;
         private int lastCompletedFrame;
-
+        
         /// <summary>
         /// Signals whether temporary objects are currently being cleaned up.  Needed because this is launched
         /// asynchronously from the update loop.
@@ -1211,7 +1211,6 @@ namespace OpenSim.Region.Framework.Scenes
                 MyWatch = new Stopwatch();
                 MyWatch.Start();
                 m_lastphysupdate = MyWatch.Elapsed;
-
                 while (!shuttingdown)
                     Update();
 
@@ -1344,24 +1343,6 @@ namespace OpenSim.Region.Framework.Scenes
                 //    landMS = Util.EnvironmentTickCountSubtract(ldMS);
                 //}
 
-                frameMS = MyWatch.Elapsed - Start;
-                otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
-                lastCompletedFrame = Util.EnvironmentTickCount();
-
-                // if (Frame%m_update_avatars == 0)
-                //   UpdateInWorldTime();
-                StatsReporter.AddTimeDilation(TimeDilation);
-                StatsReporter.AddFPS(1);
-                StatsReporter.SetRootAgents(m_sceneGraph.GetRootAgentCount());
-                StatsReporter.SetChildAgents(m_sceneGraph.GetChildAgentCount());
-                StatsReporter.SetObjects(m_sceneGraph.GetTotalObjectsCount());
-                StatsReporter.SetActiveObjects(m_sceneGraph.GetActiveObjectsCount());
-                StatsReporter.addFrameMS((float)frameMS.TotalMilliseconds);
-                StatsReporter.addPhysicsMS((float)(physicsMS.TotalMilliseconds + physicsMS2.TotalMilliseconds));
-                StatsReporter.addOtherMS((float)otherMS.TotalMilliseconds);
-                StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
-                StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
-
                 if (LoginsDisabled && Frame == 20)
                 {
 //                    m_log.DebugFormat("{0} {1} {2}", LoginsDisabled, m_sceneGraph.GetActiveScriptsCount(), LoginLock);
@@ -1422,16 +1403,48 @@ namespace OpenSim.Region.Framework.Scenes
             {
 //                m_lastFrameUpdate = DateTime.UtcNow;
             }
- 
-            TimeSpan looptime = MyWatch.Elapsed - Start;
-            int maintc = (int)m_simframetime - looptime.Milliseconds;
+
+
+//                otherMS = tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
+
+            lastCompletedFrame = Util.EnvironmentTickCount();
+
+            // if (Frame%m_update_avatars == 0)
+            //   UpdateInWorldTime();
+            StatsReporter.AddTimeDilation(TimeDilation);
+            StatsReporter.SetRootAgents(m_sceneGraph.GetRootAgentCount());
+            StatsReporter.SetChildAgents(m_sceneGraph.GetChildAgentCount());
+            StatsReporter.SetObjects(m_sceneGraph.GetTotalObjectsCount());
+            StatsReporter.SetActiveObjects(m_sceneGraph.GetActiveObjectsCount());
+            StatsReporter.addPhysicsMS((float)(physicsMS.TotalMilliseconds + physicsMS2.TotalMilliseconds));
+            //                StatsReporter.addOtherMS((float)otherMS.TotalMilliseconds);
+            StatsReporter.SetActiveScripts(m_sceneGraph.GetActiveScriptsCount());
+            StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
+
+            frameMS = MyWatch.Elapsed - Start;
+            StatsReporter.addFrameMS((float)frameMS.TotalMilliseconds);
+
+            int maintc = (int)(m_simframetime - (float)frameMS.TotalMilliseconds);
 
             if (maintc > 0)
+            {
+                sleepMS = MyWatch.Elapsed;
                 Thread.Sleep(maintc);
+
+                sleepMS = MyWatch.Elapsed - sleepMS;
+                StatsReporter.addSleepMS((float)sleepMS.TotalMilliseconds);
+            }
+            else
+            {
+                StatsReporter.addSleepMS(0);
+            }
+
+           StatsReporter.AddFPS(1);
 
             // Tell the watchdog that this thread is still alive
             Watchdog.UpdateThread();
         }
+
         public void AddGroupTarget(SceneObjectGroup grp)
         {
             lock (m_groupsWithTargets)
