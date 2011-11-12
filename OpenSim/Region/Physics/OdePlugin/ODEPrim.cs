@@ -218,7 +218,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 if (value)
                     m_building = true;
-                m_fakeisphysical = value;
                 AddChange(changes.building, value);
             }
         }

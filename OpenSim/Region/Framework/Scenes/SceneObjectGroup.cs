@@ -1516,6 +1516,8 @@ namespace OpenSim.Region.Framework.Scenes
         {
             // Apply physics to the root prim
             m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive);
+            if (m_rootPart.PhysActor != null)
+                m_rootPart.PhysActor.Building = true;
 
             // Apply physics to child prims
             SceneObjectPart[] parts = m_parts.GetArray();
@@ -1530,6 +1532,9 @@ namespace OpenSim.Region.Framework.Scenes
                         part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive);
                 }
             }
+            if (m_rootPart.PhysActor != null)
+                m_rootPart.PhysActor.Building = false;
+
         }
 
         public void SetOwnerId(UUID userId)
@@ -2737,8 +2742,18 @@ namespace OpenSim.Region.Framework.Scenes
                     }
                 }
 
+                m_rootPart.UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect);
+                if (m_rootPart.PhysActor != null)
+                    m_rootPart.PhysActor.Building = true;
+
                 for (int i = 0; i < parts.Length; i++)
-                    parts[i].UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect);
+                {
+                    if (parts[i].UUID != m_rootPart.UUID)
+                        parts[i].UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect);
+                }
+
+                if (m_rootPart.PhysActor != null)
+                    m_rootPart.PhysActor.Building = false;
             }
         }
 
