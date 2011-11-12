@@ -163,6 +163,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         private uint m_requestedSitTargetID;
         private UUID m_requestedSitTargetUUID;
+        private Vector3 m_requestedSitOffset = new Vector3();
+        private Quaternion m_requestedSitOrientation = new Quaternion();
 
         /// <summary>
         /// Are we sitting on the ground?
@@ -1909,14 +1911,7 @@ namespace OpenSim.Region.Framework.Scenes
             foreach (SceneObjectPart part in partArray)
             {
                 // Is a sit target available?
-                Vector3 avSitOffset = part.SitTargetPosition;
-                Quaternion avSitOrientation = part.SitTargetOrientation;
-                UUID avOnTargetAlready = part.SitTargetAvatar;
-
-                bool SitTargetUnOccupied = avOnTargetAlready == UUID.Zero;
-                bool SitTargetisSet = avSitOffset != Vector3.Zero || avSitOrientation != Quaternion.Identity;
-
-                if (SitTargetisSet && SitTargetUnOccupied)
+               if(part.SitTargetPosition != Vector3.Zero && part.SitTargetAvatar == UUID.Zero)
                 {
                     //switch the target to this prim
                     return part;
@@ -1929,15 +1924,18 @@ namespace OpenSim.Region.Framework.Scenes
 
         private void SendSitResponse(UUID targetID, Vector3 offset, Quaternion pSitOrientation)
         {
+
+            SceneObjectPart part = FindNextAvailableSitTarget(targetID);
+
+            if (part == null)              
+                return;
+
             Vector3 pos = new Vector3();
-            Quaternion sitOrientation = pSitOrientation;
             Vector3 cameraEyeOffset = Vector3.Zero;
             Vector3 cameraAtOffset = Vector3.Zero;
             bool forceMouselook = false;
-
-            SceneObjectPart part = FindNextAvailableSitTarget(targetID);
-            if (part == null)
-                return;
+            m_requestedSitOffset = offset;
+            m_requestedSitOrientation = pSitOrientation;
 
             // TODO: determine position to sit at based on scene geometry; don't trust offset from client
             // see http://wiki.secondlife.com/wiki/User:Andrew_Linden/Office_Hours/2007_11_06 for details on how LL does it
@@ -1947,15 +1945,8 @@ namespace OpenSim.Region.Framework.Scenes
             Quaternion avSitOrientation = part.SitTargetOrientation;
             UUID avOnTargetAlready = part.SitTargetAvatar;
 
-            bool SitTargetUnOccupied = (!(avOnTargetAlready != UUID.Zero));
-            bool SitTargetisSet =
-                (!(avSitOffSet == Vector3.Zero &&
-                   (
-                       avSitOrientation == Quaternion.Identity // Valid Zero Rotation quaternion
-                       || avSitOrientation.X == 0f && avSitOrientation.Y == 0f && avSitOrientation.Z == 1f && avSitOrientation.W == 0f // W-Z Mapping was invalid at one point
-                       || avSitOrientation.X == 0f && avSitOrientation.Y == 0f && avSitOrientation.Z == 0f && avSitOrientation.W == 0f // Invalid Quaternion
-                   )
-                   ));
+            bool SitTargetUnOccupied = (avOnTargetAlready == UUID.Zero);
+            bool SitTargetisSet = (avSitOffSet != Vector3.Zero);
 
 //                m_log.DebugFormat("[SCENE PRESENCE]: {0} {1}", SitTargetisSet, SitTargetUnOccupied);
 
@@ -1969,13 +1960,13 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (SitTargetUnOccupied)
                 {
-                    m_log.DebugFormat(
-                        "[SCENE PRESENCE]: Sitting {0} on {1} {2} because sit target is set and unoccupied",
-                        Name, part.Name, part.LocalId);
+//                    m_log.DebugFormat(
+//                        "[SCENE PRESENCE]: Sitting {0} on {1} {2} because sit target is set and unoccupied",
+//                        Name, part.Name, part.LocalId);
 
                     part.SitTargetAvatar = UUID;
-                    offset = new Vector3(avSitOffSet.X, avSitOffSet.Y, avSitOffSet.Z);
-                    sitOrientation = avSitOrientation;
+                    m_requestedSitOffset = new Vector3(avSitOffSet.X, avSitOffSet.Y, avSitOffSet.Z); 
+                    m_requestedSitOrientation = avSitOrientation;
                     canSit = true;
                 }
             }
@@ -1983,9 +1974,9 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (Util.GetDistanceTo(AbsolutePosition, pos) <= 10)
                 {
-                    m_log.DebugFormat(
-                        "[SCENE PRESENCE]: Sitting {0} on {1} {2} because sit target is unset and within 10m",
-                        Name, part.Name, part.LocalId);
+//                    m_log.DebugFormat(
+//                        "[SCENE PRESENCE]: Sitting {0} on {1} {2} because sit target is unset and within 10m",
+//                        Name, part.Name, part.LocalId);
 
                     AbsolutePosition = pos + new Vector3(0.0f, 0.0f, m_sitAvatarHeight);
                     canSit = true;
@@ -2005,7 +1996,7 @@ namespace OpenSim.Region.Framework.Scenes
                 forceMouselook = part.GetForceMouselook();
 
                 ControllingClient.SendSitResponse(
-                    targetID, offset, sitOrientation, false, cameraAtOffset, cameraEyeOffset, forceMouselook);
+                    targetID, m_requestedSitOffset, m_requestedSitOrientation, false, cameraAtOffset, cameraEyeOffset, forceMouselook);
 
                 m_requestedSitTargetUUID = targetID;
 
@@ -2048,8 +2039,16 @@ namespace OpenSim.Region.Framework.Scenes
 
 //                m_log.DebugFormat("[SIT]: Client requested Sit Position: {0}", offset);
 
+                // if we have a sit target don't look for one
+                if (part.SitTargetPosition != Vector3.Zero)
+                {
+                    SendSitResponse(targetID, offset, Quaternion.Identity);
+                    return;
+                }
+
                 if (m_scene.PhysicsScene.SupportsRayCast())
                 {
+                    m_requestedSitOffset = offset;
                     //m_scene.PhysicsScene.RaycastWorld(Vector3.Zero,Vector3.Zero, 0.01f,new RaycastCallback());
                     //SitRayCastAvatarPosition(part);
                     //return;
@@ -2063,26 +2062,28 @@ namespace OpenSim.Region.Framework.Scenes
             SendSitResponse(targetID, offset, Quaternion.Identity);
         }
 
-        /*
-        public void SitRayCastAvatarPosition(SceneObjectPart part)
+        //  find surface point near selected spot
+        public void SitRayCastFindDirectContact(SceneObjectPart part)
         {
             Vector3 EndRayCastPosition = part.AbsolutePosition + m_requestedSitOffset;
             Vector3 StartRayCastPosition = AbsolutePosition;
-            Vector3 direction = Vector3.Normalize(EndRayCastPosition - StartRayCastPosition);
-            float distance = Vector3.Distance(EndRayCastPosition, StartRayCastPosition);
-            m_scene.PhysicsScene.RaycastWorld(StartRayCastPosition, direction, distance, SitRayCastAvatarPositionResponse);
+
+            Vector3 direction = EndRayCastPosition - StartRayCastPosition;
+            float distance = direction.Length();
+            direction /= distance;
+            m_scene.PhysicsScene.RaycastActor(part.PhysActor,StartRayCastPosition, direction, distance, SitRayCastFindDirectContactResponse);
         }
 
-        public void SitRayCastAvatarPositionResponse(bool hitYN, Vector3 collisionPoint, uint localid, float pdistance, Vector3 normal)
+        public void SitRayCastFindDirectContactResponse(bool hitYN, Vector3 collisionPoint, uint localid, float pdistance, Vector3 normal)
         {
-            SceneObjectPart part =  FindNextAvailableSitTarget(m_requestedSitTargetUUID);
+            SceneObjectPart part = FindNextAvailableSitTarget(m_requestedSitTargetUUID);
             if (part != null)
             {
                 if (hitYN)
                 {
-                    if (collisionPoint.ApproxEquals(m_requestedSitOffset + part.AbsolutePosition, 0.2f))
+                    if (localid == m_requestedSitTargetID)
                     {
-                        SitRaycastFindEdge(collisionPoint, normal);
+                        SitRaycastFoundPath(part, collisionPoint, normal);
                         m_log.DebugFormat("[SIT]: Raycast Avatar Position succeeded at point: {0}, normal:{1}", collisionPoint, normal);
                     }
                     else
@@ -2105,13 +2106,59 @@ namespace OpenSim.Region.Framework.Scenes
 
         }
 
+        // see if there is a clear path along position to requested position on part
+        public void SitRayCastAvatarPosition(SceneObjectPart part)
+        {
+            Vector3 EndRayCastPosition = part.AbsolutePosition + m_requestedSitOffset;
+            Vector3 StartRayCastPosition = AbsolutePosition;
+            Vector3 direction = EndRayCastPosition - StartRayCastPosition;
+            float distance = direction.Length();
+            direction /= distance;
+            m_scene.PhysicsScene.RaycastWorld(StartRayCastPosition, direction, distance, SitRayCastAvatarPositionResponse);
+        }
+
+        public void SitRayCastAvatarPositionResponse(bool hitYN, Vector3 collisionPoint, uint localid, float pdistance, Vector3 normal)
+        {
+            SceneObjectPart part =  FindNextAvailableSitTarget(m_requestedSitTargetUUID);
+            if (part != null)
+            {
+                if (hitYN)
+                {
+                    if (localid == m_requestedSitTargetID)
+                    {
+                        SitRaycastFoundPath(part, collisionPoint, normal);
+                        m_log.DebugFormat("[SIT]: Raycast Avatar Position succeeded at point: {0}, normal:{1}", collisionPoint, normal);
+                    }
+                    else
+                    {
+                        SitRayCastAvatarPositionCameraZ(part);
+                    }
+                }
+                else
+                {
+                    SitRayCastAvatarPositionCameraZ(part);
+                }
+            }
+            else
+            {
+                ControllingClient.SendAlertMessage("Sit position no longer exists");
+                m_requestedSitTargetUUID = UUID.Zero;
+                m_requestedSitTargetID = 0;
+                m_requestedSitOffset = Vector3.Zero;
+            }
+
+        }
+
+        // see if there is a clear path along position at camera height to requested position on part
         public void SitRayCastAvatarPositionCameraZ(SceneObjectPart part)
         {
             // Next, try to raycast from the camera Z position
             Vector3 EndRayCastPosition = part.AbsolutePosition + m_requestedSitOffset;
-            Vector3 StartRayCastPosition = AbsolutePosition; StartRayCastPosition.Z = CameraPosition.Z;
-            Vector3 direction = Vector3.Normalize(EndRayCastPosition - StartRayCastPosition);
-            float distance = Vector3.Distance(EndRayCastPosition, StartRayCastPosition);
+            Vector3 StartRayCastPosition = AbsolutePosition;
+            StartRayCastPosition.Z = CameraPosition.Z;
+            Vector3 direction = EndRayCastPosition - StartRayCastPosition;
+            float distance = direction.Length();
+            direction /= distance;
             m_scene.PhysicsScene.RaycastWorld(StartRayCastPosition, direction, distance, SitRayCastAvatarPositionCameraZResponse);
         }
 
@@ -2122,9 +2169,9 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (hitYN)
                 {
-                    if (collisionPoint.ApproxEquals(m_requestedSitOffset + part.AbsolutePosition, 0.2f))
+                    if (localid == m_requestedSitTargetID)
                     {
-                        SitRaycastFindEdge(collisionPoint, normal);
+                        SitRaycastFoundPath(part, collisionPoint, normal);
                         m_log.DebugFormat("[SIT]: Raycast Avatar Position + CameraZ succeeded at point: {0}, normal:{1}", collisionPoint, normal);
                     }
                     else
@@ -2147,13 +2194,16 @@ namespace OpenSim.Region.Framework.Scenes
 
         }
 
+        // see if there is a clear path from camera to requested position on part
+
         public void SitRayCastCameraPosition(SceneObjectPart part)
         {
             // Next, try to raycast from the camera position
             Vector3 EndRayCastPosition = part.AbsolutePosition + m_requestedSitOffset;
             Vector3 StartRayCastPosition = CameraPosition;
-            Vector3 direction = Vector3.Normalize(EndRayCastPosition - StartRayCastPosition);
-            float distance = Vector3.Distance(EndRayCastPosition, StartRayCastPosition);
+            Vector3 direction = EndRayCastPosition - StartRayCastPosition;
+            float distance = direction.Length();
+            direction /= distance;
             m_scene.PhysicsScene.RaycastWorld(StartRayCastPosition, direction, distance, SitRayCastCameraPositionResponse);
         }
 
@@ -2164,19 +2214,28 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (hitYN)
                 {
-                    if (collisionPoint.ApproxEquals(m_requestedSitOffset + part.AbsolutePosition, 0.2f))
+                    if (localid == m_requestedSitTargetID)
                     {
-                        SitRaycastFindEdge(collisionPoint, normal);
+                        SitRaycastFoundPath(part, collisionPoint, normal);
                         m_log.DebugFormat("[SIT]: Raycast Camera Position succeeded at point: {0}, normal:{1}", collisionPoint, normal);
                     }
                     else
                     {
-                        SitRayHorizontal(part);
+                        //                        SitRayHorizontal(part);
+                        ControllingClient.SendAlertMessage("Sit position not accessable.");
+                        m_requestedSitTargetUUID = UUID.Zero;
+                        m_requestedSitTargetID = 0;
+                        m_requestedSitOffset = Vector3.Zero;
+
                     }
                 }
                 else
                 {
-                    SitRayHorizontal(part);
+                    //                    SitRayHorizontal(part);
+                    ControllingClient.SendAlertMessage("Sit position not accessable.");
+                    m_requestedSitTargetUUID = UUID.Zero;
+                    m_requestedSitTargetID = 0;
+                    m_requestedSitOffset = Vector3.Zero;
                 }
             }
             else
@@ -2186,16 +2245,17 @@ namespace OpenSim.Region.Framework.Scenes
                 m_requestedSitTargetID = 0;
                 m_requestedSitOffset = Vector3.Zero;
             }
-
         }
 
+/* not in use
         public void SitRayHorizontal(SceneObjectPart part)
         {
             // Next, try to raycast from the avatar position to fwd
             Vector3 EndRayCastPosition = part.AbsolutePosition + m_requestedSitOffset;
             Vector3 StartRayCastPosition = CameraPosition;
-            Vector3 direction = Vector3.Normalize(EndRayCastPosition - StartRayCastPosition);
-            float distance = Vector3.Distance(EndRayCastPosition, StartRayCastPosition);
+            Vector3 direction = EndRayCastPosition - StartRayCastPosition;
+            float distance = direction.Length();
+            direction /= distance;
             m_scene.PhysicsScene.RaycastWorld(StartRayCastPosition, direction, distance, SitRayCastHorizontalResponse);
         }
 
@@ -2206,9 +2266,9 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (hitYN)
                 {
-                    if (collisionPoint.ApproxEquals(m_requestedSitOffset + part.AbsolutePosition, 0.2f))
+                    if (localid == m_requestedSitTargetID)
                     {
-                        SitRaycastFindEdge(collisionPoint, normal);
+                        SitRaycastFindEdge(part,collisionPoint, normal);
                         m_log.DebugFormat("[SIT]: Raycast Horizontal Position succeeded at point: {0}, normal:{1}", collisionPoint, normal);
                         // Next, try to raycast from the camera position
                         Vector3 EndRayCastPosition = part.AbsolutePosition + m_requestedSitOffset;
@@ -2242,18 +2302,93 @@ namespace OpenSim.Region.Framework.Scenes
             }
 
         }
+*/
 
-        private void SitRaycastFindEdge(Vector3 collisionPoint, Vector3 collisionNormal)
+        private void SitRaycastFoundPath(SceneObjectPart part, Vector3 collisionPoint, Vector3 collisionNormal)
         {
-            int i = 0;
-            //throw new NotImplementedException();
-            //m_requestedSitTargetUUID = UUID.Zero;
-            //m_requestedSitTargetID = 0;
-            //m_requestedSitOffset = Vector3.Zero;
+            // go to top of part, above nearest point
 
-            SendSitResponse(ControllingClient, m_requestedSitTargetUUID, collisionPoint - m_requestedSitOffset, Quaternion.Identity);
+
+            Vector3 partscale = part.Scale * part.GetWorldRotation(); // part AABB
+            if (partscale.Z <0 )
+                partscale.Z = -partscale.Z;
+
+
+            if (part.GetPrimType() == PrimType.SPHERE)
+            {
+                Vector3 contactpos = new Vector3(0,0,partscale.Z);
+                SendSitResponse(m_requestedSitTargetUUID, contactpos, Quaternion.Identity);
+                return;
+            }
+            
+            
+            collisionPoint.Z += partscale.Z;
+            collisionNormal.Z += 0.5f;
+
+            Vector3 EndRayCastPosition = part.AbsolutePosition;
+            Vector3 StartRayCastPosition =  collisionPoint;
+            Vector3 direction = EndRayCastPosition - StartRayCastPosition;
+            float distance = direction.Length();
+            direction /= distance;
+            m_scene.PhysicsScene.RaycastWorld(StartRayCastPosition, direction, distance, SitRayCastfindTop);
         }
-        */
+
+        public void SitRayCastfindTop(bool hitYN, Vector3 collisionPoint, uint localid, float pdistance, Vector3 normal)
+        {
+            SceneObjectPart part = FindNextAvailableSitTarget(m_requestedSitTargetUUID);
+            if (part != null)
+            {
+                if (hitYN)
+                {
+                    if (localid == m_requestedSitTargetID)
+                    {
+                        SitRayCastfoundTop(part, collisionPoint, normal);
+                        m_log.DebugFormat("[SIT]: Raycast Camera Position succeeded at point: {0}, normal:{1}", collisionPoint, normal);
+                    }
+                    else
+                    {
+                        //                        SitRayHorizontal(part);
+                        ControllingClient.SendAlertMessage("Sit position not accessable.");
+                        m_requestedSitTargetUUID = UUID.Zero;
+                        m_requestedSitTargetID = 0;
+                        m_requestedSitOffset = Vector3.Zero;
+                    }
+                }
+                else
+                {
+                    //                    SitRayHorizontal(part);
+                    ControllingClient.SendAlertMessage("Sit position not accessable.");
+                    m_requestedSitTargetUUID = UUID.Zero;
+                    m_requestedSitTargetID = 0;
+                    m_requestedSitOffset = Vector3.Zero;
+                }
+            }
+            else
+            {
+                ControllingClient.SendAlertMessage("Sit position no longer exists");
+                m_requestedSitTargetUUID = UUID.Zero;
+                m_requestedSitTargetID = 0;
+                m_requestedSitOffset = Vector3.Zero;
+            }
+        }
+
+        private void SitRayCastfoundTop(SceneObjectPart part, Vector3 collisionPoint, Vector3 collisionNormal)
+        {
+            Vector3 partpos = part.AbsolutePosition;
+            Vector3 contactpos = collisionPoint - partpos; // contact relative to part
+            Quaternion partrot = part.GetWorldRotation();
+
+            contactpos *= Quaternion.Inverse(partrot); // contact in part coords
+//            collisionNormal *= Quaternion.Inverse(partrot);
+
+            Quaternion rot = Vector3.RotationBetween(contactpos, new Vector3(1, 0, 0)); // angle with part z axis
+            rot = Quaternion.CreateFromAxisAngle(contactpos,0);
+            Vector3 avasize = new Vector3(0.37f, 0.37f, m_appearance.AvatarHeight * 0.5f);
+            avasize *= rot;
+//            contactpos.Z += avasize.Z + 0.15f;
+
+            SendSitResponse(m_requestedSitTargetUUID, contactpos, rot);        
+        }
 
         public void HandleAgentSit(IClientAPI remoteClient, UUID agentID)
         {
@@ -2275,20 +2410,8 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (part.SitTargetAvatar == UUID)
                 {
-                    Vector3 sitTargetPos = part.SitTargetPosition;
-                    Quaternion sitTargetOrient = part.SitTargetOrientation;
-
-//                        m_log.DebugFormat(
-//                            "[SCENE PRESENCE]: Sitting {0} at sit target {1}, {2} on {3} {4}",
-//                            Name, sitTargetPos, sitTargetOrient, part.Name, part.LocalId);
-
-                    //Quaternion vq = new Quaternion(sitTargetPos.X, sitTargetPos.Y+0.2f, sitTargetPos.Z+0.2f, 0);
-                    //Quaternion nq = new Quaternion(-sitTargetOrient.X, -sitTargetOrient.Y, -sitTargetOrient.Z, sitTargetOrient.w);
-
-                    //Quaternion result = (sitTargetOrient * vq) * nq;
-
-                    m_pos = sitTargetPos + SIT_TARGET_ADJUSTMENT;
-                    Rotation = sitTargetOrient;
+                    m_pos = m_requestedSitOffset + SIT_TARGET_ADJUSTMENT;
+                    Rotation = m_requestedSitOrientation;
                     ParentPosition = part.AbsolutePosition;
                 }
                 else
