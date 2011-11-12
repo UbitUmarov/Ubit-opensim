@@ -237,7 +237,22 @@ namespace OpenSim.Region.Framework.Scenes
         /// <summary>
         /// Is this scene object acting as an attachment?
         /// </summary>
-        public bool IsAttachment { get; set; }
+
+        private bool m_isAttachment = false;
+        public bool IsAttachment
+        {
+            get
+            {
+                return m_isAttachment;
+
+            }
+            set
+            {
+                m_isAttachment = value;
+                GRotVersionInc(); // this updates both
+                m_ValidgrpOOB = false;
+            }
+        }
 
         /// <summary>
         /// The avatar to which this scene object is attached.
@@ -271,6 +286,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             AttachmentPoint = 0;
             m_ValidgrpOOB = false;
+            GRotVersionInc(); // this updates both
             // Even though we don't use child part state parameters for attachments any more, we still need to set
             // these to zero since having them non-zero in rezzed scene objects will crash some clients.  Even if
             // we store them correctly, scene objects that we receive from elsewhere might not.
@@ -1276,8 +1292,7 @@ namespace OpenSim.Region.Framework.Scenes
                 part.ParentID = 0;
             part.LinkNum = 0;
 
-            GPosVersionInc();
-            GRotVersionInc();
+            GRotVersionInc(); // this updates both
             m_parts.Add(m_rootPart.UUID, m_rootPart);
             m_ValidgrpOOB = false;
         }
