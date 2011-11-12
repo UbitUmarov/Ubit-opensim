@@ -135,6 +135,8 @@ public class BSCharacter : PhysicsActor
         base.RequestPhysicsterseUpdate();
     }
 
+    public override bool Building { get; set; }
+
     public override bool Stopped { 
         get { return _stopped; } 
     }

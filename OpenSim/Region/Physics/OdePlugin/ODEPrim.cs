@@ -67,6 +67,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private bool m_isphysical;
         private bool m_fakeisphysical;
 
+        private bool m_building;
         private Quaternion m_lastorientation = new Quaternion();
         private Quaternion _orientation;
 
@@ -207,6 +208,21 @@ namespace OpenSim.Region.Physics.OdePlugin
                 AddChange(changes.Physical, value);
             }
         }
+
+
+        
+        public override bool Building  // this is not reliable for internal use
+        {
+            get { return m_building; }
+            set
+            {
+                if (value)
+                    m_building = true;
+                m_fakeisphysical = value;
+                AddChange(changes.building, value);
+            }
+        }
+
 
         public override int PhysicsActorType
         {
@@ -888,6 +904,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_isphysical = false;
             m_isVolumeDetect = false;
 
+            m_building = false;
+
             m_force = Vector3.Zero;
 
             m_iscolliding = false;
@@ -1242,6 +1260,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                 return;
 
             if (childPrim)  // child prims don't get bodies;
+                return;
+
+            if (m_building)
                 return;
 
             if (prim_geom == IntPtr.Zero)
@@ -2123,14 +2144,10 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 if (childPrim)  // inertia is messed, must rebuild
                 {
-                    // dont accept changes on position and rotation for individual physical prims
-                    /*
-                                        OdePrim parent = (OdePrim)_parent;
-                                        parent.DestroyBody();
-                                        _orientation = m_taintrot;
-                                        _position = m_taintposition;
-                                        parent.MakeBody();
-                    */
+                    if (m_building)
+                    {
+                        _position = newPos;
+                    }
                 }
                 else
                 {
@@ -2169,14 +2186,10 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 if (childPrim)  // inertia is messed, must rebuild
                 {
-                    // dont accept changes on position and rotation for individual physical prims
-                    /*
-                                        OdePrim parent = (OdePrim)_parent;
-                                        parent.DestroyBody();
-                                        _orientation = m_taintrot;
-                                        _position = m_taintposition;
-                                        parent.MakeBody();
-                    */
+                    if (m_building)
+                    {
+                        _orientation = newOri;
+                    }
                 }
                 else
                 {
@@ -2572,7 +2585,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         public void Move(float timestep)
         {
 
-            if (!childPrim && m_isphysical && Body != IntPtr.Zero && !m_disabled && !m_isSelected && d.BodyIsEnabled(Body))        // KF: Only move root prims.
+            if (!childPrim && m_isphysical && Body != IntPtr.Zero &&
+                !m_disabled && !m_isSelected && d.BodyIsEnabled(Body) && !m_building)        // KF: Only move root prims.
             {
 //                if (!d.BodyIsEnabled(Body)) d.BodyEnable(Body); // KF add 161009
 
@@ -2811,7 +2825,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public void UpdatePositionAndVelocity(float timestep)
         {
             //  no lock; called from Simulate() -- if you call this from elsewhere, gotta lock or do Monitor.Enter/Exit!
-            if (_parent == null && !m_disabled)
+            if (_parent == null && !m_disabled && !m_building)
             {
                 if (Body != IntPtr.Zero)
                 {
@@ -3213,6 +3227,25 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                 case changes.disabled:
                     changeDisable((bool) arg);
+                    break;
+
+                case changes.building:
+                    if ((bool)arg)
+                    {
+                        DestroyBody();
+                        m_building = true;
+                    }
+                    else
+                    {
+                        m_building = false;
+                        if (!childPrim)
+                            MakeBody();
+                    }
+                    if(!childPrim && childrenPrim.Count>0)
+                    {
+                        foreach(OdePrim prm in childrenPrim)
+                            prm.Building = m_building;
+                    }
                     break;
 
                 case changes.Null:

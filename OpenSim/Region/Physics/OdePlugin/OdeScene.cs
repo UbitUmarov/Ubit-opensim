@@ -132,8 +132,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         Physical,
         Selected,
         disabled,
-        buildingrepresentation,
-        blockphysicalreconstruction,
+        building,
 
         Null             //keep this last used do dim the methods array. does nothing but pulsing the prim
     }

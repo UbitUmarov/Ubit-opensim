@@ -156,7 +156,9 @@ public sealed class BSPrim : PhysicsActor
             BulletSimAPI.DestroyObject(_scene.WorldID, _localID);
         });
     }
-    
+
+    public override bool Building { get; set; }
+
     public override bool Stopped { 
         get { return _stopped; } 
     }

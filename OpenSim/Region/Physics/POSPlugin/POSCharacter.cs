@@ -55,6 +55,8 @@ namespace OpenSim.Region.Physics.POSPlugin
             set { return; }
         }
 
+        public override bool Building { get; set; }
+
         public override Vector3 RotationalVelocity
         {
             get { return m_rotationalVelocity; }

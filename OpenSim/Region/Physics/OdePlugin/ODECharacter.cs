@@ -204,6 +204,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             set { return; }
         }
 
+        public override bool Building { get; set; }
+
         /// <summary>
         /// If this is set, the avatar will move faster
         /// </summary>

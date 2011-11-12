@@ -60,6 +60,8 @@ namespace OpenSim.Region.Physics.PhysXPlugin
             set { return; }
         }
 
+        public override bool Building { get; set; }
+
         public override bool SetAlwaysRun
         {
             get { return false; }

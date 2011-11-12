@@ -98,6 +98,8 @@ namespace OpenSim.Region.Physics.BasicPhysicsPlugin
             set { return; }
         }
 
+        public override bool Building { get; set; }
+
         public override bool ThrottleUpdates
         {
             get { return false; }

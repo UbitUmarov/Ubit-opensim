@@ -250,6 +250,7 @@ namespace OpenSim.Region.Physics.Manager
         public abstract Quaternion Orientation { get; set; }
         public abstract int PhysicsActorType { get; set; }
         public abstract bool IsPhysical { get; set; }
+        public abstract bool Building { get; set; }
         public abstract bool Flying { get; set; }
         public abstract bool SetAlwaysRun { get; set; }
         public abstract bool ThrottleUpdates { get; set; }
@@ -450,6 +451,9 @@ namespace OpenSim.Region.Physics.Manager
             get { return false; }
             set { return; }
         }
+
+        public override bool Building { get; set; }
+
 
         public override bool Flying
         {
