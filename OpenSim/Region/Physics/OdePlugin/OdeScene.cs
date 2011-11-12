@@ -184,7 +184,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private float nmAvatarObjectContactFriction = 10f;
         private float nmAvatarObjectContactBounce = 0.05f;
 
-        private float mAvatarObjectContactFriction = 1f;
+        private float mAvatarObjectContactFriction = 3f;
         private float mAvatarObjectContactBounce = 0.05f;
 
         public float avPIDD = 3200f; // make it visible
@@ -522,7 +522,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             ContactgeomsArray = Marshal.AllocHGlobal(contactsPerCollision * d.ContactGeom.unmanagedSizeOf);
             GlobalContactsArray = GlobalContactsArray = Marshal.AllocHGlobal(maxContactsbeforedeath * d.Contact.unmanagedSizeOf);
 
-            const d.ContactFlags comumContactFlagsMode = d.ContactFlags.SoftERP | d.ContactFlags.SoftERP;
+            const d.ContactFlags comumContactFlagsMode = d.ContactFlags.SoftERP | d.ContactFlags.SoftERP |d.ContactFlags.Approx1;
             // Centeral contact friction and bounce
             // ckrinke 11/10/08 Enabling soft_erp but not soft_cfm until I figure out why
             // an avatar falls through in Z but not in X or Y when walking on a prim.
@@ -1120,7 +1120,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if ((Math.Abs(p2.Velocity.X - p1.Velocity.X) > 0.1f || Math.Abs(p2.Velocity.Y - p1.Velocity.Y) > 0.1f))
                             {
                                 // Use the Movement prim contact
-                                float mu = AvatarMovementprimContactSurf.mu * 80f;
+                                float mu = AvatarMovementprimContactSurf.mu * 80f * 5f;
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
@@ -1129,7 +1129,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             else
                             {
                                 // Use the non movement contact
-                                float mu = contactSurf.mu * 80f;
+                                float mu = contactSurf.mu * 80f * 5f;
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
@@ -1141,7 +1141,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if ((Math.Abs(p1.Velocity.X) > 0.1f || Math.Abs(p1.Velocity.Y) > 0.1f))
                             {
                                 // Use the Movement prim contact
-                                float mu = AvatarMovementprimContactSurf.mu * 80f;
+                                float mu = AvatarMovementprimContactSurf.mu * 80f * 5f;
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
@@ -1150,7 +1150,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             else
                             {
                                 // Use the non movement contact
-                                float mu = contactSurf.mu * 80f;
+                                float mu = contactSurf.mu * 80f * 5f;
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
@@ -1164,7 +1164,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             {
                                 // Use the Movement prim contact
 
-                                float mu = AvatarMovementprimContactSurf.mu * 80f;
+                                float mu = AvatarMovementprimContactSurf.mu * 80f * 5f;
                                 float bounce = AvatarMovementprimContactSurf.bounce;
                                 float soft_cfm = AvatarMovementprimContactSurf.soft_cfm;
                                 float soft_erp = AvatarMovementprimContactSurf.soft_erp;
@@ -1173,7 +1173,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             else
                             {
                                 // Use the non movement contact
-                                float mu = contactSurf.mu * 80f;
+                                float mu = contactSurf.mu * 80f * 5f;
                                 float bounce = contactSurf.bounce;
                                 float soft_cfm = contactSurf.soft_cfm;
                                 float soft_erp = contactSurf.soft_erp;
@@ -1229,8 +1229,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                             soft_cfm2 = m_materialContactsSurf[material2, isMov].soft_cfm;
                             soft_erp2 = m_materialContactsSurf[material1, isMov].soft_erp;
 
-                            if (mu > mu2)
-                                mu = mu2;
+                            mu = (float)Math.Sqrt(mu * mu2);
+
                             if (soft_cfm < soft_cfm2)
                                 soft_cfm = soft_cfm2;
                             if (soft_erp < soft_erp2)
