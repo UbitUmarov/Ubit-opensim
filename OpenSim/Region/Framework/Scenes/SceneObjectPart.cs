@@ -2366,7 +2366,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             uint gversion = ParentGroup.GPosVersion;
 
-            if (m_validPoff && gversion == m_curGPosVersion)
+            if (m_validPoff && gversion == m_curGPosVersion && !ParentGroup.IsAttachment) // avatars are odd things for now
             {
                 return m_positionInWord;
             }
@@ -2404,7 +2404,7 @@ namespace OpenSim.Region.Framework.Scenes
             else
             {
                 uint gversion = ParentGroup.GRotVersion;
-                if (gversion == m_curGRotVersion && m_validRoff)
+                if (gversion == m_curGRotVersion && m_validRoff && !ParentGroup.IsAttachment) // avatars are odd things for now
                 {
                     return m_rotationInWorld;
                 }
