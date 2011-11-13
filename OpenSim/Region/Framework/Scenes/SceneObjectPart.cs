@@ -4720,7 +4720,7 @@ namespace OpenSim.Region.Framework.Scenes
             // ... if one of the others is changed, VD is not.
 
             // do this first
-            if (PhysActor != null && PhysActor.Building != building)
+            if (building && PhysActor != null && PhysActor.Building != building)
                 PhysActor.Building = building;
 
             if (SetVD) // VD is active, special logic applies

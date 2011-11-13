@@ -83,8 +83,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         private IntPtr Amotor = IntPtr.Zero;
 
         private Vector3 m_force;
-        private Vector3 forceacc;
-        private Vector3 angularForceacc;
+        private Vector3 m_forceacc;
+        private Vector3 m_angularForceacc;
 
         private Vector3 m_PIDTarget;
         private float m_PIDTau;
@@ -256,39 +256,9 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             set
             {
-                // This only makes the object not collidable if the object
-                // is physical or the object is modified somehow *IN THE FUTURE*
-                // without this, if an avatar selects prim, they can walk right
-                // through it while it's selected
-                m_taintselected = value;
-                AddChange(changes.Selected, null);
-
-               if (value && Body != IntPtr.Zero)
-                  d.BodyDisable(Body);
-
-/*
-                if ((IsPhysical && !_zeroFlag) || !value)
-                {
-                    m_taintselected = value;
-                    _parent_scene.AddPhysicsActorTaint(this);
-                }
-                else
-                {
-                    m_taintselected = value;
+                if(value)
                     m_isSelected = value;
-                }
-
-                if (m_isSelected)
-                {
-                    if (!m_disabled)
-                        disableBodySoft();
-                }
-                else
-                {
-                    if (m_disabled)
-                        enableBodySoft();
-                }
- */
+                AddChange(changes.Selected, value);
             }
          }
 
@@ -2033,7 +2003,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     MakeBody();
                 }
             }
-            changeSelectedStatus();
         }
 
         private void changeAngularLock(Vector3 newLock)
@@ -2088,9 +2057,37 @@ namespace OpenSim.Region.Physics.OdePlugin
             _parent = NewParent;
         }
 
-        private void changeSelectedStatus()
+
+        private void Stop()
         {
-            if (m_taintselected)
+            if(!childPrim)
+            {
+                m_force = Vector3.Zero;
+                m_forceacc = Vector3.Zero;
+                m_angularForceacc = Vector3.Zero;
+                _torque = Vector3.Zero;
+                _velocity = Vector3.Zero;
+                _acceleration = Vector3.Zero;
+                m_rotationalVelocity = Vector3.Zero;              
+                _target_velocity = Vector3.Zero;
+            }
+
+            if (Body != IntPtr.Zero)
+            {
+                d.BodySetForce(Body, 0f, 0f, 0f);
+                d.BodySetTorque(Body, 0f, 0f, 0f);
+                d.BodySetLinearVel(Body, 0f, 0f, 0f);
+                d.BodySetAngularVel(Body, 0f, 0f, 0f);
+                
+            }
+        }
+
+        private void changeSelectedStatus(bool newval)
+        {
+            m_isSelected = newval;
+            Stop();
+
+            if (newval)
             {
                 m_collisionCategories = CollisionCategories.Selected;
                 m_collisionFlags = (CollisionCategories.Sensor | CollisionCategories.Space);
@@ -2123,17 +2120,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                     d.GeomSetCollideBits(prim_geom, (int)m_collisionFlags);
                 }
 
-                if (Body != IntPtr.Zero)
-                {
-                    d.BodySetForce(Body, 0f, 0f, 0f);
-                    d.BodySetTorque(Body, 0f, 0f, 0f);
-                    d.BodySetLinearVel(Body, 0f, 0f, 0f);
-                    d.BodySetAngularVel(Body, 0f, 0f, 0f);
-                    enableBodySoft();
-                }
+                enableBodySoft();
             }
+
             resetCollisionAccounting();
-            m_isSelected = m_taintselected;
         }
 
         public void changePosition(Vector3 newPos)
@@ -2174,7 +2164,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             givefakepos--;
             if (givefakepos < 0)
                 givefakepos = 0;
-            changeSelectedStatus();
+//            changeSelectedStatus();
             resetCollisionAccounting();
         }
 
@@ -2226,7 +2216,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             givefakeori--;
             if (givefakeori < 0)
                 givefakeori = 0;
-            changeSelectedStatus();
             resetCollisionAccounting();
         }
 
@@ -2234,16 +2223,10 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (m_isphysical)
             {
-                if (childPrim)  // inertia is messed, must rebuild
+                if (childPrim && m_building)  // inertia is messed, must rebuild
                 {
-                    // dont accept changes on position and rotation for individual physical prims
-                    /*
-                                        OdePrim parent = (OdePrim)_parent;
-                                        parent.DestroyBody();
-                                        _orientation = m_taintrot;
-                                        _position = m_taintposition;
-                                        parent.MakeBody();
-                    */
+                    _position = newPos;
+                    _orientation = newOri;
                 }
                 else
                 {
@@ -2302,7 +2285,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (givefakeori < 0)
                 givefakeori = 0;
 
-            changeSelectedStatus();
             resetCollisionAccounting();
         }
 
@@ -2330,15 +2312,17 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             if (!childPrim)
             {
-                if (NewStatus) // this has the change, tain has old value
+                if (NewStatus) 
                 {
                     if (Body == IntPtr.Zero)
                     {
+/*
                         if (_pbs.SculptEntry && _parent_scene.meshSculptedPrim)
                         {
                             changeShape(_pbs);
                         }
                         else
+ */
                         {
                             MakeBody();
                         }
@@ -2349,16 +2333,17 @@ namespace OpenSim.Region.Physics.OdePlugin
                     if (Body != IntPtr.Zero)
                     {
                         //                        UpdateChildsfromgeom();
-                        if (_pbs.SculptEntry && _parent_scene.meshSculptedPrim)
+/*                        if (_pbs.SculptEntry && _parent_scene.meshSculptedPrim)
                         {
                             changeShape(_pbs);
                         }
                         else
+ */
                             DestroyBody();
                     }
                 }
             }
-            changeSelectedStatus();
+
             resetCollisionAccounting();
         }
 
@@ -2368,24 +2353,18 @@ namespace OpenSim.Region.Physics.OdePlugin
             OdePrim parent = null;
 
             bool chp = childPrim;
+
             if (chp)
-                parent = (OdePrim)_parent;
-            
-            // Cleanup of old prim geometry and Bodies
-            if (m_isphysical && Body != IntPtr.Zero)
             {
-                if (chp)
+                parent = (OdePrim)_parent;
+                if (parent != null)
                 {
-                    if (parent != null)
-                    {
-                        parent.changeBuilding(true);
-                        parent.ChildDelink(this);
-                    }
+                    parent.DestroyBody();
                 }
-                else
-                {
-                    DestroyBody();
-                }
+            }
+            else
+            {
+                DestroyBody();
             }
 
             if (prim_geom != IntPtr.Zero)
@@ -2426,38 +2405,27 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             CreateGeom(m_targetSpace, mesh);
 
-//            lock (_parent_scene.OdeLock)
+            if (prim_geom != IntPtr.Zero)
             {
-                if (prim_geom != IntPtr.Zero)
-                {
-                    if (m_isphysical && !chp)
-                        MakeBody();
-                    else
-                    {
-                        d.GeomSetPosition(prim_geom, _position.X, _position.Y, _position.Z);
-                        d.Quaternion myrot = new d.Quaternion();
-                        myrot.X = _orientation.X;
-                        myrot.Y = _orientation.Y;
-                        myrot.Z = _orientation.Z;
-                        myrot.W = _orientation.W;
-                        d.GeomSetQuaternion(prim_geom, ref myrot);
-                    }
-
-                    //                    _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
-                }
+                d.GeomSetPosition(prim_geom, _position.X, _position.Y, _position.Z);
+                d.Quaternion myrot = new d.Quaternion();
+                myrot.X = _orientation.X;
+                myrot.Y = _orientation.Y;
+                myrot.Z = _orientation.Z;
+                myrot.W = _orientation.W;
+                d.GeomSetQuaternion(prim_geom, ref myrot);
             }
-
 
             if (chp)
             {
-                if (parent !=null)
+                if (parent != null)
                 {
-                    parent.ParentPrim(this);
-                    parent.changeBuilding(false);
+                    parent.MakeBody();
                 }
             }
+            else
+                MakeBody();
 
-            changeSelectedStatus();
             resetCollisionAccounting();
         }
 
@@ -2516,7 +2484,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void changeAddForce(Vector3 force)
         {
-            forceacc += force;
+            m_forceacc += force;
             if (!m_isSelected)
             {
                 lock (this)
@@ -2538,7 +2506,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void changeAddAngularForce(Vector3 aforce)
         {
-            angularForceacc += aforce;
+            m_angularForceacc += aforce;
             if (!m_isSelected)
             {
                 lock (this)
@@ -2603,7 +2571,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void Move(float timestep)
         {
-
             if (!childPrim && m_isphysical && Body != IntPtr.Zero &&
                 !m_disabled && !m_isSelected && d.BodyIsEnabled(Body) && !m_building)        // KF: Only move root prims.
             {
@@ -2779,41 +2746,15 @@ namespace OpenSim.Region.Physics.OdePlugin
                     fy += m_force.Y;
                     fz += m_force.Z;
 
-                    fx += forceacc.X;
-                    fy += forceacc.Y;
-                    fz += forceacc.Z;
+                    fx += m_forceacc.X;
+                    fy += m_forceacc.Y;
+                    fz += m_forceacc.Z;
 
-                    forceacc = Vector3.Zero;
+                    m_forceacc = Vector3.Zero;
                     
                     //m_log.Info("[OBJPID]: X:" + fx.ToString() + " Y:" + fy.ToString() + " Z:" + fz.ToString());
                     if (fx != 0 || fy != 0 || fz != 0)
                     {
-/*
-                        if (!d.BodyIsEnabled(Body))
-                        {
-                            // A physical body at rest on a surface will auto-disable after a while,
-                            // this appears to re-enable it incase the surface it is upon vanishes,
-                            // and the body should fall again. 
-                            d.BodySetLinearVel(Body, 0f, 0f, 0f);
-                            d.BodySetForce(Body, 0, 0, 0);
-                            d.BodyEnable(Body);
-                        }
-*/
-                        // 35x10 = 350n times the mass per second applied maximum.
-/*
-                        float nmax = 35f * m_mass;
-                        float nmin = -35f * m_mass;
-
-
-                        if (fx > nmax)
-                            fx = nmax;
-                        if (fx < nmin)
-                            fx = nmin;
-                        if (fy > nmax)
-                            fy = nmax;
-                        if (fy < nmin)
-                            fy = nmin;
- */
                         d.BodyAddForce(Body, fx, fy, fz);
                         //Console.WriteLine("AddForce " + fx + "," + fy + "," + fz);
                     }
@@ -2821,11 +2762,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     Vector3 trq;
 
                     trq = _torque;
-                    trq += angularForceacc;
-                    angularForceacc = Vector3.Zero;
-                    if (trq.X != 0
-                        || trq.Y != 0
-                        || trq.Z != 0)
+                    trq += m_angularForceacc;
+                    m_angularForceacc = Vector3.Zero;
+                    if (trq.X != 0 || trq.Y != 0 || trq.Z != 0)
                     {
                         d.BodyAddTorque(Body, trq.X, trq.Y, trq.Z);
                     }
@@ -3240,8 +3179,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     break;
 
                 case changes.Selected:
-                    //                    changeSelectedStatus((bool)arg);
-                    changeSelectedStatus();
+                    changeSelectedStatus((bool)arg);
                     break;
 
                 case changes.disabled:

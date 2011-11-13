@@ -1514,24 +1514,29 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="m_physicalPrim"></param>
         public void ApplyPhysics(bool m_physicalPrim)
         {
-            // Apply physics to the root prim
-            m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive,true);
-
             // Apply physics to child prims
             SceneObjectPart[] parts = m_parts.GetArray();
             if (parts.Length > 1)
             {
-                // Hack to get the physics scene geometries in the right spot
                 ResetChildPrimPhysicsPositions();
+
+                // Apply physics to the root prim
+                m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive, true);
+                // Hack to get the physics scene geometries in the right spot
                 for (int i = 0; i < parts.Length; i++)
                 {
                     SceneObjectPart part = parts[i];
                     if (part.LocalId != m_rootPart.LocalId)
-                        part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive,true);
+                        part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive, true);
                 }
+                if (m_rootPart.PhysActor != null)
+                    m_rootPart.PhysActor.Building = false;
             }
-            if (m_rootPart.PhysActor != null)
-                m_rootPart.PhysActor.Building = false;
+            else
+            {
+                // Apply physics to the root prim
+                m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive, false);
+            }
 
         }
 
@@ -2742,16 +2747,21 @@ namespace OpenSim.Region.Framework.Scenes
                     }
                 }
 
-                m_rootPart.UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect, true);
-
-                for (int i = 0; i < parts.Length; i++)
+                if (parts.Length > 1)
                 {
-                    if (parts[i].UUID != m_rootPart.UUID)
-                        parts[i].UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect, true);
-                }
+                    m_rootPart.UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect, true);
 
-                if (m_rootPart.PhysActor != null)
-                    m_rootPart.PhysActor.Building = false;
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        if (parts[i].UUID != m_rootPart.UUID)
+                            parts[i].UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect, true);
+                    }
+
+                    if (m_rootPart.PhysActor != null)
+                        m_rootPart.PhysActor.Building = false;
+                }
+                else
+                    m_rootPart.UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect, false);
             }
         }
 
