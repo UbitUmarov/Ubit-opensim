@@ -67,7 +67,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private bool m_isphysical;
         private bool m_fakeisphysical;
 
-        private bool m_building;
+        protected bool m_building;
         private Quaternion m_lastorientation = new Quaternion();
         private Quaternion _orientation;
 
@@ -221,7 +221,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                 AddChange(changes.building, value);
             }
         }
-
 
         public override int PhysicsActorType
         {
@@ -842,8 +841,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                        Quaternion rotation, PrimitiveBaseShape pbs, bool pisPhysical)
         {
             Name = primName;
+
             m_vehicle = null;
-//            m_vehicle = new ODEDynamics();
+
             if (!pos.IsFinite())
             {
                 pos = new Vector3(((float)Constants.RegionSize * 0.5f), ((float)Constants.RegionSize * 0.5f),
@@ -873,8 +873,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (size.Z <= 0) size.Z = 0.01f;
 
             _size = size;
-
-           
+      
 
             if (!QuaternionIsFinite(rotation))
             {
@@ -890,7 +889,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             _parent_scene = parent_scene;
             m_targetSpace = IntPtr.Zero;
 
-            /*
             if (pos.Z < 0)
             {
                 m_isphysical = false;
@@ -899,11 +897,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 m_isphysical = pisPhysical;
             }
-            */
-            m_isphysical = false;
-            m_isVolumeDetect = false;
+            m_fakeisphysical = m_isphysical;
 
-            m_building = false;
+            m_isVolumeDetect = false;
 
             m_force = Vector3.Zero;
 
@@ -915,6 +911,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             _triMeshData = IntPtr.Zero;
 
             CalcPrimBodyData();
+
+            m_building = true; // control must set this to false when done
 
             AddChange(changes.Add, null);
         }
@@ -2018,8 +2016,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                     myrot.Z = _orientation.Z;
                     myrot.W = _orientation.W;
                     d.GeomSetQuaternion(prim_geom, ref myrot);
-                    //                    _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
-                    SetInStaticSpace(this);
+                    // _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
+                    if(!m_isphysical)
+                        SetInStaticSpace(this);
                 }
             }
 
@@ -2108,7 +2107,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 m_collisionCategories = CollisionCategories.Geom;
 
-                if (IsPhysical)
+                if (m_isphysical)
                     m_collisionCategories |= CollisionCategories.Body;
 
                 m_collisionFlags = m_default_collisionFlags;
@@ -2139,7 +2138,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void changePosition(Vector3 newPos)
         {
-            if (IsPhysical)
+            if (m_isphysical)
             {
                 if (childPrim)  // inertia is messed, must rebuild
                 {
@@ -2181,7 +2180,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void changeOrientation(Quaternion newOri)
         {
-            if (IsPhysical)
+            if (m_isphysical)
             {
                 if (childPrim)  // inertia is messed, must rebuild
                 {
@@ -2233,7 +2232,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void changePositionAndOrientation(Vector3 newPos, Quaternion newOri)
         {
-            if (IsPhysical)
+            if (m_isphysical)
             {
                 if (childPrim)  // inertia is messed, must rebuild
                 {
@@ -2373,7 +2372,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 parent = (OdePrim)_parent;
             
             // Cleanup of old prim geometry and Bodies
-            if (IsPhysical && Body != IntPtr.Zero)
+            if (m_isphysical && Body != IntPtr.Zero)
             {
                 if (chp)
                 {
@@ -2494,7 +2493,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (!m_isSelected)
             {
-                if (IsPhysical && Body != IntPtr.Zero)
+                if (m_isphysical && Body != IntPtr.Zero)
                 {
                     if (m_disabled)
                         enableBodySoft();
@@ -2521,7 +2520,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 lock (this)
                 {
                     //m_log.Info("[PHYSICS]: dequeing forcelist");
-                    if (IsPhysical && Body != IntPtr.Zero)
+                    if (m_isphysical && Body != IntPtr.Zero)
                     {
                         if (m_disabled)
                             enableBodySoft();
@@ -2542,7 +2541,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 lock (this)
                 {
-                    if (IsPhysical && Body != IntPtr.Zero)
+                    if (m_isphysical && Body != IntPtr.Zero)
                     {
                         if (m_disabled)
                             enableBodySoft();
@@ -2578,6 +2577,28 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_isVolumeDetect = newVolDtc;
         }
 
+
+
+
+        protected void changeBuilding(bool newbuilding)
+        {
+            if ((bool)newbuilding)
+            {
+                DestroyBody();
+                m_building = true;
+            }
+            else
+            {
+                m_building = false;
+                if (!childPrim)
+                    MakeBody();
+            }
+            if (!childPrim && childrenPrim.Count > 0)
+            {
+                foreach (OdePrim prm in childrenPrim)
+                    prm.changeBuilding(m_building); // call directly
+            }
+        }
 
         #endregion
 
@@ -3229,22 +3250,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     break;
 
                 case changes.building:
-                    if ((bool)arg)
-                    {
-                        DestroyBody();
-                        m_building = true;
-                    }
-                    else
-                    {
-                        m_building = false;
-                        if (!childPrim)
-                            MakeBody();
-                    }
-                    if(!childPrim && childrenPrim.Count>0)
-                    {
-                        foreach(OdePrim prm in childrenPrim)
-                            prm.Building = m_building;
-                    }
+                    changeBuilding((bool)arg);
                     break;
 
                 case changes.Null:
@@ -3262,7 +3268,5 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             _parent_scene.AddChange(this, what, arg);
         }
-
-
     }
 }

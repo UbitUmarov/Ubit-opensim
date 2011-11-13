@@ -1515,9 +1515,7 @@ namespace OpenSim.Region.Framework.Scenes
         public void ApplyPhysics(bool m_physicalPrim)
         {
             // Apply physics to the root prim
-            m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive);
-            if (m_rootPart.PhysActor != null)
-                m_rootPart.PhysActor.Building = true;
+            m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive,true);
 
             // Apply physics to child prims
             SceneObjectPart[] parts = m_parts.GetArray();
@@ -1529,7 +1527,7 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     SceneObjectPart part = parts[i];
                     if (part.LocalId != m_rootPart.LocalId)
-                        part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive);
+                        part.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), part.VolumeDetectActive,true);
                 }
             }
             if (m_rootPart.PhysActor != null)
@@ -1747,6 +1745,8 @@ namespace OpenSim.Region.Framework.Scenes
                     newPart.DoPhysicsPropertyUpdate(part.PhysActor.IsPhysical, true);
                 }
             }
+            if (m_rootPart.PhysActor != null && userExposed)
+                m_rootPart.PhysActor.Building = false; // tell physics to finish building
 
             if (userExposed)
             {
@@ -2742,14 +2742,12 @@ namespace OpenSim.Region.Framework.Scenes
                     }
                 }
 
-                m_rootPart.UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect);
-                if (m_rootPart.PhysActor != null)
-                    m_rootPart.PhysActor.Building = true;
+                m_rootPart.UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect, true);
 
                 for (int i = 0; i < parts.Length; i++)
                 {
                     if (parts[i].UUID != m_rootPart.UUID)
-                        parts[i].UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect);
+                        parts[i].UpdatePrimFlags(UsePhysics, SetTemporary, SetPhantom, SetVolumeDetect, true);
                 }
 
                 if (m_rootPart.PhysActor != null)

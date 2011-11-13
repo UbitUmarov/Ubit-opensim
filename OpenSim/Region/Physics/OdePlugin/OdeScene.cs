@@ -2511,12 +2511,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                         // do other objects requested changes
 
                         ODEchangeitem item;
-
-                        int tlimit = 500;
-                        
                         
                         if(ChangesQueue.Count >0)
                         {
+                            int ttmpstart = Util.EnvironmentTickCount();
+                            int ttmp;
+                            int ttmp2;
+
                             while(ChangesQueue.Dequeue(out item))
                             {
                                 if (item.prim != null)
@@ -2528,9 +2529,15 @@ namespace OpenSim.Region.Physics.OdePlugin
                                     }
                                     catch { };
                                 }
-                                if (tlimit-- <= 0)
+                                ttmp = Util.EnvironmentTickCountSubtract(ttmpstart);
+                                if (ttmp > 20)
                                     break;
                             }
+
+                            ttmp2 = Util.EnvironmentTickCountSubtract(ttmpstart);
+                            if (ttmp2 > 50)
+                                ttmp2 = 0;
+
                         }
 
                         if (SupportsNINJAJoints)

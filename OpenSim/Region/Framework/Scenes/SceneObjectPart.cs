@@ -1853,7 +1853,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         /// <param name="rootObjectFlags"></param>
         /// <param name="VolumeDetectActive"></param>
-        public void ApplyPhysics(uint rootObjectFlags, bool VolumeDetectActive)
+        public void ApplyPhysics(uint rootObjectFlags, bool VolumeDetectActive, bool building)
         {
 //            m_log.DebugFormat(
 //                "[SCENE OBJECT PART]: Applying physics to {0} {1}, m_physicalPrim {2}",
@@ -1902,9 +1902,26 @@ namespace OpenSim.Region.Framework.Scenes
                         PhysActor.SOPName = this.Name; // save object name and desc into the PhysActor so ODE internals know the joint/body info
                         PhysActor.SOPDescription = this.Description;
                         PhysActor.SetMaterial(Material);
-                        DoPhysicsPropertyUpdate(RigidBody, true);
-                        if(VolumeDetectActive) // no need to turn off what is already off by default
+                        if(VolumeDetectActive)
                             PhysActor.SetVolumeDetect(1);
+
+                        if(RigidBody)
+                        {
+                            ParentGroup.Scene.AddPhysicalPrim(1);
+                            PhysActor.OnRequestTerseUpdate += PhysicsRequestingTerseUpdate;
+                            PhysActor.OnOutOfBounds += PhysicsOutOfBounds;
+                            if (ParentID != 0 && ParentID != LocalId)
+                            {
+                                if (ParentGroup.RootPart.PhysActor != null)
+                                {
+                                    PhysActor.link(ParentGroup.RootPart.PhysActor);
+                                }
+                            }
+                        }
+
+                        if (!building)
+                            PhysActor.Building = false;
+
                     }
                     else
                     {
@@ -2211,6 +2228,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                     // If this part is a sculpt then delay the physics update until we've asynchronously loaded the
                     // mesh data.
+
                     if (Shape.SculptEntry)
                         CheckSculptAndLoad();
                     else
@@ -4685,7 +4703,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="SetTemporary"></param>
         /// <param name="SetPhantom"></param>
         /// <param name="SetVD"></param>
-        public void UpdatePrimFlags(bool UsePhysics, bool SetTemporary, bool SetPhantom, bool SetVD)
+        public void UpdatePrimFlags(bool UsePhysics, bool SetTemporary, bool SetPhantom, bool SetVD, bool building)
         {
             bool wasUsingPhysics = ((Flags & PrimFlags.Physics) != 0);
             bool wasTemporary = ((Flags & PrimFlags.TemporaryOnRez) != 0);
@@ -4700,6 +4718,11 @@ namespace OpenSim.Region.Framework.Scenes
             // that...
             // ... if VD is changed, all others are not.
             // ... if one of the others is changed, VD is not.
+
+            // do this first
+            if (PhysActor != null && PhysActor.Building != building)
+                PhysActor.Building = building;
+
             if (SetVD) // VD is active, special logic applies
             {
                 // State machine logic for VolumeDetect
@@ -4781,8 +4804,8 @@ namespace OpenSim.Region.Framework.Scenes
                         UsePhysics,
                         m_localId);
 
-                        PhysActor.SetMaterial(Material);
-                        DoPhysicsPropertyUpdate(UsePhysics, true);
+                    PhysActor.SetMaterial(Material);
+                    DoPhysicsPropertyUpdate(UsePhysics, true);
 
                     if (!ParentGroup.IsDeleted)
                         {
@@ -4859,6 +4882,10 @@ namespace OpenSim.Region.Framework.Scenes
                 RemFlag(PrimFlags.TemporaryOnRez);
             }
             //            m_log.Debug("Update:  PHY:" + UsePhysics.ToString() + ", T:" + IsTemporary.ToString() + ", PHA:" + IsPhantom.ToString() + " S:" + CastsShadows.ToString());
+
+            // and last in case we have a new actor and not building
+            if (PhysActor != null && PhysActor.Building != building)
+                PhysActor.Building = building;
 
             if (ParentGroup != null)
             {
