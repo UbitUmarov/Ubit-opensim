@@ -2680,7 +2680,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
 
                 // think time dilation is not a physics issue alone..  but ok let's fake something
-                if (step_time < 0) // we did the required loops
+                if (step_time < ODE_STEPSIZE) // we did the required loops
                     m_timeDilation = 1.0f;
                 else
                 { // we didn't forget the lost ones and let user know something
