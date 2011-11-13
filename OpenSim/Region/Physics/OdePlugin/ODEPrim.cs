@@ -2378,6 +2378,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 {
                     if (parent != null)
                     {
+                        parent.changeBuilding(true);
                         parent.ChildDelink(this);
                     }
                 }
@@ -2452,6 +2453,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (parent !=null)
                 {
                     parent.ParentPrim(this);
+                    parent.changeBuilding(false);
                 }
             }
 
@@ -2577,15 +2579,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_isVolumeDetect = newVolDtc;
         }
 
-
-
-
         protected void changeBuilding(bool newbuilding)
         {
             if ((bool)newbuilding)
             {
-                DestroyBody();
                 m_building = true;
+                DestroyBody();
             }
             else
             {
