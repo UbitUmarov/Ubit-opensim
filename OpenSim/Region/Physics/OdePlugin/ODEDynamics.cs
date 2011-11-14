@@ -57,19 +57,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             get { return m_type; }
         }
 
-        public IntPtr Body
-        {
-            get { return m_body; }
-        }
-
         private int frcount = 0;                                        // Used to limit dynamics debug output to
                                                                         // every 100th frame
 
         // private OdeScene m_parentScene = null;
-        private IntPtr m_body = IntPtr.Zero;
 //        private IntPtr m_jointGroup = IntPtr.Zero;
 //        private IntPtr m_aMotor = IntPtr.Zero;
-
 
         // Vehicle properties
         private Vehicle m_type = Vehicle.TYPE_NONE;                     // If a 'VEHICLE', and what kind
@@ -600,18 +593,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         }//end SetDefaultsForType
 
-        internal void Enable(IntPtr pBody, OdeScene pParentScene)
+        internal void Step(float pTimestep,  OdeScene pParentScene,IntPtr m_body)
         {
-            if (m_type == Vehicle.TYPE_NONE)
-                return;
-
-            m_body = pBody;
-        }
-
-        internal void Step(float pTimestep,  OdeScene pParentScene)
-        {
-            if (m_body == IntPtr.Zero || m_type == Vehicle.TYPE_NONE)
-                return;
             frcount++;  // used to limit debug comment output
             if (frcount > 100)
                 frcount = 0;
@@ -619,9 +602,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             // scale time so thing are similar as before and scripts don't break
             pTimestep *= 0.09375f / pParentScene.ODE_STEPSIZE;
 
-            MoveLinear(pTimestep, pParentScene);
-            MoveAngular(pTimestep);
-            LimitRotation(pTimestep);
+            MoveLinear(pTimestep, pParentScene, m_body);
+            MoveAngular(pTimestep, m_body);
+            LimitRotation(pTimestep, m_body);
         }// end Step
 
 
@@ -633,7 +616,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_angularMotorVelocity = m_lastLinearVelocityVector;
         }
 
-        private void MoveLinear(float pTimestep, OdeScene _pParentScene)
+        private void MoveLinear(float pTimestep, OdeScene _pParentScene, IntPtr Body)
         {
             if (!m_linearMotorDirection.ApproxEquals(Vector3.Zero, 0.01f))  // requested m_linearMotorDirection is significant
             {
@@ -834,7 +817,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_lastLinearVelocityVector -= m_lastLinearVelocityVector * decayamount;
         } // end MoveLinear()
 
-        private void MoveAngular(float pTimestep)
+        private void MoveAngular(float pTimestep, IntPtr Body)
         {
             /*
             private Vector3 m_angularMotorDirection = Vector3.Zero;            // angular velocity requested by LSL motor
@@ -944,7 +927,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.BodySetAngularVel (Body, m_lastAngularVelocity.X, m_lastAngularVelocity.Y, m_lastAngularVelocity.Z);
 
         } //end MoveAngular
-        internal void LimitRotation(float timestep)
+        internal void LimitRotation(float timestep, IntPtr Body)
         {
             d.Quaternion rot = d.BodyGetQuaternion(Body);
             Quaternion rotq = new Quaternion(rot.X, rot.Y, rot.Z, rot.W);    // rotq = rotation of object

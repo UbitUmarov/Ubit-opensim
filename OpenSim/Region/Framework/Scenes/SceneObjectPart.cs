@@ -1167,9 +1167,9 @@ namespace OpenSim.Region.Framework.Scenes
                             {
                                 actor.Size = m_shape.Scale;
 
-                                if (Shape.SculptEntry)
-                                    CheckSculptAndLoad();
-                                else
+//                                if (Shape.SculptEntry)
+//                                    CheckSculptAndLoad();
+//                                else
                                     ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(PhysActor);
                             }
                         }
@@ -1899,6 +1899,7 @@ namespace OpenSim.Region.Framework.Scenes
                     // Basic Physics returns null..  joy joy joy.
                     if (PhysActor != null)
                     {
+//                        CheckSculptAndLoad();
                         PhysActor.SOPName = this.Name; // save object name and desc into the PhysActor so ODE internals know the joint/body info
                         PhysActor.SOPDescription = this.Description;
                         PhysActor.SetMaterial(Material);
@@ -4753,26 +4754,10 @@ namespace OpenSim.Region.Framework.Scenes
             if (UsePhysics)
             {
                 AddFlag(PrimFlags.Physics);
-                if (!wasUsingPhysics)
-                {
-//                    DoPhysicsPropertyUpdate(UsePhysics, false);
-
-                    if (!ParentGroup.IsDeleted)
-                    {
-                        if (LocalId == ParentGroup.RootPart.LocalId)
-                        {
-                            ParentGroup.CheckSculptAndLoad();
-                        }
-                    }
-                }
             }
             else
             {
                 RemFlag(PrimFlags.Physics);
- //               if (wasUsingPhysics)
- //               {
- //                   DoPhysicsPropertyUpdate(UsePhysics, false);
- //               }
             }
 
             if (SetPhantom
@@ -4800,49 +4785,31 @@ namespace OpenSim.Region.Framework.Scenes
                         AbsolutePosition,
                         Scale,
                         GetWorldRotation(),
-//                        RotationOffset,
                         UsePhysics,
                         m_localId);
+
+//                    CheckSculptAndLoad();
 
                     PhysActor.SetMaterial(Material);
                     DoPhysicsPropertyUpdate(UsePhysics, true);
 
-                    if (!ParentGroup.IsDeleted)
-                        {
-                        if (LocalId == ParentGroup.RootPart.LocalId)
-                            {
-                            ParentGroup.CheckSculptAndLoad();
-                            }
-                        }
-
-                        if (
-                            ((AggregateScriptEvents & scriptEvents.collision) != 0) ||
-                            ((AggregateScriptEvents & scriptEvents.collision_end) != 0) ||
-                            ((AggregateScriptEvents & scriptEvents.collision_start) != 0) ||
-                            ((AggregateScriptEvents & scriptEvents.land_collision_start) != 0) ||
-                            ((AggregateScriptEvents & scriptEvents.land_collision) != 0) ||
-                            ((AggregateScriptEvents & scriptEvents.land_collision_end) != 0) ||
-                            (CollisionSound != UUID.Zero)
-                            )
-                        {
-                            PhysActor.OnCollisionUpdate += PhysicsCollision;
-                            PhysActor.SubscribeEvents(1000);
-                        }
+                    if (
+                        ((AggregateScriptEvents & scriptEvents.collision) != 0) ||
+                        ((AggregateScriptEvents & scriptEvents.collision_end) != 0) ||
+                        ((AggregateScriptEvents & scriptEvents.collision_start) != 0) ||
+                        ((AggregateScriptEvents & scriptEvents.land_collision_start) != 0) ||
+                        ((AggregateScriptEvents & scriptEvents.land_collision) != 0) ||
+                        ((AggregateScriptEvents & scriptEvents.land_collision_end) != 0) ||
+                        (CollisionSound != UUID.Zero)
+                        )
+                    {
+                        PhysActor.OnCollisionUpdate += PhysicsCollision;
+                        PhysActor.SubscribeEvents(1000);
                     }
+                }
                 else // it already has a physical representation
                 {
-
-//                    pa.IsPhysical = UsePhysics;
-
                     DoPhysicsPropertyUpdate(UsePhysics, false); // Update physical status. If it's phantom this will remove the prim
-
-                    if (!ParentGroup.IsDeleted)
-                    {
-                        if (LocalId == ParentGroup.RootPart.LocalId)
-                        {
-                            ParentGroup.CheckSculptAndLoad();
-                        }
-                    }
                 }
             }
 
@@ -4961,6 +4928,15 @@ namespace OpenSim.Region.Framework.Scenes
             m_shape.PathTaperY = shapeBlock.PathTaperY;
             m_shape.PathTwist = shapeBlock.PathTwist;
             m_shape.PathTwistBegin = shapeBlock.PathTwistBegin;
+
+            // reset sculpt data
+            if(!m_shape.SculptEntry)
+            {
+                if(m_shape.SculptData != null)
+                    m_shape.SculptData=null;
+                if(m_shape.SculptTexture != UUID.Zero)
+                    m_shape.SculptTexture = UUID.Zero;               
+            }
 
             if (PhysActor != null)
             {

@@ -1187,16 +1187,13 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
                         d.SpaceAdd(m_targetSpace, prim_geom);
                     }
-                    if (m_vehicle != null && m_vehicle.Type != Vehicle.TYPE_NONE)
-                        m_vehicle.Enable(Body, _parent_scene);
-
                     d.BodyEnable(Body);
                 }
             }
             resetCollisionAccounting(); // this sets m_disable to false
         }
 
-        public void disableBodySoft()
+        private void disableBodySoft()
         {
             m_disabled = true;
             if (!childPrim)
@@ -1221,7 +1218,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
-        public void MakeBody()
+        private void MakeBody()
         {
             if (!m_isphysical) // only physical get bodies
                 return;
@@ -1405,13 +1402,11 @@ namespace OpenSim.Region.Physics.OdePlugin
             {
                 createAMotor(m_angularlock);
             }
-            if (m_vehicle!= null && m_vehicle.Type != Vehicle.TYPE_NONE)
-                m_vehicle.Enable(Body, _parent_scene);
 
             _parent_scene.addActivePrim(this);
         }
 
-        public void DestroyBody()  // for now removes all colisions etc from childs, full body reconstruction is needed after this
+        private void DestroyBody()
         {
             if (Body != IntPtr.Zero)
             {
@@ -1438,11 +1433,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if (prm.prim_geom != IntPtr.Zero)
                             {
                                 prm.UpdateDataFromGeom();
-                                prm.Body = IntPtr.Zero;
                                 d.GeomSetCategoryBits(prm.prim_geom, (int)m_collisionCategories);
                                 d.GeomSetCollideBits(prm.prim_geom, (int)m_collisionFlags);
                                 SetInStaticSpace(prm);
                             }
+                            prm.Body = IntPtr.Zero;
                             prm._mass = prm.primMass;
                         }
                     }
@@ -1456,13 +1451,12 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
         #region Mass Calculation
-        //Ubit mess
-        private void CalculatePrimMass()
+        
+        private float CalculatePrimVolume()
         {
             float volume = _size.X * _size.Y * _size.Z; // default
             float tmp;
 
-            float returnMass = 0;
             float hollowAmount = (float)_pbs.ProfileHollow * 2.0e-5f;
             float hollowVolume = hollowAmount * hollowAmount;
 
@@ -1727,21 +1721,15 @@ namespace OpenSim.Region.Physics.OdePlugin
             profileEnd = 1.0f - (float)_pbs.ProfileEnd * 2.0e-5f;
             volume *= (profileEnd - profileBegin);
 
-            returnMass = m_density * volume;
-
-            if (returnMass <= 0)
-                returnMass = 0.0001f;//ckrinke: Mass must be greater then zero.
-            if (returnMass > _parent_scene.maximumMassObject)
-                returnMass = _parent_scene.maximumMassObject;
-
-            primMass = returnMass;
-            _mass = returnMass; // just in case
-            return;
+            return volume;
         }
 
 
-        public void CalcPrimBodyData()
+        private void CalcPrimBodyData()
         {
+            float volume;
+
+
             if (prim_geom == IntPtr.Zero)
             {
                 // Ubit let's have a initial basic OOB
@@ -1768,7 +1756,17 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             // also its own inertia and mass
             // keep using basic shape mass for now
-            CalculatePrimMass();
+            volume = CalculatePrimVolume();
+
+            primMass = m_density * volume;
+
+            if (primMass <= 0)
+                primMass = 0.0001f;//ckrinke: Mass must be greater then zero.
+            if (primMass > _parent_scene.maximumMassObject)
+                primMass = _parent_scene.maximumMassObject;
+
+            _mass = primMass; // just in case
+
             d.MassSetBoxTotal(out primdMass, primMass, primOOBsize.X, primOOBsize.Y, primOOBsize.Z);
 
             d.MassTranslate(ref primdMass,
@@ -1911,7 +1909,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             MakeBody();
         }
 
-        private void ChildRemove(OdePrim odePrim, bool reMakeBody)
+        protected void ChildRemove(OdePrim odePrim, bool reMakeBody)
         {
             // Okay, we have a delinked child.. destroy all body and remake
             if (odePrim != this && !childrenPrim.Contains(odePrim))
@@ -1961,7 +1959,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         #region changes
 
-        public void changeadd()
+        private void changeadd()
         {
             IMesh mesh = null;
             if (_parent_scene.needsMeshing(_pbs))
@@ -1972,36 +1970,35 @@ namespace OpenSim.Region.Physics.OdePlugin
                 // m_log.Debug(m_localID);
             }
 
-//            lock (_parent_scene.OdeLock)
-            {
                 //Console.WriteLine("changeadd 1");
-                CreateGeom(m_targetSpace, mesh);
+            CreateGeom(m_targetSpace, mesh);
 
-                if (prim_geom != IntPtr.Zero)
-                {
-                    d.GeomSetPosition(prim_geom, _position.X, _position.Y, _position.Z);
-                    d.Quaternion myrot = new d.Quaternion();
-                    myrot.X = _orientation.X;
-                    myrot.Y = _orientation.Y;
-                    myrot.Z = _orientation.Z;
-                    myrot.W = _orientation.W;
-                    d.GeomSetQuaternion(prim_geom, ref myrot);
-                    // _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
-                    if(!m_isphysical)
-                        SetInStaticSpace(this);
-                }
+            if (prim_geom != IntPtr.Zero)
+            {
+                d.GeomSetPosition(prim_geom, _position.X, _position.Y, _position.Z);
+                d.Quaternion myrot = new d.Quaternion();
+                myrot.X = _orientation.X;
+                myrot.Y = _orientation.Y;
+                myrot.Z = _orientation.Z;
+                myrot.W = _orientation.W;
+                d.GeomSetQuaternion(prim_geom, ref myrot);
+                // _parent_scene.actor_name_map[prim_geom] = (PhysicsActor)this;
+                if (!m_isphysical)
+                    SetInStaticSpace(this);
             }
 
             if (m_isphysical && Body == IntPtr.Zero)
             {
+/*
                 if (_pbs.SculptEntry && _parent_scene.meshSculptedPrim)
                 {
                     changeShape(_pbs);
                 }
                 else
                 {
+ */
                     MakeBody();
-                }
+//                }
             }
         }
 
@@ -2126,7 +2123,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             resetCollisionAccounting();
         }
 
-        public void changePosition(Vector3 newPos)
+        private void changePosition(Vector3 newPos)
         {
             if (m_isphysical)
             {
@@ -2168,7 +2165,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             resetCollisionAccounting();
         }
 
-        public void changeOrientation(Quaternion newOri)
+        private void changeOrientation(Quaternion newOri)
         {
             if (m_isphysical)
             {
@@ -2219,7 +2216,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             resetCollisionAccounting();
         }
 
-        public void changePositionAndOrientation(Vector3 newPos, Quaternion newOri)
+        private void changePositionAndOrientation(Vector3 newPos, Quaternion newOri)
         {
             if (m_isphysical)
             {
@@ -2289,7 +2286,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
 
-        public void changeDisable(bool disable)
+        private void changeDisable(bool disable)
         {
             if (disable)
             {
@@ -2303,7 +2300,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
-        public void changePhysicsStatus(bool NewStatus)
+        private void changePhysicsStatus(bool NewStatus)
         {
             // this is changed imediatly, so m_taintPhysics is previus state
             //            m_isphysical = m_taintPhysics;
@@ -2347,16 +2344,16 @@ namespace OpenSim.Region.Physics.OdePlugin
             resetCollisionAccounting();
         }
 
-        public void changeprimsizeshape()
+        private void changeprimsizeshape()
         {
             _parent_scene.actor_name_map.Remove(prim_geom);
-            OdePrim parent = null;
+            
+            OdePrim parent = (OdePrim)_parent;
 
             bool chp = childPrim;
 
             if (chp)
             {
-                parent = (OdePrim)_parent;
                 if (parent != null)
                 {
                     parent.DestroyBody();
@@ -2429,19 +2426,19 @@ namespace OpenSim.Region.Physics.OdePlugin
             resetCollisionAccounting();
         }
 
-        public void changeSize(Vector3 newSize)
+        private void changeSize(Vector3 newSize)
         {
             _size = newSize;
             changeprimsizeshape();
         }
 
-        public void changeShape(PrimitiveBaseShape newShape)
+        private void changeShape(PrimitiveBaseShape newShape)
         {
             _pbs = newShape;
             changeprimsizeshape();
         }
 
-        public void changeFloatOnWater(bool newval)
+        private void changeFloatOnWater(bool newval)
         {
             m_collidesWater = newval;
 
@@ -2459,7 +2456,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
-        public void changeSetTorque(Vector3 newtorque)
+        private void changeSetTorque(Vector3 newtorque)
         {
             if (!m_isSelected)
             {
@@ -2475,14 +2472,14 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
-        public void changeForce(Vector3 force)
+        private void changeForce(Vector3 force)
         {
             m_force = force;
             if (Body != IntPtr.Zero && !d.BodyIsEnabled(Body))
                 d.BodyEnable(Body);
         }
 
-        public void changeAddForce(Vector3 force)
+        private void changeAddForce(Vector3 force)
         {
             m_forceacc += force;
             if (!m_isSelected)
@@ -2504,7 +2501,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
-        public void changeAddAngularForce(Vector3 aforce)
+        private void changeAddAngularForce(Vector3 aforce)
         {
             m_angularForceacc += aforce;
             if (!m_isSelected)
@@ -2583,7 +2580,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (m_vehicle != null && m_vehicle.Type != Vehicle.TYPE_NONE)
                 {
                     // 'VEHICLES' are dealt with in ODEDynamics.cs
-                    m_vehicle.Step(timestep, _parent_scene);
+                    m_vehicle.Step(timestep, _parent_scene,Body);
                 }
                 else
                 {
@@ -3033,7 +3030,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             return true;
         }
 
-        private static void DMassCopy(ref d.Mass src, ref d.Mass dst)
+        internal static void DMassCopy(ref d.Mass src, ref d.Mass dst)
         {
             dst.c.W = src.c.W;
             dst.c.X = src.c.X;

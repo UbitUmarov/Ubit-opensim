@@ -169,8 +169,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private float waterlevel = 0f;
         private int framecount = 0;
 
-
-        internal IntPtr LandGeom;
         internal IntPtr WaterGeom;
 
         private float nmTerrainContactFriction = 10.0f;
@@ -231,16 +229,11 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly HashSet<OdePrim> _prims = new HashSet<OdePrim>();
         private readonly HashSet<OdePrim> _activeprims = new HashSet<OdePrim>();
 
-//        private readonly Object _taintedPrimLock = new Object();
-//        private readonly HashSet<OdePrim> _taintedPrimH = new HashSet<OdePrim>(); // faster verification of repeated prim taints
-//        private readonly Queue<OdePrim> _taintedPrimQ = new Queue<OdePrim>(); // prims taints
         private readonly Object _taintedCharacterLock = new Object();
         private readonly HashSet<OdeCharacter> _taintedCharacterH = new HashSet<OdeCharacter>(); // faster verification of repeated character taints
         private readonly Queue<OdeCharacter> _taintedCharacterQ = new Queue<OdeCharacter>(); // character taints
 
         public OpenSim.Framework.LocklessQueue<ODEchangeitem> ChangesQueue = new OpenSim.Framework.LocklessQueue<ODEchangeitem>();
-
-//        private readonly List<d.ContactGeom> _perloopContact = new List<d.ContactGeom>();
 
         /// <summary>
         /// A list of actors that should receive collision events.
@@ -322,7 +315,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private IntPtr[,] staticPrimspace;
 
         private Object OdeLock;
-        private Object SimulationLock;
+        private static Object SimulationLock;
 
         public IMesher mesher;
 
@@ -2249,12 +2242,10 @@ namespace OpenSim.Region.Physics.OdePlugin
         //    //m_log.Debug("needsMeshing: " + " pathCurve: " + pbs.PathCurve.ToString() + " profileCurve: " + pbs.ProfileCurve.ToString() + " pathScaleY: " + Primitive.UnpackPathScale(pbs.PathScaleY).ToString());
             int iPropertiesNotSupportedDefault = 0;
 
-            if (pbs.SculptEntry && !meshSculptedPrim)
+            if (pbs.SculptEntry)
             {
-#if SPAM
-                m_log.Warn("NonMesh");
-#endif
-                return false;
+                if(!meshSculptedPrim)
+                    return false;
             }
 
             // if it's a standard box or sphere with no cuts, hollows, twist or top shear, return false since ODE can use an internal representation for the prim

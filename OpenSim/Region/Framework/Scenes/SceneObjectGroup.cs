@@ -1522,6 +1522,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                 // Apply physics to the root prim
                 m_rootPart.ApplyPhysics(m_rootPart.GetEffectiveObjectFlags(), m_rootPart.VolumeDetectActive, true);
+
                 // Hack to get the physics scene geometries in the right spot
                 for (int i = 0; i < parts.Length; i++)
                 {
@@ -1746,6 +1747,8 @@ namespace OpenSim.Region.Framework.Scenes
                             newPart.GetWorldRotation(),
                             part.PhysActor.IsPhysical,
                             newPart.LocalId);
+
+                    newPart.CheckSculptAndLoad();
 
                     newPart.DoPhysicsPropertyUpdate(part.PhysActor.IsPhysical, true);
                 }
