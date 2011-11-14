@@ -2067,6 +2067,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                 _acceleration = Vector3.Zero;
                 m_rotationalVelocity = Vector3.Zero;              
                 _target_velocity = Vector3.Zero;
+                if (m_vehicle != null && m_vehicle.Type != Vehicle.TYPE_NONE)
+                    m_vehicle.Stop();
             }
 
             if (Body != IntPtr.Zero)
