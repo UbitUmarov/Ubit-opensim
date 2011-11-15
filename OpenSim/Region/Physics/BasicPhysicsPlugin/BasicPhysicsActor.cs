@@ -60,6 +60,11 @@ namespace OpenSim.Region.Physics.BasicPhysicsPlugin
             set { m_rotationalVelocity = value; }
         }
 
+        public override ContactData ContactData
+        {
+            get { return new ContactData(0, 0, 1); }
+        }
+
         public override bool SetAlwaysRun
         {
             get { return false; }
