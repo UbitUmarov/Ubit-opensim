@@ -64,6 +64,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 //        private IntPtr m_jointGroup = IntPtr.Zero;
 //        private IntPtr m_aMotor = IntPtr.Zero;
 
+        public ContactData VehiculeContactData = new ContactData(0f,0.1f,1f);
+
         // Vehicle properties
         private Vehicle m_type = Vehicle.TYPE_NONE;                     // If a 'VEHICLE', and what kind
         // private Quaternion m_referenceFrame = Quaternion.Identity;   // Axis modifier

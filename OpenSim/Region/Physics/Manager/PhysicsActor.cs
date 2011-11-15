@@ -66,6 +66,20 @@ namespace OpenSim.Region.Physics.Manager
         }
     }
 
+    public struct ContactData
+    {
+        public float mu;
+        public float bounce;
+        public float mass;
+
+        public ContactData(float _mu, float _bounce, float _mass)
+        {
+            mu = _mu;
+            bounce = _bounce;
+            mass = _mass;
+        }
+    }
+
     /// <summary>
     /// Used to pass collision information to OnCollisionUpdate listeners.
     /// </summary>
@@ -207,6 +221,8 @@ namespace OpenSim.Region.Physics.Manager
         {
         }
 
+        public abstract ContactData ContactData { get;}
+
         /// <summary>
         /// Position of this actor.
         /// </summary>
@@ -215,6 +231,8 @@ namespace OpenSim.Region.Physics.Manager
         /// Getting this retrieves the position calculated by physics scene updates, using factors such as velocity and
         /// collisions.
         /// </remarks>
+        /// 
+
         public abstract Vector3 Position { get; set; }
 
         public abstract float Mass { get; }
@@ -299,6 +317,11 @@ namespace OpenSim.Region.Physics.Manager
         {
             get { return Vector3.Zero; }
             set { return; }
+        }
+
+        public override ContactData ContactData
+        {
+            get { return new ContactData(0, 0, 1); }
         }
 
         public override bool SetAlwaysRun

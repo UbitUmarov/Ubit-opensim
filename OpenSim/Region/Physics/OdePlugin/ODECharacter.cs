@@ -148,6 +148,8 @@ namespace OpenSim.Region.Physics.OdePlugin
         public UUID m_uuid;
         public bool bad = false;
 
+        public ContactData AvatarContactData = new ContactData(10f, 0.3f, 80);
+
         public OdeCharacter(String avName, OdeScene parent_scene, Vector3 pos, Vector3 size, float pid_d, float pid_p, float capsule_radius, float tensor, float density, float height_fudge_factor, float walk_divisor, float rundivisor)
         {
             m_uuid = UUID.Random();
@@ -182,6 +184,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_mass = 80f; // sure we have a default
             heightFudgeFactor = height_fudge_factor;
 
+            AvatarContactData.mu = parent_scene.AvatarFriction;
+            AvatarContactData.bounce = parent_scene.AvatarBounce;
+
             walkDivisor = walk_divisor;
             runDivisor = rundivisor;
 
@@ -202,6 +207,11 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             get { return (int)ActorTypes.Agent; }
             set { return; }
+        }
+
+        public override ContactData ContactData
+        {
+            get { return AvatarContactData; }
         }
 
         public override bool Building { get; set; }
@@ -477,6 +487,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.MassSetCapsule(out ShellMass, m_density, 3, CAPSULE_RADIUS, CAPSULE_LENGTH);
 
             m_mass = ShellMass.mass;  // update mass
+
+            AvatarContactData.mass = m_mass;
+
             // rescale PID parameters 
             PID_D = _parent_scene.avPIDD;
             PID_P = _parent_scene.avPIDP;
