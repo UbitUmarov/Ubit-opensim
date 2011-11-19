@@ -70,13 +70,11 @@ namespace OpenSim.Region.Physics.Manager
     {
         public float mu;
         public float bounce;
-        public float mass;
 
-        public ContactData(float _mu, float _bounce, float _mass)
+        public ContactData(float _mu, float _bounce)
         {
             mu = _mu;
             bounce = _bounce;
-            mass = _mass;
         }
     }
 
@@ -321,7 +319,7 @@ namespace OpenSim.Region.Physics.Manager
 
         public override ContactData ContactData
         {
-            get { return new ContactData(0, 0, 1); }
+            get { return new ContactData(0, 0); }
         }
 
         public override bool SetAlwaysRun

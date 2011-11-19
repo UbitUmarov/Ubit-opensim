@@ -190,7 +190,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public ODEDynamics m_vehicle;
 
         internal int m_material = (int)Material.Wood;
-        protected ContactData primContactData = new ContactData { mu = 0f, bounce = 0.1f, mass = 0f };
+        protected ContactData primContactData = new ContactData { mu = 0f, bounce = 0.1f};
 
         /// <summary>
         /// Is this prim subject to physics?  Even if not, it's still solid for collision purposes.
@@ -231,15 +231,11 @@ namespace OpenSim.Region.Physics.OdePlugin
                     v =((OdePrim)_parent).m_vehicle;
                     if(v != null && v.Type != Vehicle.TYPE_NONE)
                             return v.VehiculeContactData;
-                    else
-                        primContactData.mass=_parent.Mass;
                     return primContactData;              
                 }
 
                 if (m_vehicle != null && m_vehicle.Type != Vehicle.TYPE_NONE)
                     return m_vehicle.VehiculeContactData;
-                else
-                    primContactData.mass=Mass;
                 return primContactData;              
             }
         }
@@ -756,7 +752,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_material = pMaterial;
             primContactData.mu = _parent_scene.m_materialContactsData[pMaterial].mu;
             primContactData.bounce = _parent_scene.m_materialContactsData[pMaterial].bounce;
-            primContactData.mass = Mass;
         }
 
         public void setPrimForRemoval()

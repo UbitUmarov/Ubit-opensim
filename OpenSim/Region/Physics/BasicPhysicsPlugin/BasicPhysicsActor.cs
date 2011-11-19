@@ -62,7 +62,7 @@ namespace OpenSim.Region.Physics.BasicPhysicsPlugin
 
         public override ContactData ContactData
         {
-            get { return new ContactData(0, 0, 1); }
+            get { return new ContactData(0, 0); }
         }
 
         public override bool SetAlwaysRun

@@ -97,7 +97,9 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// <summary></summary>
         Plastic = 5,
         /// <summary></summary>
-        Rubber = 6
+        Rubber = 6,
+
+        light = 7 // compatibility with old viewers
     }
 
     public enum changes : int
@@ -153,7 +155,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private Random fluidRandomizer = new Random(Environment.TickCount);
 
         const d.ContactFlags comumContactFlags = d.ContactFlags.SoftERP | d.ContactFlags.SoftCFM |d.ContactFlags.Approx1 | d.ContactFlags.Bounce;
-        const float comumContactERP = 0.5f;
+        const float comumContactERP = 0.6f;
         const float comumContactCFM = 0.0001f;
         
         float frictionScale = 5.0f;
@@ -164,7 +166,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         float TerrainFriction = 0.3f;
 
         public float AvatarBounce = 0.3f;
-        public float AvatarFriction = 0.9f * 0.025f;
+        public float AvatarFriction = 0;// 0.9f * 0.5f;
 
         private const uint m_regionWidth = Constants.RegionSize;
         private const uint m_regionHeight = Constants.RegionSize;
@@ -186,11 +188,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public float avPIDD = 3200f; // make it visible
         public float avPIDP = 1400f; // make it visible
         private float avCapRadius = 0.37f;
-        private float avStandupTensor = 2000000f;
-        private bool avCapsuleTilted = true; // true = old compatibility mode with leaning capsule; false = new corrected mode
-        public bool IsAvCapsuleTilted { get { return avCapsuleTilted; } set { avCapsuleTilted = value; } }
-        private float avDensity = 80f;
-        private float avHeightFudgeFactor = 0.52f;
+        private float avDensity = 3f;
         private float avMovementDivisorWalk = 1.3f;
         private float avMovementDivisorRun = 0.8f;
         private float minimumGroundFlightOffset = 3f;
@@ -257,7 +255,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private readonly IntPtr contactgroup;
 
-        public ContactData[] m_materialContactsData = new ContactData[7];
+        public ContactData[] m_materialContactsData = new ContactData[8];
 
         private readonly List<PhysicsJoint> requestedJointsToBeCreated = new List<PhysicsJoint>(); // lock only briefly. accessed by external code (to request new joints) and by OdeScene.Simulate() to move those joints into pending/active
         private readonly List<PhysicsJoint> pendingJoints = new List<PhysicsJoint>(); // can lock for longer. accessed only by OdeScene.
@@ -402,18 +400,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_config = config;
             // Defaults
 
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                avPIDD = 3200.0f;
-                avPIDP = 1400.0f;
-                avStandupTensor = 2000000f;
-            }
-            else
-            {
-                avPIDD = 2200.0f;
-                avPIDP = 900.0f;
-                avStandupTensor = 550000f;
-            }
+            avPIDD = 2200.0f;
+            avPIDP = 900.0f;
 
             int contactsPerCollision = 80;
 
@@ -433,12 +421,10 @@ namespace OpenSim.Region.Physics.OdePlugin
                     ODE_STEPSIZE = physicsconfig.GetFloat("world_stepsize", 0.020f);
                     m_physicsiterations = physicsconfig.GetInt("world_internal_steps_without_collisions", 10);
 
-                    avDensity = physicsconfig.GetFloat("av_density", 80f);
-                    avHeightFudgeFactor = physicsconfig.GetFloat("av_height_fudge_factor", 0.52f);
+                    avDensity = physicsconfig.GetFloat("av_density", avDensity);
                     avMovementDivisorWalk = physicsconfig.GetFloat("av_movement_divisor_walk", 1.3f);
                     avMovementDivisorRun = physicsconfig.GetFloat("av_movement_divisor_run", 0.8f);
                     avCapRadius = physicsconfig.GetFloat("av_capsule_radius", 0.37f);
-                    avCapsuleTilted = physicsconfig.GetBoolean("av_capsule_tilted", false);
 
                     contactsPerCollision = physicsconfig.GetInt("contacts_per_collision", 80);
 
@@ -462,14 +448,12 @@ namespace OpenSim.Region.Physics.OdePlugin
                     {
                         avPIDD = physicsconfig.GetFloat("av_pid_derivative_linux", 2200.0f);
                         avPIDP = physicsconfig.GetFloat("av_pid_proportional_linux", 900.0f);
-                        avStandupTensor = physicsconfig.GetFloat("av_capsule_standup_tensor_linux", 550000f);
                         bodyMotorJointMaxforceTensor = physicsconfig.GetFloat("body_motor_joint_maxforce_tensor_linux", 5f);
                     }
                     else
                     {
                         avPIDD = physicsconfig.GetFloat("av_pid_derivative_win", 2200.0f);
                         avPIDP = physicsconfig.GetFloat("av_pid_proportional_win", 900.0f);
-                        avStandupTensor = physicsconfig.GetFloat("av_capsule_standup_tensor_win", 550000f);
                         bodyMotorJointMaxforceTensor = physicsconfig.GetFloat("body_motor_joint_maxforce_tensor_win", 5f);
                     }
 
@@ -485,8 +469,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             ContactgeomsArray = Marshal.AllocHGlobal(contactsPerCollision * d.ContactGeom.unmanagedSizeOf);
             GlobalContactsArray = GlobalContactsArray = Marshal.AllocHGlobal(maxContactsbeforedeath * d.Contact.unmanagedSizeOf);
-
-            frictionScale *= ODE_STEPSIZE;
 
             m_materialContactsData[(int)Material.Stone].mu = frictionScale * 0.8f;
             m_materialContactsData[(int)Material.Stone].bounce = 0.4f;
@@ -507,10 +489,14 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_materialContactsData[(int)Material.Plastic].bounce = 0.7f;
 
             m_materialContactsData[(int)Material.Rubber].mu = frictionScale * 0.9f;
-            m_materialContactsData[(int)Material.Rubber].bounce = 0.9f;
+            m_materialContactsData[(int)Material.Rubber].bounce = 0.95f;
+
+            m_materialContactsData[(int)Material.light].mu = 0.0f;
+            m_materialContactsData[(int)Material.light].bounce = 0.0f;
 
             TerrainFriction *= frictionScale;
-            AvatarFriction *= frictionScale;
+//            AvatarFriction *= frictionScale;
+
             // Set the gravity,, don't disable things automatically (we set it explicitly on some things)
 
             d.WorldSetGravity(world, gravityx, gravityy, gravityz);
@@ -727,7 +713,6 @@ namespace OpenSim.Region.Physics.OdePlugin
             ContactPoint maxDepthContact = new ContactPoint();
             d.ContactGeom curContact = new d.ContactGeom();
 
-            float mass;
             float mu;
             float bounce;
             ContactData contactdata1;
@@ -761,7 +746,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (p1 is OdeCharacter && p2.PhysicsActorType == (int)ActorTypes.Prim)
                     {
                         // Testing if the collision is at the feet of the avatar
-                        if ((p1.Position.Z - curContact.pos.Z) > (p1.Size.Z * 0.6f))
+                        if ((p1.Position.Z - curContact.pos.Z) > (p1.Size.Z - avCapRadius) * 0.5f)
                             p1.IsColliding = true;
                     }
                 else
@@ -789,7 +774,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (p2 is OdeCharacter && p1.PhysicsActorType == (int)ActorTypes.Prim)
                     {
                         // Testing if the collision is at the feet of the avatar
-                        if ((p2.Position.Z - curContact.pos.Z) > (p2.Size.Z * 0.6f))
+                        if ((p2.Position.Z - curContact.pos.Z) > (p2.Size.Z - avCapRadius) * 0.5f)
                             p2.IsColliding = true;
                     }
                 else
@@ -877,10 +862,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                             mu = (float)Math.Sqrt(contactdata2.mu * TerrainFriction);
 
-                            if (Math.Abs(p2.Velocity.X) > 0.01f || Math.Abs(p2.Velocity.Y) > 0.01f)
-                                mu *= contactdata2.mass * frictionMovementMult;
-                            else
-                                mu *= contactdata2.mass;
+                            if (Math.Abs(p2.Velocity.X) > 0.1f || Math.Abs(p2.Velocity.Y) > 0.1f)
+                                mu *= frictionMovementMult;
 
                             Joint = CreateContacJoint(ref curContact, mu, bounce);
                         }
@@ -924,10 +907,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                             mu = (float)Math.Sqrt(contactdata1.mu * TerrainFriction);
 
-                            if (Math.Abs(p1.Velocity.X) > 0.01f || Math.Abs(p1.Velocity.Y) > 0.01f)
-                                mu *= contactdata1.mass * frictionMovementMult;
-                            else
-                                mu *= contactdata1.mass;
+                            if (Math.Abs(p1.Velocity.X) > 0.1f || Math.Abs(p1.Velocity.Y) > 0.1f)
+                                mu *= frictionMovementMult;
 
                             Joint = CreateContacJoint(ref curContact, mu, bounce);
                         }
@@ -950,28 +931,18 @@ namespace OpenSim.Region.Physics.OdePlugin
                     else
                     {
                         // we're colliding with prim or avatar
-                        // check if we're moving
                         if (p1 != null && p2 != null)
                         {
                             contactdata1 = p1.ContactData;
                             contactdata2 = p2.ContactData;
 
-                            if (contactdata2.mass > contactdata1.mass)
-                                mass = contactdata1.mass;
-                            else
-                                mass = contactdata2.mass;
-
                             bounce = contactdata1.bounce * contactdata2.bounce;
+                            
                             mu = (float)Math.Sqrt(contactdata1.mu * contactdata2.mu);
 
                             if ((Math.Abs(p2.Velocity.X - p1.Velocity.X) > 0.1f || Math.Abs(p2.Velocity.Y - p1.Velocity.Y) > 0.1f))
-                            {
-                                mu *= mass * frictionMovementMult;
-                            }
-                            else
-                            {
-                                mu *= mass;
-                            }
+                                mu *= frictionMovementMult;
+                            
                             Joint = CreateContacJoint(ref curContact, mu, bounce);
                         }
                     }
@@ -1343,7 +1314,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             pos.X = position.X;
             pos.Y = position.Y;
             pos.Z = position.Z;
-            OdeCharacter newAv = new OdeCharacter(avName, this, pos, size, avPIDD, avPIDP, avCapRadius, avStandupTensor, avDensity, avHeightFudgeFactor, avMovementDivisorWalk, avMovementDivisorRun);
+            OdeCharacter newAv = new OdeCharacter(avName, this, pos, size, avPIDD, avPIDP, avCapRadius, avDensity, avMovementDivisorWalk, avMovementDivisorRun);
             newAv.Flying = isFlying;
             newAv.MinimumGroundFlightOffset = minimumGroundFlightOffset;
             
