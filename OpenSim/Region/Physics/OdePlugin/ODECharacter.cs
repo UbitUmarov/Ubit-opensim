@@ -184,7 +184,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             walkDivisor = walk_divisor;
             runDivisor = rundivisor;
 
-            CAPSULE_LENGTH = size.Z - CAPSULE_RADIUS * 2.0f;
+            CAPSULE_LENGTH = size.Z * 1.15f - CAPSULE_RADIUS * 2.0f;
             //m_log.Info("[SIZE]: " + CAPSULE_LENGTH.ToString());
             m_tainted_CAPSULE_LENGTH = CAPSULE_LENGTH;
 
@@ -434,7 +434,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             get {
                 float d = CAPSULE_RADIUS * 2;
-                return new Vector3(d, d, CAPSULE_LENGTH +d); }
+                return new Vector3(d, d, (CAPSULE_LENGTH +d)/1.15f); }
             set
             {
                 if (value.IsFinite())
@@ -442,7 +442,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     m_pidControllerActive = true;
 
                     Vector3 SetSize = value;
-                    m_tainted_CAPSULE_LENGTH = SetSize.Z - CAPSULE_RADIUS * 2.0f;
+                    m_tainted_CAPSULE_LENGTH = SetSize.Z *1.15f - CAPSULE_RADIUS * 2.0f;
                     _parent_scene.AddPhysicsActorTaint(this);
                 }
                 else
@@ -907,7 +907,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 */
 
 
-                if (depth < 0.2f)
+                if (depth < 0.1f)
                 {
                     m_iscolliding = true;
                     m_colliderfilter = 2;
