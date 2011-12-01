@@ -91,6 +91,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// issue #1716
         /// </summary>
         public static readonly Vector3 SIT_TARGET_ADJUSTMENT = new Vector3(0.0f, 0.0f, 0.35f);
+        public static readonly Vector3 OLD_SIT_TARGET_ADJUSTMENT = new Vector3(0.1f, 0.0f, 0.3f);
 
         /// <summary>
         /// Movement updates for agents in neighboring regions are sent directly to clients.
@@ -2410,7 +2411,11 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (part.SitTargetAvatar == UUID)
                 {
-                    m_pos = m_requestedSitOffset + SIT_TARGET_ADJUSTMENT;
+                    if (part.CreationDate > 1320537600) // 06/11/2011 0:0:0
+                        m_pos = m_requestedSitOffset + SIT_TARGET_ADJUSTMENT;
+                    else
+                        m_pos = m_requestedSitOffset + OLD_SIT_TARGET_ADJUSTMENT;
+
                     Rotation = m_requestedSitOrientation;
                     ParentPosition = part.AbsolutePosition;
                 }
