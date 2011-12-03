@@ -2340,7 +2340,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             viewertime.TimeInfo.SecPerDay = SecondsPerSunCycle;
             viewertime.TimeInfo.SecPerYear = SecondsPerYear;
             viewertime.TimeInfo.SunPhase = OrbitalPosition;
-            viewertime.Header.Reliable = false;
+//            viewertime.Header.Reliable = false;
             viewertime.Header.Zerocoded = true;
             OutPacket(viewertime, ThrottleOutPacketType.Task);
         }
@@ -2400,7 +2400,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         public void SendViewerEffect(ViewerEffectPacket.EffectBlock[] effectBlocks)
         {
             ViewerEffectPacket packet = (ViewerEffectPacket)PacketPool.Instance.GetPacket(PacketType.ViewerEffect);
-            packet.Header.Reliable = false;
+//            packet.Header.Reliable = false;
             packet.Header.Zerocoded = true;
 
             packet.AgentData.AgentID = AgentId;
@@ -3513,7 +3513,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 else
                     ani.AnimationSourceList[i].ObjectID = objectIDs[i];
             }
-            ani.Header.Reliable = false;
+//            ani.Header.Reliable = false;
             OutPacket(ani, ThrottleOutPacketType.Task);
         }
 
@@ -3550,7 +3550,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             if (!IsActive) return; // We don't need to update inactive clients.
 
             CoarseLocationUpdatePacket loc = (CoarseLocationUpdatePacket)PacketPool.Instance.GetPacket(PacketType.CoarseLocationUpdate);
-            loc.Header.Reliable = false;
+//            loc.Header.Reliable = false;
 
             // Each packet can only hold around 60 avatar positions and the client clears the mini-map each time
             // a CoarseLocationUpdate packet is received. Oh well.
@@ -4028,7 +4028,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             ushort numParts, UUID ImageUUID, uint ImageSize, byte[] ImageData, byte imageCodec)
         {
             ImageDataPacket im = new ImageDataPacket();
-            im.Header.Reliable = false;
+//            im.Header.Reliable = false;
             im.ImageID.Packets = numParts;
             im.ImageID.ID = ImageUUID;
 
@@ -4044,7 +4044,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         public void SendImageNextPart(ushort partNumber, UUID imageUuid, byte[] imageData)
         {
             ImagePacketPacket im = new ImagePacketPacket();
-            im.Header.Reliable = false;
+//            im.Header.Reliable = false;
             im.ImageID.Packet = partNumber;
             im.ImageID.ID = imageUuid;
             im.ImageData.Data = imageData;
@@ -4425,7 +4425,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 returnblock[j].Parameter = banned.GetBytes(); j++;
             }
             packet.ParamList = returnblock;
-            packet.Header.Reliable = false;
+//            packet.Header.Reliable = false;
             OutPacket(packet, ThrottleOutPacketType.Task);
         }
 
@@ -4515,7 +4515,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             returnblock[9].Parameter = Utils.StringToBytes(abuseEmail);
 
             packet.ParamList = returnblock;
-            packet.Header.Reliable = false;
+//            packet.Header.Reliable = false;
             //m_log.Debug("[ESTATE]: SIM--->" + packet.ToString());
             OutPacket(packet, ThrottleOutPacketType.Task);
         }
