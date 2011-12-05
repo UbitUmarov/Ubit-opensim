@@ -1011,7 +1011,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
-        private void setMesh(OdeScene parent_scene, IMesh mesh)
+        private bool setMesh(OdeScene parent_scene, IMesh mesh)
         {
             if (Body != IntPtr.Zero)
             {
@@ -1036,6 +1036,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             mesh.getVertexListAsPtrToFloatArray(out vertices, out vertexStride, out vertexCount); // Note, that vertices are fixed in unmanaged heap
             mesh.getIndexListAsPtrToIntArray(out indices, out triStride, out indexCount); // Also fixed, needs release after usage
 
+            if (vertexCount == 0 || indexCount == 0)
+                return false;
+
             primOOBoffset = mesh.GetCentroid();
             hasOOBoffsetFromMesh = true;
 
@@ -1055,8 +1058,9 @@ namespace OpenSim.Region.Physics.OdePlugin
             catch (Exception e)
             {
                 m_log.ErrorFormat("[PHYSICS]: SetGeom Mesh failed for {0} exception: {1}", Name, e);
-                return;
+                return false;
             }
+            return true;
         }
 
         private void SetGeom(IntPtr geom)
@@ -1101,13 +1105,15 @@ namespace OpenSim.Region.Physics.OdePlugin
                 _triMeshData = IntPtr.Zero;
             }
 
+            bool haveMesh = false;
             hasOOBoffsetFromMesh = false;
 
             if (mesh != null)
             {
-                setMesh(_parent_scene, mesh); // this will give a mesh to non trivial known prims
+                haveMesh = setMesh(_parent_scene, mesh); // this will give a mesh to non trivial known prims
             }
-            else
+
+            if(!haveMesh)
             {
                 if (_pbs.ProfileShape == ProfileShape.HalfCircle && _pbs.PathCurve == (byte)Extrusion.Curve1
                     && _size.X == _size.Y && _size.Y == _size.Z)
