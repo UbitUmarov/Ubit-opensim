@@ -2908,7 +2908,7 @@ namespace OpenSim.Region.Framework.Scenes
             int[] fix = new int[2];
 
 //            float timeStep = 0.1f;
-            float timeStep = m_scene.SimulationFrameTime;
+            float timeStep = m_scene.SimulationFrameTime * 0.001f;
 
             pos2.X = pos2.X + (vel.X*timeStep);
             pos2.Y = pos2.Y + (vel.Y*timeStep);
@@ -3031,7 +3031,7 @@ namespace OpenSim.Region.Framework.Scenes
                 
                 // This constant has been inferred from experimentation
                 // I'm not sure what this value should be, so I tried a few values.
-                timeStep = 0.04f;
+                timeStep *= 0.25f;
                 pos2 = AbsolutePosition;
                 pos2.X = pos2.X + (vel.X * timeStep);
                 pos2.Y = pos2.Y + (vel.Y * timeStep);
