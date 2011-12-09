@@ -1062,17 +1062,20 @@ namespace OpenSim.Region.Framework.Scenes
             set { m_acceleration = value; }
         }
 
+        string m_description = string.Empty;
         public string Description
         {
             get { return m_description; }
             set
             {
                 m_description = value;
+/*
                 PhysicsActor actor = PhysActor;
                 if (actor != null)
                 {
                     actor.SOPDescription = value;
                 }
+ */
             }
         }
 // core changed abovo to just public string Description { get; set; }
@@ -1874,7 +1877,6 @@ namespace OpenSim.Region.Framework.Scenes
                     {
 //                        CheckSculptAndLoad();
                         PhysActor.SOPName = this.Name; // save object name and desc into the PhysActor so ODE internals know the joint/body info
-                        PhysActor.SOPDescription = this.Description;
                         PhysActor.SetMaterial(Material);
                         if(VolumeDetectActive)
                             PhysActor.SetVolumeDetect(1);

@@ -2551,8 +2551,8 @@ namespace OpenSim.Region.Framework.Scenes
             AgentCircuitData aCircuit = m_authenticateHandler.GetAgentCircuitData(client.CircuitCode);
             bool vialogin = false;
 
-            if (aCircuit == null) // no good, didn't pass NewUserConnection successfully
-                return;
+//            if (aCircuit == null) // no good, didn't pass NewUserConnection successfully
+//                return;
 
             vialogin = (aCircuit.teleportFlags & (uint)Constants.TeleportFlags.ViaHGLogin) != 0 || 
                        (aCircuit.teleportFlags & (uint)Constants.TeleportFlags.ViaLogin) != 0;
