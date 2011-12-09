@@ -234,6 +234,15 @@ namespace OpenSim.Region.Framework.Scenes
 
         #region Properties
 
+        public float SimulationFrameTime
+        {
+            get
+            {
+                return m_simframetime;
+            }
+        }
+
+
         /* Used by the loadbalancer plugin on GForge */
         public int SplitRegionID
         {

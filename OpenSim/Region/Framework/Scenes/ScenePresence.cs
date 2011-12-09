@@ -2907,7 +2907,9 @@ namespace OpenSim.Region.Framework.Scenes
             int neighbor = 0;
             int[] fix = new int[2];
 
-            float timeStep = 0.1f;
+//            float timeStep = 0.1f;
+            float timeStep = m_scene.SimulationFrameTime;
+
             pos2.X = pos2.X + (vel.X*timeStep);
             pos2.Y = pos2.Y + (vel.Y*timeStep);
             pos2.Z = pos2.Z + (vel.Z*timeStep);
