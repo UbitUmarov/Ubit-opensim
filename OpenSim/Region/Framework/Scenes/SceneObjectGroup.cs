@@ -1753,8 +1753,8 @@ namespace OpenSim.Region.Framework.Scenes
                     newPart.DoPhysicsPropertyUpdate(part.PhysActor.IsPhysical, true);
                 }
             }
-            if (m_rootPart.PhysActor != null && userExposed)
-                m_rootPart.PhysActor.Building = false; // tell physics to finish building
+            if (dupe.m_rootPart.PhysActor != null && userExposed)
+                dupe.m_rootPart.PhysActor.Building = false; // tell physics to finish building
 
             if (userExposed)
             {
