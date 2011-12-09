@@ -2440,12 +2440,22 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void HandleStartAnim(IClientAPI remoteClient, UUID animID)
         {
-            Animator.AddAnimation(animID, UUID.Zero);
+            Animator.AddAnimation(animID, UUID.Zero,true);
+        }
+
+        public void HandleStartAnim(IClientAPI remoteClient, UUID animID, bool sendPack)
+        {
+            Animator.AddAnimation(animID, UUID.Zero,sendPack);
         }
 
         public void HandleStopAnim(IClientAPI remoteClient, UUID animID)
         {
-            Animator.RemoveAnimation(animID);
+            Animator.RemoveAnimation(animID,true);
+        }
+
+        public void HandleStopAnim(IClientAPI remoteClient, UUID animID, bool SendPack)
+        {
+            Animator.RemoveAnimation(animID, SendPack);
         }
 
         /// <summary>

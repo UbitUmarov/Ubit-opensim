@@ -66,9 +66,9 @@ namespace OpenSim.Framework
 
     public delegate void SetAppearance(IClientAPI remoteClient, Primitive.TextureEntry textureEntry, byte[] visualParams);
 
-    public delegate void StartAnim(IClientAPI remoteClient, UUID animID);
+    public delegate void StartAnim(IClientAPI remoteClient, UUID animID, bool SendPack);
 
-    public delegate void StopAnim(IClientAPI remoteClient, UUID animID);
+    public delegate void StopAnim(IClientAPI remoteClient, UUID animID, bool SendPack);
 
     public delegate void LinkObjects(IClientAPI remoteClient, uint parent, List<uint> children);
 

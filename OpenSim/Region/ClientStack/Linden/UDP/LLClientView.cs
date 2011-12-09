@@ -6286,28 +6286,48 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             }
             #endregion
 
-            StartAnim handlerStartAnim = null;
-            StopAnim handlerStopAnim = null;
+            StartAnim handlerStartAnim = OnStartAnim;
+            StopAnim handlerStopAnim = OnStopAnim;
+            int i;
 
-            for (int i = 0; i < AgentAni.AnimationList.Length; i++)
+            for (i = 0; i < AgentAni.AnimationList.Length -1; i++)
             {
                 if (AgentAni.AnimationList[i].StartAnim)
                 {
-                    handlerStartAnim = OnStartAnim;
+                    //                    handlerStartAnim = OnStartAnim;
                     if (handlerStartAnim != null)
                     {
-                        handlerStartAnim(this, AgentAni.AnimationList[i].AnimID);
+                        handlerStartAnim(this, AgentAni.AnimationList[i].AnimID, false);
                     }
                 }
                 else
                 {
-                    handlerStopAnim = OnStopAnim;
+                    //                    handlerStopAnim = OnStopAnim;
                     if (handlerStopAnim != null)
                     {
-                        handlerStopAnim(this, AgentAni.AnimationList[i].AnimID);
+                        handlerStopAnim(this, AgentAni.AnimationList[i].AnimID, false);
                     }
                 }
             }
+
+            if (AgentAni.AnimationList[i].StartAnim)
+            {
+                //                    handlerStartAnim = OnStartAnim;
+                if (handlerStartAnim != null)
+                {
+                    handlerStartAnim(this, AgentAni.AnimationList[i].AnimID, true);
+                }
+            }
+            else
+            {
+                //                    handlerStopAnim = OnStopAnim;
+                if (handlerStopAnim != null)
+                {
+                    handlerStopAnim(this, AgentAni.AnimationList[i].AnimID, true);
+                }
+            }
+
+
             return true;
         }
 

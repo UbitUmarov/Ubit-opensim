@@ -78,15 +78,20 @@ namespace OpenSim.Region.Framework.Scenes.Animation
             m_scenePresence = sp;
             CurrentMovementAnimation = "CROUCH";
         }
-        
+
         public void AddAnimation(UUID animID, UUID objectID)
+        {
+            AddAnimation(animID, objectID, true);
+        }
+
+        public void AddAnimation(UUID animID, UUID objectID, bool SendPack)
         {
             if (m_scenePresence.IsChildAgent)
                 return;
 
 //            m_log.DebugFormat("[SCENE PRESENCE ANIMATOR]: Adding animation {0} for {1}", animID, m_scenePresence.Name);
 
-            if (m_animations.Add(animID, m_scenePresence.ControllingClient.NextAnimationSequenceNumber, objectID))
+            if (SendPack && m_animations.Add(animID, m_scenePresence.ControllingClient.NextAnimationSequenceNumber, objectID))
                 SendAnimPack();
         }
 
@@ -102,16 +107,21 @@ namespace OpenSim.Region.Framework.Scenes.Animation
 
 //            m_log.DebugFormat("[SCENE PRESENCE ANIMATOR]: Adding animation {0} {1} for {2}", animID, name, m_scenePresence.Name);
 
-            AddAnimation(animID, objectID);
+            AddAnimation(animID, objectID,true);
         }
 
-        public void RemoveAnimation(UUID animID)
+        public void RemoveAnimation(UUID animID, bool SendPack)
         {
             if (m_scenePresence.IsChildAgent)
                 return;
 
-            if (m_animations.Remove(animID))
+            if (SendPack && m_animations.Remove(animID))
                 SendAnimPack();
+        }
+
+        public void RemoveAnimation(UUID animID)
+        {
+            RemoveAnimation(animID, true);
         }
 
         // Called from scripts
@@ -124,7 +134,7 @@ namespace OpenSim.Region.Framework.Scenes.Animation
             if (animID == UUID.Zero)
                 return;
 
-            RemoveAnimation(animID);
+            RemoveAnimation(animID,true);
         }
 
         public void ResetAnimations()
@@ -471,7 +481,7 @@ namespace OpenSim.Region.Framework.Scenes.Animation
             //BinBVHAnimation bbvhanim = new BinBVHAnimation(Animasset.Data);
 
             m_scenePresence.Scene.AssetService.Store(Animasset);
-            AddAnimation(Animasset.FullID, m_scenePresence.UUID);
+            AddAnimation(Animasset.FullID, m_scenePresence.UUID,true);
             return anim;
         }
 
