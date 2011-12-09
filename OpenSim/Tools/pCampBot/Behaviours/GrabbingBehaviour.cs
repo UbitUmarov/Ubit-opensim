@@ -39,18 +39,20 @@ namespace pCampBot
     /// <remarks>
     /// The viewer itself does not give the option of grabbing objects that haven't been signalled as grabbable.
     /// </remarks>
-    public class GrabbingBehaviour : IBehaviour
+    public class GrabbingBehaviour : AbstractBehaviour
     {
-        public void Action(Bot bot)
-        {
-            Dictionary<UUID, Primitive> objects = bot.Objects;
+        public GrabbingBehaviour() { Name = "Grabbing"; }
 
-            Primitive prim = objects.ElementAt(bot.Random.Next(0, objects.Count)).Value;
+        public override void Action()
+        {
+            Dictionary<UUID, Primitive> objects = Bot.Objects;
+
+            Primitive prim = objects.ElementAt(Bot.Random.Next(0, objects.Count)).Value;
 
             // This appears to be a typical message sent when a viewer user clicks a clickable object
-            bot.Client.Self.Grab(prim.LocalID);
-            bot.Client.Self.GrabUpdate(prim.ID, Vector3.Zero);
-            bot.Client.Self.DeGrab(prim.LocalID);
+            Bot.Client.Self.Grab(prim.LocalID);
+            Bot.Client.Self.GrabUpdate(prim.ID, Vector3.Zero);
+            Bot.Client.Self.DeGrab(prim.LocalID);
         }
     }
 }

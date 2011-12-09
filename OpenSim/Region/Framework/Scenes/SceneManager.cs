@@ -448,29 +448,25 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        /// Set the debug packet level on the current scene.  This level governs which packets are printed out to the
+        /// Set the debug packet level on each current scene.  This level governs which packets are printed out to the
         /// console.
         /// </summary>
         /// <param name="newDebug"></param>
         /// <param name="name">Name of avatar to debug</param>
         public void SetDebugPacketLevelOnCurrentScene(int newDebug, string name)
         {
-            ForEachCurrentScene(
-                delegate(Scene scene)
+            ForEachCurrentScene(scene =>
+                scene.ForEachScenePresence(sp =>
                 {
-                    scene.ForEachRootClient(delegate(IClientAPI client)
+                    if (name == null || sp.Name == name)
                     {
-                        if (name == null || client.Name == name)
-                        {
-                            m_log.DebugFormat("Packet debug for {0} {1} set to {2}",
-                                              client.FirstName,
-                                              client.LastName,
-                                              newDebug);
+                        m_log.DebugFormat(
+                            "Packet debug for {0} ({1}) set to {2}",
+                            sp.Name, sp.IsChildAgent ? "child" : "root", newDebug);
 
-                            client.DebugPacketLevel = newDebug;
-                        }
-                    });
-                }
+                        sp.ControllingClient.DebugPacketLevel = newDebug;
+                    }
+                })
             );
         }
 
@@ -549,23 +545,20 @@ namespace OpenSim.Region.Framework.Scenes
             return false;
         }
 
-        public bool TryGetAvatarsScene(UUID avatarId, out Scene scene)
+        public bool TryGetRootScenePresence(UUID avatarId, out ScenePresence avatar)
         {
-            ScenePresence avatar = null;
-
             lock (m_localScenes)
             {
-                foreach (Scene mScene in m_localScenes)
+                foreach (Scene scene in m_localScenes)
                 {
-                    if (mScene.TryGetScenePresence(avatarId, out avatar))
-                    {
-                        scene = mScene;
+                    avatar = scene.GetScenePresence(avatarId);
+
+                    if (avatar != null && !avatar.IsChildAgent)
                         return true;
-                    }
                 }
             }
 
-            scene = null;
+            avatar = null;
             return false;
         }
 
@@ -591,6 +584,22 @@ namespace OpenSim.Region.Framework.Scenes
             }
 
             avatar = null;
+            return false;
+        }
+
+        public bool TryGetRootScenePresenceByName(string firstName, string lastName, out ScenePresence sp)
+        {
+            lock (m_localScenes)
+            {
+                foreach (Scene scene in m_localScenes)
+                {
+                    sp = scene.GetScenePresence(firstName, lastName);
+                    if (sp != null && !sp.IsChildAgent)
+                        return true;
+                }
+            }
+
+            sp = null;
             return false;
         }
 

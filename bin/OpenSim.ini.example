@@ -231,13 +231,6 @@
     ;; server to send mail through.
     ; emailmodule = DefaultEmailModule
 
-    ;# {DeleteScriptsOnStartup} {} {Delete previously compiled script DLLs on startup?} (true false) true
-    ;; Controls whether previously compiled scripts DLLs are deleted on sim restart. If you set this to false
-    ;; then startup will be considerably faster since scripts won't need to be recompiled. However, then it becomes your responsibility to delete the
-    ;; compiled scripts if you're recompiling OpenSim from source code and internal interfaces used
-    ;; by scripts have changed.
-    ; DeleteScriptsOnStartup = true
-
 [SMTP]
     ;; The SMTP server enabled the email module to send email to external
     ;; destinations.
@@ -532,19 +525,17 @@
 
 
 [Economy]
-    ;; The economy module is not enabled by default and there is no easy,
-    ;; menu controlled way to do this. To enabled this module, insert
-    ;; economymodule = BetaGridLikeMoneyModule
-    ;; into the startup section (at the top of this file).
-    ;; Then configure the options below as needed.
+    ; The default economy module only implements just enough to allow free actions (transfer of objects, etc).
+    ; There is no intention to implement anything further in core OpenSimulator.
+    ; This functionality has to be provided by third party modules.
 
-    ;; Enables selling things for $0
-    ; SellEnabled = "false"
+    ;; Enables selling things for $0.  Default is true.
+    ; SellEnabled = true
 
-    ;; Money Unit fee to upload textures, animations etc
+    ;; Money Unit fee to upload textures, animations etc.  Default is 0.
     ; PriceUpload = 0
 
-    ;; Money Unit fee to create groups
+    ;; Money Unit fee to create groups.  Default is 0.
     ; PriceGroupCreate = 0
 
 
@@ -572,6 +563,13 @@
 
     ;; Stack size per thread created
     ; ThreadStackSize = 262144
+
+    ;# {DeleteScriptsOnStartup} {} {Delete previously compiled script DLLs on startup?} (true false) true
+    ;; Controls whether previously compiled scripts DLLs are deleted on sim restart. If you set this to false
+    ;; then startup will be considerably faster since scripts won't need to be recompiled. However, then it becomes your responsibility to delete the
+    ;; compiled scripts if you're recompiling OpenSim from source code and internal interfaces used
+    ;; by scripts have changed.
+    ; DeleteScriptsOnStartup = true
 
     ;; Set this to true (the default) to load each script into a separate
     ;; AppDomain. Setting this to false will load all script assemblies into the

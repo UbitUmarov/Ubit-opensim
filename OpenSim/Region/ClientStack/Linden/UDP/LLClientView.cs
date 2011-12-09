@@ -379,6 +379,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             set { m_startpos = value; }
         }
         public UUID AgentId { get { return m_agentId; } }
+        public ISceneAgent SceneAgent { get; private set; }
         public UUID ActiveGroupId { get { return m_activeGroupID; } }
         public string ActiveGroupName { get { return m_activeGroupName; } }
         public ulong ActiveGroupPowers { get { return m_activeGroupPowers; } }
@@ -508,6 +509,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             // Remove ourselves from the scene
             m_scene.RemoveClient(AgentId, true);
+            SceneAgent = null;
 
             // We can't reach into other scenes and close the connection
             // We need to do this over grid communications
@@ -687,7 +689,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
         public virtual void Start()
         {
-            m_scene.AddNewClient(this, PresenceType.User);
+            SceneAgent = m_scene.AddNewClient(this, PresenceType.User);
 
             RefreshGroupMembership();
         }
@@ -11133,6 +11135,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     Utils.BytesToString(avatarInterestUpdate.PropertiesData.LanguagesText));
             return true;
         }
+
         private bool HandleGrantUserRights(IClientAPI sender, Packet Pack)
         {
             GrantUserRightsPacket GrantUserRights =
@@ -11153,6 +11156,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     GrantUserRights.Rights[0].RelatedRights);
             return true;
         }
+
         private bool HandlePlacesQuery(IClientAPI sender, Packet Pack)
         {
             PlacesQueryPacket placesQueryPacket =
@@ -11664,7 +11668,9 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     logPacket = false;
 
                 if (logPacket)
-                    m_log.DebugFormat("[CLIENT]: Packet OUT {0} to {1}", packet.Type, Name);
+                    m_log.DebugFormat(
+                        "[CLIENT]: PACKET OUT to   {0} ({1}) in {2} - {3}",
+                        Name, ChildAgentStatus() ? "child" : "root ", m_scene.RegionInfo.RegionName, packet.Type);
             }
             
             m_udpServer.SendPacket(m_udpClient, packet, throttlePacketType, doAutomaticSplitting, method);
@@ -11707,19 +11713,21 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         {
             if (DebugPacketLevel > 0)
             {
-                bool outputPacket = true;
+                bool logPacket = true;
 
                 if (DebugPacketLevel <= 255 && packet.Type == PacketType.AgentUpdate)
-                    outputPacket = false;
+                    logPacket = false;
 
                 if (DebugPacketLevel <= 200 && packet.Type == PacketType.RequestImage)
-                    outputPacket = false;
+                    logPacket = false;
 
                 if (DebugPacketLevel <= 100 && (packet.Type == PacketType.ViewerEffect || packet.Type == PacketType.AgentAnimation))
-                    outputPacket = false;
+                    logPacket = false;
 
-                if (outputPacket)
-                    m_log.DebugFormat("[CLIENT]: Packet IN {0} from {1}", packet.Type, Name);
+                if (logPacket)
+                    m_log.DebugFormat(
+                        "[CLIENT]: PACKET IN  from {0} ({1}) in {2} - {3}",
+                        Name, ChildAgentStatus() ? "child" : "root ", m_scene.RegionInfo.RegionName, packet.Type);
             }
 
             if (!ProcessPacketMethod(packet))

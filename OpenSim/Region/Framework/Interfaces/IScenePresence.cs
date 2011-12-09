@@ -38,28 +38,8 @@ namespace OpenSim.Region.Framework.Interfaces
     /// <remarks>
     /// Interface is a work in progress.  Please feel free to add other required properties and methods.
     /// </remarks>
-    public interface IScenePresence : ISceneEntity
+    public interface IScenePresence : ISceneAgent
     {
-        /// <value>
-        /// The client controlling this presence
-        /// </value>
-        IClientAPI ControllingClient { get; }
-
-        /// <summary>
-        /// What type of presence is this?  User, NPC, etc.
-        /// </summary>
-        PresenceType PresenceType { get; }
-
-        /// <summary>
-        /// Avatar appearance data.
-        /// </summary>
-        /// <remarks>
-        // Because appearance setting is in a module, we actually need
-        // to give it access to our appearance directly, otherwise we
-        // get a synchronization issue.
-        /// </remarks>
-        AvatarAppearance Appearance { get; set; }
-
         /// <summary>
         /// The AttachmentsModule synchronizes on this to avoid race conditions between commands to add and remove attachments.
         /// </summary>

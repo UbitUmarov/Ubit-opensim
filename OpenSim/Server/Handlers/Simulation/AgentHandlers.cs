@@ -220,14 +220,13 @@ namespace OpenSim.Server.Handlers.Simulation
             responsedata["int_response_code"] = HttpStatusCode.OK;
             responsedata["str_response_string"] = "OpenSim agent " + id.ToString();
 
-            m_log.Debug("[AGENT HANDLER]: Agent Released/Deleted.");
+            m_log.DebugFormat("[AGENT HANDLER]: Agent {0} Released/Deleted from region {1}", id, regionID);
         }
 
         protected virtual void ReleaseAgent(UUID regionID, UUID id)
         {
             m_SimulationService.ReleaseAgent(regionID, id, "");
         }
-
     }
 
     public class AgentPostHandler : BaseStreamHandler
@@ -250,9 +249,9 @@ namespace OpenSim.Server.Handlers.Simulation
         }
 
         public override byte[] Handle(string path, Stream request,
-                OSHttpRequest httpRequest, OSHttpResponse httpResponse)
+                IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
         {
-            m_log.DebugFormat("[SIMULATION]: Stream handler called");
+//            m_log.DebugFormat("[SIMULATION]: Stream handler called");
 
             Hashtable keysvals = new Hashtable();
             Hashtable headervals = new Hashtable();
@@ -437,9 +436,9 @@ namespace OpenSim.Server.Handlers.Simulation
         }
 
         public override byte[] Handle(string path, Stream request,
-                OSHttpRequest httpRequest, OSHttpResponse httpResponse)
+                IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
         {
-            m_log.DebugFormat("[SIMULATION]: Stream handler called");
+//            m_log.DebugFormat("[SIMULATION]: Stream handler called");
 
             Hashtable keysvals = new Hashtable();
             Hashtable headervals = new Hashtable();

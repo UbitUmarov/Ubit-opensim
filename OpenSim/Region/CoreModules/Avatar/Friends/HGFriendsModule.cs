@@ -30,7 +30,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
-
 using log4net;
 using Nini.Config;
 using Nwc.XmlRpc;
@@ -84,9 +83,11 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
 
         #endregion
 
-        protected override bool FetchFriendslist(IClientAPI client)
+        protected override bool CacheFriends(IClientAPI client)
         {
-            if (base.FetchFriendslist(client))
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Entered CacheFriends for {0}", client.Name);
+
+            if (base.CacheFriends(client))
             {
                 UUID agentID = client.AgentId;
                 // we do this only for the root agent
@@ -110,14 +111,20 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
                             }
                         }
                     }
+
+//                    m_log.DebugFormat("[HGFRIENDS MODULE]: Exiting CacheFriends for {0} since detected root agent", client.Name);
                     return true;
                 }
             }
+
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Exiting CacheFriends for {0} since detected not root agent", client.Name);
             return false;
         }
 
         public override bool SendFriendsOnlineIfNeeded(IClientAPI client)
         {
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Entering SendFriendsOnlineIfNeeded for {0}", client.Name);
+
             if (base.SendFriendsOnlineIfNeeded(client))
             {
                 AgentCircuitData aCircuit = ((Scene)client.Scene).AuthenticateHandler.GetAgentCircuitData(client.AgentId);
@@ -134,14 +141,25 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
                     }
                 }
             }
+
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Exiting SendFriendsOnlineIfNeeded for {0}", client.Name);
             return false;
         }
 
         protected override void GetOnlineFriends(UUID userID, List<string> friendList, /*collector*/ List<UUID> online)
         {
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Entering GetOnlineFriends for {0}", userID);
+
             List<string> fList = new List<string>();
             foreach (string s in friendList)
-                fList.Add(s.Substring(0, 36));
+            {
+                if (s.Length < 36)
+                    m_log.WarnFormat(
+                        "[HGFRIENDS MODULE]: Ignoring friend {0} ({1} chars) for {2} since identifier too short",
+                        s, s.Length, userID);
+                else
+                    fList.Add(s.Substring(0, 36));
+            }
 
             PresenceInfo[] presence = PresenceService.GetAgents(fList.ToArray());
             foreach (PresenceInfo pi in presence)
@@ -150,6 +168,8 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
                 if (UUID.TryParse(pi.UserID, out presenceID))
                     online.Add(presenceID);
             }
+
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Exiting GetOnlineFriends for {0}", userID);
         }
 
         //protected override void GetOnlineFriends(UUID userID, List<string> friendList, /*collector*/ List<UUID> online)
@@ -239,6 +259,8 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
 
         protected override void StatusNotify(List<FriendInfo> friendList, UUID userID, bool online)
         {
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Entering StatusNotify for {0}", userID);
+
             // First, let's divide the friends on a per-domain basis
             Dictionary<string, List<FriendInfo>> friendsPerDomain = new Dictionary<string, List<FriendInfo>>();
             foreach (FriendInfo friend in friendList)
@@ -291,6 +313,8 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
                     }
                 }
             }
+
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Exiting StatusNotify for {0}", userID);
         }
 
         protected override bool GetAgentInfo(UUID scopeID, string fid, out UUID agentID, out string first, out string last)
@@ -344,6 +368,8 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
 
         protected override FriendInfo[] GetFriendsFromService(IClientAPI client)
         {
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Entering GetFriendsFromService for {0}", client.Name);
+
             UserAccount account1 = UserAccountService.GetUserAccount(m_Scenes[0].RegionInfo.ScopeID, client.AgentId);
             if (account1 != null)
                 return base.GetFriendsFromService(client);
@@ -358,6 +384,9 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
                 finfos = FriendsService.GetFriends(agentUUI);
                 m_log.DebugFormat("[HGFRIENDS MODULE]: Fetched {0} local friends for visitor {1}", finfos.Length, agentUUI);
             }
+
+//            m_log.DebugFormat("[HGFRIENDS MODULE]: Exiting GetFriendsFromService for {0}", client.Name);
+
             return finfos;
         }
 
@@ -394,7 +423,6 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
             }
 
             return false;
-
         }
 
         protected override void StoreBackwards(UUID friendID, UUID agentID)

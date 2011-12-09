@@ -26,25 +26,43 @@
  */
 
 using System;
-using OpenSim.Region.Framework.Scenes;
 
-namespace OpenSim.Region.Framework.Interfaces
+namespace OpenSim.Framework
 {
     /// <summary>
-    /// Sends scheduled updates to it's associated ScenePresence.
+    /// An agent in the scene.
     /// </summary>
-    public interface ISceneViewer
+    /// <remarks>
+    /// Interface is a work in progress.  Please feel free to add other required properties and methods.
+    /// </remarks>
+    public interface ISceneAgent : ISceneEntity
     {
-//        void Reset();
-        void Close();
+        /// <value>
+        /// The client controlling this presence
+        /// </value>
+        IClientAPI ControllingClient { get; }
 
         /// <summary>
-        /// Add the part to the queue of parts for which we need to send an update to the client
+        /// What type of presence is this?  User, NPC, etc.
         /// </summary>
-        /// <param name="part"></param>
-        void QueuePartForUpdate(SceneObjectPart part);
+        PresenceType PresenceType { get; }
 
-        void SendPrimUpdates();
-        int GetPendingObjectsCount();
+        /// <summary>
+        /// Avatar appearance data.
+        /// </summary>
+        /// <remarks>
+        // Because appearance setting is in a module, we actually need
+        // to give it access to our appearance directly, otherwise we
+        // get a synchronization issue.
+        /// </remarks>
+        AvatarAppearance Appearance { get; set; }
+
+        /// <summary>
+        /// Send initial scene data to the client controlling this agent
+        /// </summary>
+        /// <remarks>
+        /// This includes scene object data and the appearance data of other avatars.
+        /// </remarks>
+        void SendInitialDataToMe();
     }
 }

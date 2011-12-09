@@ -284,7 +284,6 @@ namespace OpenSim.Region.Framework.Scenes
         private byte[] m_TextureAnimation;
         private byte m_clickAction;
         private Color m_color = Color.Black;
-        private string m_description = String.Empty;
         private readonly List<uint> m_lastColliders = new List<uint>();
         private int m_linkNum;
 
@@ -435,15 +434,18 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public SceneObjectPart()
         {
-            // It's not necessary to persist this
             m_TextureAnimation = Utils.EmptyBytes;
             m_particleSystem = Utils.EmptyBytes;
             Rezzed = DateTime.UtcNow;
 
-            ValidpartOOB = false;
+			Description = String.Empty;
 
-            m_inventory = new SceneObjectPartInventory(this);
-        }
+			ValidpartOOB = false;
+
+            // Prims currently only contain a single folder (Contents).  From looking at the Second Life protocol,
+            // this appears to have the same UUID (!) as the prim.  If this isn't the case, one can't drag items from
+            // the prim into an agent inventory (Linden client reports that the "Object not found for drop" in its log
+            m_inventory = new SceneObjectPartInventory(this);        }
 
         /// <summary>
         /// Create a completely new SceneObjectPart (prim).  This will need to be added separately to a SceneObjectGroup
@@ -455,11 +457,10 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="offsetPosition"></param>
         public SceneObjectPart(
             UUID ownerID, PrimitiveBaseShape shape, Vector3 groupPosition,
-            Quaternion rotationOffset, Vector3 offsetPosition)
+            Quaternion rotationOffset, Vector3 offsetPosition) : this()
         {
             m_name = "Primitive";
 
-            Rezzed = DateTime.UtcNow;
             CreationDate = (int)Utils.DateTimeToUnixTime(Rezzed);
             LastOwnerID = CreatorID = OwnerID = ownerID;
             UUID = UUID.Random();
@@ -474,7 +475,6 @@ namespace OpenSim.Region.Framework.Scenes
             Velocity = Vector3.Zero;
             AngularVelocity = Vector3.Zero;
             Acceleration = Vector3.Zero;
-
 
             ValidpartOOB = false;
             m_validPoff = false;
@@ -494,7 +494,7 @@ namespace OpenSim.Region.Framework.Scenes
 
             TrimPermissions();
 
-            m_inventory = new SceneObjectPartInventory(this);
+// removed by core ?            m_inventory = new SceneObjectPartInventory(this);
         }
 
         #endregion Constructors
@@ -643,7 +643,11 @@ namespace OpenSim.Region.Framework.Scenes
         public uint LocalId
         {
             get { return m_localId; }
-            set { m_localId = value; }
+            set
+            {
+                m_localId = value;
+//                m_log.DebugFormat("[SCENE OBJECT PART]: Set part {0} to local id {1}", Name, m_localId);
+        }
         }
 
         public virtual string Name
@@ -1071,6 +1075,8 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             }
         }
+// core changed abovo to just public string Description { get; set; }
+
 
         /// <value>
         /// Text color.
@@ -1708,25 +1714,6 @@ namespace OpenSim.Region.Framework.Scenes
             // m_log.Debug("Aprev: " + prevflag.ToString() + " curr: " + Flags.ToString());
         }
 
-        /// <summary>
-        /// Tell all scene presences that they should send updates for this part to their clients
-        /// </summary>
-        public void AddFullUpdateToAllAvatars()
-        {
-            ParentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
-            {
-                AddFullUpdateToAvatar(avatar);
-            });
-        }
-
-        /// <summary>
-        /// Tell the scene presence that it should send updates for this part to its client
-        /// </summary>
-        public void AddFullUpdateToAvatar(ScenePresence presence)
-        {
-            presence.SceneViewer.QueuePartForUpdate(this);
-        }
-
         public void AddNewParticleSystem(Primitive.ParticleSystem pSystem)
         {
             m_particleSystem = pSystem.GetBytes();
@@ -1735,20 +1722,6 @@ namespace OpenSim.Region.Framework.Scenes
         public void RemoveParticleSystem()
         {
             m_particleSystem = new byte[0];
-        }
-
-        /// Terse updates
-        public void AddTerseUpdateToAllAvatars()
-        {
-            ParentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
-            {
-                AddTerseUpdateToAvatar(avatar);
-            });
-        }
-
-        public void AddTerseUpdateToAvatar(ScenePresence presence)
-        {
-            presence.SceneViewer.QueuePartForUpdate(this);
         }
 
         public void AddTextureAnimation(Primitive.TextureAnimation pTexAnim)
@@ -3042,8 +3015,6 @@ namespace OpenSim.Region.Framework.Scenes
                 //ParentGroup.RootPart.m_groupPosition = newpos;
             }
             ScheduleTerseUpdate();
-
-            //SendTerseUpdateToAllClients();
         }
 
         public void PreloadSound(string sound)
@@ -3229,6 +3200,13 @@ namespace OpenSim.Region.Framework.Scenes
             if (ParentGroup == null)
                 return;
 
+            // This was pulled from SceneViewer. Attachments always receive full updates.
+            // I could not verify if this is a requirement but this maintains existing behavior
+            if (ParentGroup.IsAttachment)
+            {
+                ScheduleFullUpdate();
+            }
+
             if (UpdateFlag == UpdateRequired.NONE)
             {
                 ParentGroup.HasGroupChanged = true;
@@ -3323,23 +3301,6 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        /// Send a full update to all clients except the one nominated.
-        /// </summary>
-        /// <param name="agentID"></param>
-        public void SendFullUpdateToAllClientsExcept(UUID agentID)
-        {
-            if (ParentGroup == null)
-                return;
-
-            ParentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
-            {
-                // Ugly reference :(
-                if (avatar.UUID != agentID)
-                    SendFullUpdate(avatar.ControllingClient, avatar.GenerateClientFlags(UUID));
-            });
-        }
-
-        /// <summary>
         /// Sends a full update to the client
         /// </summary>
         /// <param name="remoteClient"></param>
@@ -3415,7 +3376,8 @@ namespace OpenSim.Region.Framework.Scenes
                     !OffsetPosition.ApproxEquals(m_lastPosition, POSITION_TOLERANCE) ||
                     Environment.TickCount - m_lastTerseSent > TIME_MS_TOLERANCE)
                 {
-                    AddTerseUpdateToAllAvatars();
+
+                        SendTerseUpdateToAllClients();
                     ClearUpdateSchedule();
 
                     // Update the "last" values
@@ -3430,7 +3392,7 @@ namespace OpenSim.Region.Framework.Scenes
             }
                 case UpdateRequired.FULL:
             {
-                    AddFullUpdateToAllAvatars();
+                    SendFullUpdateToAllClients();
                     break;
                 }
             }
@@ -3535,9 +3497,9 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public void SendTerseUpdateToAllClients()
         {
-            ParentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
+            ParentGroup.Scene.ForEachClient(delegate(IClientAPI client)
             {
-                SendTerseUpdateToClient(avatar.ControllingClient);
+                SendTerseUpdateToClient(client);
             });
         }
 
@@ -3634,7 +3596,10 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="face"></param>
         public void SetFaceColor(Vector3 color, int face)
         {
-            Primitive.TextureEntry tex = Shape.Textures;
+            // The only way to get a deep copy/ If we don't do this, we can
+            // mever detect color changes further down.
+            Byte[] buf = Shape.Textures.GetBytes();
+            Primitive.TextureEntry tex = new Primitive.TextureEntry(buf, 0, buf.Length);
             Color4 texcolor;
             if (face >= 0 && face < GetNumberOfSides())
             {
@@ -3643,8 +3608,7 @@ namespace OpenSim.Region.Framework.Scenes
                 texcolor.G = Util.Clip((float)color.Y, 0.0f, 1.0f);
                 texcolor.B = Util.Clip((float)color.Z, 0.0f, 1.0f);
                 tex.FaceTextures[face].RGBA = texcolor;
-                UpdateTexture(tex);
-                TriggerScriptChangedEvent(Changed.COLOR);
+                UpdateTextureEntry(tex.GetBytes());
                 return;
             }
             else if (face == ALL_SIDES)
@@ -3665,8 +3629,7 @@ namespace OpenSim.Region.Framework.Scenes
                     texcolor.B = Util.Clip((float)color.Z, 0.0f, 1.0f);
                     tex.DefaultTexture.RGBA = texcolor;
                 }
-                UpdateTexture(tex);
-                TriggerScriptChangedEvent(Changed.COLOR);
+                UpdateTextureEntry(tex.GetBytes());
                 return;
             }
         }
@@ -3728,9 +3691,14 @@ namespace OpenSim.Region.Framework.Scenes
                     if (hasHollow) ret += 1;
                     break;
                 case PrimType.SCULPT:
-                    ret = 1;
+                    // Special mesh handling
+                    if (Shape.SculptType == (byte)SculptType.Mesh)
+                        ret = 8; // if it's a mesh then max 8 faces
+                    else
+                        ret = 1; // if it's a sculpt then max 1 face
                     break;
             }
+
             return ret;
         }
 
@@ -3743,6 +3711,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             if (Shape.SculptEntry)
                 return PrimType.SCULPT;
+            
             if ((Shape.ProfileCurve & 0x07) == (byte)ProfileShape.Square)
             {
                 if (Shape.PathCurve == (byte)Extrusion.Straight)
@@ -4993,48 +4962,49 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        /// Update the textures on the part.
-        /// </summary>
-        /// <remarks>
-        /// Added to handle bug in libsecondlife's TextureEntry.ToBytes()
-        /// not handling RGBA properly. Cycles through, and "fixes" the color
-        /// info
-        /// </remarks>
-        /// <param name="tex"></param>
-        public void UpdateTexture(Primitive.TextureEntry tex)
-        {
-            //Color4 tmpcolor;
-            //for (uint i = 0; i < 32; i++)
-            //{
-            //    if (tex.FaceTextures[i] != null)
-            //    {
-            //        tmpcolor = tex.GetFace((uint) i).RGBA;
-            //        tmpcolor.A = tmpcolor.A*255;
-            //        tmpcolor.R = tmpcolor.R*255;
-            //        tmpcolor.G = tmpcolor.G*255;
-            //        tmpcolor.B = tmpcolor.B*255;
-            //        tex.FaceTextures[i].RGBA = tmpcolor;
-            //    }
-            //}
-            //tmpcolor = tex.DefaultTexture.RGBA;
-            //tmpcolor.A = tmpcolor.A*255;
-            //tmpcolor.R = tmpcolor.R*255;
-            //tmpcolor.G = tmpcolor.G*255;
-            //tmpcolor.B = tmpcolor.B*255;
-            //tex.DefaultTexture.RGBA = tmpcolor;
-            UpdateTextureEntry(tex.GetBytes());
-        }
-
-        /// <summary>
         /// Update the texture entry for this part.
         /// </summary>
         /// <param name="textureEntry"></param>
         public void UpdateTextureEntry(byte[] textureEntry)
         {
-            m_shape.TextureEntry = textureEntry;
-            TriggerScriptChangedEvent(Changed.TEXTURE);
+            Primitive.TextureEntry newTex = new Primitive.TextureEntry(textureEntry, 0, textureEntry.Length);
+            Primitive.TextureEntry oldTex = Shape.Textures;
 
+            Changed changeFlags = 0;
+
+            for (int i = 0 ; i < GetNumberOfSides(); i++)
+            {
+                Primitive.TextureEntryFace newFace = newTex.DefaultTexture;
+                Primitive.TextureEntryFace oldFace = oldTex.DefaultTexture;
+
+                if (oldTex.FaceTextures[i] != null)
+                    oldFace = oldTex.FaceTextures[i];
+                if (newTex.FaceTextures[i] != null)
+                    newFace = newTex.FaceTextures[i];
+
+                Color4 oldRGBA = oldFace.RGBA;
+                Color4 newRGBA = newFace.RGBA;
+
+                if (oldRGBA.R != newRGBA.R ||
+                    oldRGBA.G != newRGBA.G ||
+                    oldRGBA.B != newRGBA.B ||
+                    oldRGBA.A != newRGBA.A)
+                    changeFlags |= Changed.COLOR;
+
+                if (oldFace.TextureID != newFace.TextureID)
+                    changeFlags |= Changed.TEXTURE;
+
+                // Max change, skip the rest of testing
+                if (changeFlags == (Changed.TEXTURE | Changed.COLOR))
+                    break;
+            }
+
+            m_shape.TextureEntry = textureEntry;
+            if (changeFlags != 0)
+                TriggerScriptChangedEvent(changeFlags);
+            UpdateFlag = UpdateRequired.FULL;
             ParentGroup.HasGroupChanged = true;
+
             //This is madness..
             //ParentGroup.ScheduleGroupForFullUpdate();
             //This is sparta

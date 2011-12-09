@@ -33,6 +33,28 @@ namespace OpenSim.Region.Framework.Interfaces
 {
     public interface IFriendsModule
     {
+        /// <summary>
+        /// Add a friendship between two users.
+        /// </summary>
+        /// <remarks>
+        /// Ultimately, it would be more useful to take in a user account here rather than having to have a user
+        /// present in the scene.
+        /// </remarks>
+        /// <param name="client"></param>
+        /// <param name="friendID"></param>
+        void AddFriendship(IClientAPI client, UUID friendID);
+
+        /// <summary>
+        /// Remove a friendship between two users.
+        /// </summary>
+        /// <remarks>
+        /// Ultimately, it would be more useful to take in a user account here rather than having to have a user
+        /// present in the scene.
+        /// </remarks>
+        /// <param name="client"></param>
+        /// <param name="exFriendID"></param>
+        void RemoveFriendship(IClientAPI client, UUID exFriendID);
+
         uint GetFriendPerms(UUID PrincipalID, UUID FriendID);
         bool SendFriendsOnlineIfNeeded(IClientAPI client);
     }

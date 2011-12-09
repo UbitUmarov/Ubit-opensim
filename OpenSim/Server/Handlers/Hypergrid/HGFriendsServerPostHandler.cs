@@ -61,7 +61,7 @@ namespace OpenSim.Server.Handlers.Hypergrid
         }
 
         public override byte[] Handle(string path, Stream requestData,
-                OSHttpRequest httpRequest, OSHttpResponse httpResponse)
+                IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
         {
             StreamReader sr = new StreamReader(requestData);
             string body = sr.ReadToEnd();
@@ -99,7 +99,6 @@ namespace OpenSim.Server.Handlers.Hypergrid
             }
 
             return FailureResult();
-
         }
 
         #region Method-specific handlers
@@ -127,7 +126,6 @@ namespace OpenSim.Server.Handlers.Hypergrid
                 return FailureResult();
             }
 
-            string perms = "0";
             FriendInfo[] friendsInfo = m_FriendsService.GetFriends(principalID);
             foreach (FriendInfo finfo in friendsInfo)
             {

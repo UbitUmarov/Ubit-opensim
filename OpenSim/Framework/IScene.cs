@@ -68,12 +68,14 @@ namespace OpenSim.Framework
         event restart OnRestart;
 
         /// <summary>
-        /// Register the new client with the scene.  The client starts off as a child agent - the later agent crossing
-        /// will promote it to a root agent.
+        /// Add a new client and create a presence for it.  All clients except initial login clients will starts off as a child agent
+        /// - the later agent crossing will promote it to a root agent.
         /// </summary>
         /// <param name="client"></param>
         /// <param name="type">The type of agent to add.</param>
-        void AddNewClient(IClientAPI client, PresenceType type);
+        /// <returns>
+        /// The scene agent if the new client was added or if an agent that already existed.</returns>
+        ISceneAgent AddNewClient(IClientAPI client, PresenceType type);
 
         /// <summary>
         /// Remove the given client from the scene.
@@ -90,9 +92,9 @@ namespace OpenSim.Framework
         /// <summary>
         /// Is the agent denoted by the given agentID a child presence in this scene?
         /// </summary>
-        /// 
+        /// <remarks>
         /// Used by ClientView when a 'kick everyone' or 'estate message' occurs
-        /// 
+        /// </remarks>
         /// <param name="avatarID">AvatarID to lookup</param>
         /// <returns>true if the presence is a child agent, false if the presence is a root exception</returns>
         /// <exception cref="System.NullReferenceException">
@@ -102,11 +104,27 @@ namespace OpenSim.Framework
 
         bool TryGetScenePresence(UUID agentID, out object scenePresence);
 
-        T RequestModuleInterface<T>();
-        T[] RequestModuleInterfaces<T>();
-
+        /// <summary>
+        /// Register an interface to a region module.  This allows module methods to be called directly as
+        /// well as via events.  If there is already a module registered for this interface, it is not replaced
+        /// (is this the best behaviour?)
+        /// </summary>
+        /// <param name="mod"></param>
         void RegisterModuleInterface<M>(M mod);
+        
         void StackModuleInterface<M>(M mod);
+
+        /// <summary>
+        /// For the given interface, retrieve the region module which implements it.
+        /// </summary>
+        /// <returns>null if there is no registered module implementing that interface</returns>
+        T RequestModuleInterface<T>();
+
+        /// <summary>
+        /// For the given interface, retrieve an array of region modules that implement it.
+        /// </summary>
+        /// <returns>an empty array if there are no registered modules implementing that interface</returns>
+        T[] RequestModuleInterfaces<T>();
 
 //        void AddCommand(object module, string command, string shorthelp, string longhelp, CommandDelegate callback);
 

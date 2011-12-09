@@ -62,6 +62,7 @@ namespace OpenSim
 
         // These are the names of the plugin-points extended by this
         // class during system startup.
+        //
 
         private const string PLUGIN_ASSET_CACHE = "/OpenSim/AssetCache";
         private const string PLUGIN_ASSET_SERVER_CLIENT = "/OpenSim/AssetClient";
@@ -108,6 +109,13 @@ namespace OpenSim
             get { return m_clientServers; }
         }
 
+        protected EnvConfigSource m_EnvConfigSource = new EnvConfigSource();
+
+        public EnvConfigSource envConfigSource
+        {
+            get { return m_EnvConfigSource; }
+        }
+
         protected List<IClientNetworkServer> m_clientServers = new List<IClientNetworkServer>();
        
         public uint HttpServerPort
@@ -142,7 +150,7 @@ namespace OpenSim
         protected virtual void LoadConfigSettings(IConfigSource configSource)
         {
             m_configLoader = new ConfigurationLoader();
-            m_config = m_configLoader.LoadConfigSettings(configSource, out m_configSettings, out m_networkServersInfo);
+            m_config = m_configLoader.LoadConfigSettings(configSource, envConfigSource, out m_configSettings, out m_networkServersInfo);
             ReadExtraConfigSettings();
         }
 
@@ -711,7 +719,7 @@ namespace OpenSim
         public class SimStatusHandler : IStreamedRequestHandler
         {
             public byte[] Handle(string path, Stream request,
-                                 OSHttpRequest httpRequest, OSHttpResponse httpResponse)
+                                 IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
             {
                 return Util.UTF8.GetBytes("OK");
             }
@@ -748,7 +756,7 @@ namespace OpenSim
             }
             
             public byte[] Handle(string path, Stream request,
-                                 OSHttpRequest httpRequest, OSHttpResponse httpResponse)
+                                 IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
             {
                 return Util.UTF8.GetBytes(m_opensim.StatReport(httpRequest));
             }
@@ -789,7 +797,7 @@ namespace OpenSim
             }
             
             public byte[] Handle(string path, Stream request,
-                                 OSHttpRequest httpRequest, OSHttpResponse httpResponse)
+                                 IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
             {
                 return Util.UTF8.GetBytes(m_opensim.StatReport(httpRequest));
             }

@@ -56,7 +56,7 @@ namespace OpenSim.Region.Physics.Manager
 
     public abstract class PhysicsScene
     {
-        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+//        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         /// <summary>
         /// Name of this scene.  Useful in debug messages to distinguish one OdeScene instance from another.
@@ -221,15 +221,9 @@ namespace OpenSim.Region.Physics.Manager
             return false;
         }
 
-        public virtual void Combine(PhysicsScene pScene, Vector3 offset, Vector3 extents)
-        {
-            return;
-        }
+        public virtual void Combine(PhysicsScene pScene, Vector3 offset, Vector3 extents) {}
 
-        public virtual void UnCombine(PhysicsScene pScene)
-        {
-            
-        }
+        public virtual void UnCombine(PhysicsScene pScene) {}
 
         /// <summary>
         /// Queue a raycast against the physics scene.

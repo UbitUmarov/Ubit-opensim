@@ -175,7 +175,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         #region Add/Remove Agent/Avatar
 
-        public abstract void AddNewClient(IClientAPI client, PresenceType type);
+        public abstract ISceneAgent AddNewClient(IClientAPI client, PresenceType type);
         public abstract void RemoveClient(UUID agentID, bool closeChildAgents);
 
         public bool TryGetScenePresence(UUID agentID, out object scenePresence)
@@ -191,6 +191,12 @@ namespace OpenSim.Region.Framework.Scenes
             return false;
         }
 
+        /// <summary>
+        /// Try to get a scene presence from the scene
+        /// </summary>
+        /// <param name="agentID"></param>
+        /// <param name="scenePresence">null if there is no scene presence with the given agent id</param>
+        /// <returns>true if there was a scene presence with the given id, false otherwise.</returns>
         public abstract bool TryGetScenePresence(UUID agentID, out ScenePresence scenePresence);
 
         #endregion
@@ -449,7 +455,7 @@ namespace OpenSim.Region.Framework.Scenes
             }
             else
             {
-                return new T[] { default(T) };
+                return new T[] {};
             }
         }
         

@@ -232,8 +232,6 @@ namespace OpenSim.Region.Framework.Scenes
             ArrayList ret = new ArrayList();
 
             IScriptModule[] engines = m_part.ParentGroup.Scene.RequestModuleInterfaces<IScriptModule>();
-            if (engines == null) // No engine at all
-                return ret;
 
             foreach (IScriptModule e in engines)
             {
@@ -329,7 +327,7 @@ namespace OpenSim.Region.Framework.Scenes
         private void RestoreSavedScriptState(UUID oldID, UUID newID)
         {
             IScriptModule[] engines = m_part.ParentGroup.Scene.RequestModuleInterfaces<IScriptModule>();
-            if (engines == null) // No engine at all
+            if (engines.Length == 0) // No engine at all
                 return;
 
             if (m_part.ParentGroup.m_savedScriptState.ContainsKey(oldID))
@@ -369,6 +367,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                     m_part.ParentGroup.m_savedScriptState[oldID] = newDoc.OuterXml;
                 }
+                
                 foreach (IScriptModule e in engines)
                 {
                     if (e != null)
@@ -377,6 +376,7 @@ namespace OpenSim.Region.Framework.Scenes
                             break;
                     }
                 }
+
                 m_part.ParentGroup.m_savedScriptState.Remove(oldID);
             }
         }
@@ -832,8 +832,8 @@ namespace OpenSim.Region.Framework.Scenes
                         invString.AddSectionEnd();
 
                         invString.AddNameValueLine("asset_id", item.AssetID.ToString());
-                        invString.AddNameValueLine("type", TaskInventoryItem.Types[item.Type]);
-                        invString.AddNameValueLine("inv_type", TaskInventoryItem.InvTypes[item.InvType]);
+                        invString.AddNameValueLine("type", Utils.AssetTypeToString((AssetType)item.Type));
+                        invString.AddNameValueLine("inv_type", Utils.InventoryTypeToString((InventoryType)item.InvType));
                         invString.AddNameValueLine("flags", Utils.UIntToHexString(item.Flags));
 
                         invString.AddSaleStart();
@@ -1129,7 +1129,7 @@ namespace OpenSim.Region.Framework.Scenes
             
             IScriptModule[] engines = m_part.ParentGroup.Scene.RequestModuleInterfaces<IScriptModule>();
             
-            if (engines == null) // No engine at all
+            if (engines.Length == 0) // No engine at all
                 return ret;
 
             List<TaskInventoryItem> scripts = GetInventoryScripts();
@@ -1157,7 +1157,7 @@ namespace OpenSim.Region.Framework.Scenes
         public void ResumeScripts()
         {
             IScriptModule[] engines = m_part.ParentGroup.Scene.RequestModuleInterfaces<IScriptModule>();
-            if (engines == null)
+            if (engines.Length == 0)
                 return;
 
             List<TaskInventoryItem> scripts = GetInventoryScripts();

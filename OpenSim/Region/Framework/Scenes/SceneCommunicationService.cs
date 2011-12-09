@@ -56,86 +56,10 @@ namespace OpenSim.Region.Framework.Scenes
         protected RegionInfo m_regionInfo;
         protected Scene m_scene;
 
-        protected RegionCommsListener regionCommsHost;
-
-        protected List<UUID> m_agentsInTransit;
-
-        /// <summary>
-        /// An agent is crossing into this region
-        /// </summary>
-        public event AgentCrossing OnAvatarCrossingIntoRegion;
-
-        /// <summary>
-        /// A user will arrive shortly, set up appropriate credentials so it can connect
-        /// </summary>
-//        public event ExpectUserDelegate OnExpectUser;
-
-        /// <summary>
-        /// A Prim will arrive shortly
-        /// </summary>
-        public event CloseAgentConnection OnCloseAgentConnection;
-
-        /// <summary>
-        /// A new prim has arrived
-        /// </summary>
-//        public event PrimCrossing OnPrimCrossingIntoRegion;
-
-        ///// <summary>
-        ///// A New Region is up and available
-        ///// </summary>
-        //public event RegionUp OnRegionUp;
-
-        /// <summary>
-        /// We have a child agent for this avatar and we're getting a status update about it
-        /// </summary>
-//        public event ChildAgentUpdate OnChildAgentUpdate;
-        //public event RemoveKnownRegionsFromAvatarList OnRemoveKnownRegionFromAvatar;
-
-        /// <summary>
-        /// Time to log one of our users off.   Grid Service sends this mostly
-        /// </summary>
-        public event LogOffUser OnLogOffUser;
-
-        /// <summary>
-        /// A region wants land data from us!
-        /// </summary>
-        public event GetLandData OnGetLandData;
-
-//        private AgentCrossing handlerAvatarCrossingIntoRegion = null; // OnAvatarCrossingIntoRegion;
-//        private ExpectUserDelegate handlerExpectUser = null; // OnExpectUser;
-//        private CloseAgentConnection handlerCloseAgentConnection = null; // OnCloseAgentConnection;
-//        private PrimCrossing handlerPrimCrossingIntoRegion = null; // OnPrimCrossingIntoRegion;
-        //private RegionUp handlerRegionUp = null; // OnRegionUp;
-//        private ChildAgentUpdate handlerChildAgentUpdate = null; // OnChildAgentUpdate;
-        //private RemoveKnownRegionsFromAvatarList handlerRemoveKnownRegionFromAvatar = null; // OnRemoveKnownRegionFromAvatar;
-//        private LogOffUser handlerLogOffUser = null;
-//        private GetLandData handlerGetLandData = null; // OnGetLandData
-
-        public SceneCommunicationService()
-        {
-        }
-
         public void SetScene(Scene s)
         {
             m_scene = s;
             m_regionInfo = s.RegionInfo;
-        }
-
-        /// <summary>
-        /// Register a region with the grid
-        /// </summary>
-        /// <param name="regionInfos"></param>
-        /// <exception cref="System.Exception">Thrown if region registration fails.</exception>
-        public void RegisterRegion(IInterregionCommsOut comms_out, RegionInfo regionInfos)
-        {
-        }
-
-        /// <summary>
-        /// This region is shutting down, de-register all events!
-        /// De-Register region from Grid!
-        /// </summary>
-        public void Close()
-        {
         }
 
         public delegate void InformNeighbourThatRegionUpDelegate(INeighbourService nService, RegionInfo region, ulong regionhandle);
@@ -173,7 +97,6 @@ namespace OpenSim.Region.Framework.Scenes
             }
         }
 
-
         public void InformNeighborsThatRegionisUp(INeighbourService neighbourService, RegionInfo region)
         {
             //m_log.Info("[INTER]: " + debugRegionName + ": SceneCommunicationService: Sending InterRegion Notification that region is up " + region.RegionName);
@@ -190,7 +113,6 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         public delegate void SendChildAgentDataUpdateDelegate(AgentPosition cAgentData, UUID scopeID, GridRegion dest);
-        
 
         /// <summary>
         /// This informs all neighboring regions about the settings of it's child agent.
@@ -252,29 +174,25 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 // We're ignoring a collection was modified error because this data gets old and outdated fast.
             }
-
         }
-
-        //public delegate void SendCloseChildAgentDelegate(UUID agentID, ulong regionHandle);
-        //private void SendCloseChildAgentCompleted(IAsyncResult iar)
-        //{
-        //    SendCloseChildAgentDelegate icon = (SendCloseChildAgentDelegate)iar.AsyncState;
-        //    icon.EndInvoke(iar);
-        //}
 
         /// <summary>
         /// Closes a child agent on a given region
         /// </summary>
         protected void SendCloseChildAgent(UUID agentID, ulong regionHandle)
         {
-
-            m_log.Debug("[INTERGRID]: Sending close agent to " + regionHandle);
             // let's do our best, but there's not much we can do if the neighbour doesn't accept.
 
             //m_commsProvider.InterRegion.TellRegionToCloseChildConnection(regionHandle, agentID);
             uint x = 0, y = 0;
             Utils.LongToUInts(regionHandle, out x, out y);
+
             GridRegion destination = m_scene.GridService.GetRegionByPosition(m_regionInfo.ScopeID, (int)x, (int)y);
+
+            m_log.DebugFormat(
+                "[INTERGRID]: Sending close agent {0} to region at {1}-{2}",
+                agentID, destination.RegionCoordX, destination.RegionCoordY);
+
             m_scene.SimulationService.CloseAgent(destination, agentID);
         }
 
@@ -299,6 +217,5 @@ namespace OpenSim.Region.Framework.Scenes
         {
             return m_scene.GridService.GetRegionsByName(UUID.Zero, name, maxNumber);
         }
-
     }
 }

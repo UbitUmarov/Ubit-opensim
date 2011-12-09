@@ -73,8 +73,10 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public event OnNewClientDelegate OnNewClient;
 
-        public delegate void OnClientLoginDelegate(IClientAPI client);
-        public event OnClientLoginDelegate OnClientLogin;
+        /// <summary>
+        /// Fired if the client entering this sim is doing so as a new login
+        /// </summary>
+        public event Action<IClientAPI> OnClientLogin;
 
         public delegate void OnNewPresenceDelegate(ScenePresence presence);
 
@@ -96,9 +98,10 @@ namespace OpenSim.Region.Framework.Scenes
 
         public event OnPluginConsoleDelegate OnPluginConsole;
 
-        public delegate void OnShutdownDelegate();
-
-        public event OnShutdownDelegate OnShutdown;
+        /// <summary>
+        /// Triggered when the entire simulator is shutdown.
+        /// </summary>
+        public event Action OnShutdown;
         
         public delegate void ObjectDeGrabDelegate(uint localID, uint originalID, IClientAPI remoteClient, SurfaceTouchEventArgs surfaceArgs);
         public delegate void ScriptResetDelegate(uint localID, UUID itemID);
@@ -111,9 +114,14 @@ namespace OpenSim.Region.Framework.Scenes
 
         public event ParcelPropertiesUpdateRequest OnParcelPropertiesUpdateRequest;
 
-        public delegate void SceneShuttingDownDelegate(Scene scene);
-
-        public event SceneShuttingDownDelegate OnSceneShuttingDown;
+        /// <summary>
+        /// Triggered when an individual scene is shutdown.
+        /// </summary>
+        /// <remarks>
+        /// This does not automatically mean that the entire simulator is shutting down.  Listen to OnShutdown for that
+        /// notification.
+        /// </remarks>
+        public event Action<Scene> OnSceneShuttingDown;
 
         /// <summary>
         /// Fired when an object is touched/grabbed.
@@ -210,10 +218,15 @@ namespace OpenSim.Region.Framework.Scenes
         public delegate void OnMakeChildAgentDelegate(ScenePresence presence);
         public event OnMakeChildAgentDelegate OnMakeChildAgent;
 
-        public delegate void OnMakeRootAgentDelegate(ScenePresence presence);
         public delegate void OnSaveNewWindlightProfileDelegate();
         public delegate void OnSendNewWindlightProfileTargetedDelegate(RegionLightShareData wl, UUID user);
-        public event OnMakeRootAgentDelegate OnMakeRootAgent;
+
+        /// <summary>
+        /// This event is on the critical path for transferring an avatar from one region to another.  Try and do
+        /// as little work on this event as possible, or do work asynchronously.
+        /// </summary>
+        public event Action<ScenePresence> OnMakeRootAgent;
+        
         public event OnSendNewWindlightProfileTargetedDelegate OnSendNewWindlightProfileTargeted;
         public event OnSaveNewWindlightProfileDelegate OnSaveNewWindlightProfile;
 
@@ -651,10 +664,10 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void TriggerOnClientLogin(IClientAPI client)
         {
-            OnClientLoginDelegate handlerClientLogin = OnClientLogin;
+            Action<IClientAPI> handlerClientLogin = OnClientLogin;
             if (handlerClientLogin != null)
             {
-                foreach (OnClientLoginDelegate d in handlerClientLogin.GetInvocationList())
+                foreach (Action<IClientAPI> d in handlerClientLogin.GetInvocationList())
                 {
                     try
                     {
@@ -862,10 +875,10 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void TriggerShutdown()
         {
-            OnShutdownDelegate handlerShutdown = OnShutdown;
+            Action handlerShutdown = OnShutdown;
             if (handlerShutdown != null)
             {
-                foreach (OnShutdownDelegate d in handlerShutdown.GetInvocationList())
+                foreach (Action d in handlerShutdown.GetInvocationList())
                 {
                     try
                     {
@@ -1320,10 +1333,10 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void TriggerOnMakeRootAgent(ScenePresence presence)
         {
-            OnMakeRootAgentDelegate handlerMakeRootAgent = OnMakeRootAgent;
+            Action<ScenePresence> handlerMakeRootAgent = OnMakeRootAgent;
             if (handlerMakeRootAgent != null)
             {
-                foreach (OnMakeRootAgentDelegate d in handlerMakeRootAgent.GetInvocationList())
+                foreach (Action<ScenePresence> d in handlerMakeRootAgent.GetInvocationList())
                 {
                     try
                     {
@@ -2205,10 +2218,10 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void TriggerSceneShuttingDown(Scene s)
         {
-            SceneShuttingDownDelegate handler = OnSceneShuttingDown;
+            Action<Scene> handler = OnSceneShuttingDown;
             if (handler != null)
             {
-                foreach (SceneShuttingDownDelegate d in handler.GetInvocationList())
+                foreach (Action<Scene> d in handler.GetInvocationList())
                 {
                     try
                     {

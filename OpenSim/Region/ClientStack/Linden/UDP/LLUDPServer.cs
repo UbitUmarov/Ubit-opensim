@@ -328,7 +328,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// The method to call if the packet is not acked by the client.  If null, then a standard
         /// resend of the packet is done.
         /// </param>
-        public void SendPacket(
+        public virtual void SendPacket(
             LLUDPClient udpClient, Packet packet, ThrottleOutPacketType category, bool allowSplitting, UnackedPacketMethod method)
         {
             // CoarseLocationUpdate packets cannot be split in an automated way
@@ -619,11 +619,13 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             outgoingPacket.TickCount = Environment.TickCount & Int32.MaxValue;
         }
 
-        protected override void PacketReceived(UDPPacketBuffer buffer)
+        public override void PacketReceived(UDPPacketBuffer buffer)
         {
             // Debugging/Profiling
             //try { Thread.CurrentThread.Name = "PacketReceived (" + m_scene.RegionInfo.RegionName + ")"; }
             //catch (Exception) { }
+//            m_log.DebugFormat(
+//                "[LLUDPSERVER]: Packet received from {0} in {1}", buffer.RemoteEndPoint, m_scene.RegionInfo.RegionName);
 
             LLUDPClient udpClient = null;
             Packet packet = null;
@@ -633,7 +635,13 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             #region Decoding
 
             if (buffer.DataLength < 7)
+            {
+//                m_log.WarnFormat(
+//                    "[LLUDPSERVER]: Dropping undersized packet with {0} bytes received from {1} in {2}",
+//                    buffer.DataLength, buffer.RemoteEndPoint, m_scene.RegionInfo.RegionName);
+
                 return; // Drop undersizd packet
+            }
 
             int headerLen = 7;
             if (buffer.Data[6] == 0xFF)
@@ -645,7 +653,13 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             }
 
             if (buffer.DataLength < headerLen)
+            {
+//                m_log.WarnFormat(
+//                    "[LLUDPSERVER]: Dropping packet with malformed header received from {0} in {1}",
+//                    buffer.RemoteEndPoint, m_scene.RegionInfo.RegionName);
+
                 return; // Malformed header
+            }
 
             try
             {
@@ -658,6 +672,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             }
             catch (IndexOutOfRangeException)
             {
+//                m_log.WarnFormat(
+//                    "[LLUDPSERVER]: Dropping short packet received from {0} in {1}",
+//                    buffer.RemoteEndPoint, m_scene.RegionInfo.RegionName);
+
                 return; // Drop short packet
             }
             catch(Exception e)
@@ -895,23 +913,55 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 //            DateTime startTime = DateTime.Now;
             object[] array = (object[])o;
             UDPPacketBuffer buffer = (UDPPacketBuffer)array[0];
-            UseCircuitCodePacket packet = (UseCircuitCodePacket)array[1];
+            UseCircuitCodePacket uccp = (UseCircuitCodePacket)array[1];
             
             m_log.DebugFormat("[LLUDPSERVER]: Handling UseCircuitCode request from {0}", buffer.RemoteEndPoint);
 
             IPEndPoint remoteEndPoint = (IPEndPoint)buffer.RemoteEndPoint;
 
-            // Begin the process of adding the client to the simulator
-            AddNewClient((UseCircuitCodePacket)packet, remoteEndPoint);
-
-            // Send ack
-            SendAckImmediate(remoteEndPoint, packet.Header.Sequence);
+            AuthenticateResponse sessionInfo;
+            if (IsClientAuthorized(uccp, out sessionInfo))
+            {
+                // Begin the process of adding the client to the simulator
+                IClientAPI client
+                    = AddClient(
+                        uccp.CircuitCode.Code,
+                        uccp.CircuitCode.ID,
+                        uccp.CircuitCode.SessionID,
+                        remoteEndPoint,
+                        sessionInfo);
+        
+                // Send ack straight away to let the viewer know that the connection is active.
+                // The client will be null if it already exists (e.g. if on a region crossing the client sends a use
+                // circuit code to the existing child agent.  This is not particularly obvious.
+                SendAckImmediate(remoteEndPoint, uccp.Header.Sequence);
+        
+                // We only want to send initial data to new clients, not ones which are being converted from child to root.
+                if (client != null)
+                    client.SceneAgent.SendInitialDataToMe();
+            }
+            else
+            {
+                // Don't create clients for unauthorized requesters.
+                m_log.WarnFormat(
+                    "[LLUDPSERVER]: Connection request for client {0} connecting with unnotified circuit code {1} from {2}",
+                    uccp.CircuitCode.ID, uccp.CircuitCode.Code, remoteEndPoint);
+            }
 
             //            m_log.DebugFormat(
 //                "[LLUDPSERVER]: Handling UseCircuitCode request from {0} took {1}ms", 
 //                buffer.RemoteEndPoint, (DateTime.Now - startTime).Milliseconds);
         }
 
+        /// <summary>
+        /// Send an ack immediately to the given endpoint.
+        /// </summary>
+        /// <remarks>
+        /// FIXME: Might be possible to use SendPacketData() like everything else, but this will require refactoring so
+        /// that we can obtain the UDPClient easily at this point.
+        /// </remarks>
+        /// <param name="remoteEndpoint"></param>
+        /// <param name="sequenceNumber"></param>
         private void SendAckImmediate(IPEndPoint remoteEndpoint, uint sequenceNumber)
         {
             PacketAckPacket ack = new PacketAckPacket();
@@ -920,6 +970,11 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             ack.Packets[0] = new PacketAckPacket.PacketsBlock();
             ack.Packets[0].ID = sequenceNumber;
 
+            SendAckImmediate(remoteEndpoint, ack);
+        }
+
+        public virtual void SendAckImmediate(IPEndPoint remoteEndpoint, PacketAckPacket ack)
+        {
             byte[] packetData = ack.ToBytes();
             int length = packetData.Length;
 
@@ -941,55 +996,39 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             return sessionInfo.Authorised;
         }
 
-        private void AddNewClient(UseCircuitCodePacket useCircuitCode, IPEndPoint remoteEndPoint)
+        /// <summary>
+        /// Add a client.
+        /// </summary>
+        /// <param name="circuitCode"></param>
+        /// <param name="agentID"></param>
+        /// <param name="sessionID"></param>
+        /// <param name="remoteEndPoint"></param>
+        /// <param name="sessionInfo"></param>
+        /// <returns>The client if it was added.  Null if the client already existed.</returns>
+        protected virtual IClientAPI AddClient(
+            uint circuitCode, UUID agentID, UUID sessionID, IPEndPoint remoteEndPoint, AuthenticateResponse sessionInfo)
         {
-            UUID agentID = useCircuitCode.CircuitCode.ID;
-            UUID sessionID = useCircuitCode.CircuitCode.SessionID;
-            uint circuitCode = useCircuitCode.CircuitCode.Code;
+            IClientAPI client = null;
 
-            AuthenticateResponse sessionInfo;
-            if (IsClientAuthorized(useCircuitCode, out sessionInfo))
-            {
-                AddClient(circuitCode, agentID, sessionID, remoteEndPoint, sessionInfo);
-            }
-            else
-            {
-                // Don't create circuits for unauthorized clients
-                m_log.WarnFormat(
-                    "[LLUDPSERVER]: Connection request for client {0} connecting with unnotified circuit code {1} from {2}",
-                    useCircuitCode.CircuitCode.ID, useCircuitCode.CircuitCode.Code, remoteEndPoint);
-            }
-        }
-
-        protected virtual void AddClient(uint circuitCode, UUID agentID, UUID sessionID, IPEndPoint remoteEndPoint, AuthenticateResponse sessionInfo)
-        {
             // In priciple there shouldn't be more than one thread here, ever.
             // But in case that happens, we need to synchronize this piece of code
             // because it's too important
             lock (this) 
             {
-                IClientAPI existingClient;
-
-                if (!m_scene.TryGetClient(agentID, out existingClient))
+                if (!m_scene.TryGetClient(agentID, out client))
                 {
-                    // Create the LLUDPClient
                     LLUDPClient udpClient = new LLUDPClient(this, ThrottleRates, m_throttle, circuitCode, agentID, remoteEndPoint, m_defaultRTO, m_maxRTO);
-                    // Create the LLClientView
-                    LLClientView client = new LLClientView(remoteEndPoint, m_scene, this, udpClient, sessionInfo, agentID, sessionID, circuitCode);
+
+                    client = new LLClientView(remoteEndPoint, m_scene, this, udpClient, sessionInfo, agentID, sessionID, circuitCode);
                     client.OnLogout += LogoutHandler;
 
-                    client.DisableFacelights = m_disableFacelights;
+                    ((LLClientView)client).DisableFacelights = m_disableFacelights;
 
-                    // Start the IClientAPI
                     client.Start();
-
-                }
-                else
-                {
-                    m_log.WarnFormat("[LLUDPSERVER]: Ignoring a repeated UseCircuitCode from {0} at {1} for circuit {2}",
-                        existingClient.AgentId, remoteEndPoint, circuitCode);
                 }
             }
+
+            return client;
         }
 
         private void RemoveClient(LLUDPClient udpClient)

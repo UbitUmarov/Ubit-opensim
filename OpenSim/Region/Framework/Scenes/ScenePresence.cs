@@ -136,7 +136,6 @@ namespace OpenSim.Region.Framework.Scenes
         private Vector3 m_lastPosition;
         private Quaternion m_lastRotation;
         private Vector3 m_lastVelocity;
-        //private int m_lastTerseSent;
 
         private Vector3? m_forceToApply;
         private int m_userFlags;
@@ -151,9 +150,9 @@ namespace OpenSim.Region.Framework.Scenes
         }
         private bool m_wasFlying;		// add for fly velocity control
 
-        private int m_lastColCount = -1;		//KF: Look for Collision chnages
-        private int m_updateCount = 0;			//KF: Update Anims for a while
-        private static readonly int UPDATE_COUNT = 10;		// how many frames to update for
+//        private int m_lastColCount = -1;		//KF: Look for Collision chnages
+//        private int m_updateCount = 0;			//KF: Update Anims for a while
+//        private static readonly int UPDATE_COUNT = 10;		// how many frames to update for
 
         private TeleportFlags m_teleportFlags;
         public TeleportFlags TeleportFlags
@@ -647,14 +646,6 @@ namespace OpenSim.Region.Framework.Scenes
             set { m_health = value; }
         }
 
-        private ISceneViewer m_sceneViewer;
-
-        public ISceneViewer SceneViewer
-        {
-            get { return m_sceneViewer; }
-            private set { m_sceneViewer = value; }
-        }
-
         public void AdjustKnownSeeds()
         {
             Dictionary<ulong, string> seeds;
@@ -758,7 +749,6 @@ namespace OpenSim.Region.Framework.Scenes
             AttachmentsSyncLock = new Object();
 
             m_sendCourseLocationsMethod = SendCoarseLocationsDefault;
-            SceneViewer = new SceneViewer(this);
             Animator = new ScenePresenceAnimator(this);
             PresenceType = type;
             DrawDistance = world.DefaultDrawDistance;
@@ -769,7 +759,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_name = String.Format("{0} {1}", Firstname, Lastname);
             m_scene = world;
             m_uuid = client.AgentId;
-            m_localId = m_scene.AllocateLocalId();
+            LocalId = m_scene.AllocateLocalId();
 
             UserAccount account = m_scene.UserAccountService.GetUserAccount(m_scene.RegionInfo.ScopeID, m_uuid);
             if (account != null)
@@ -794,18 +784,6 @@ namespace OpenSim.Region.Framework.Scenes
             m_reprioritization_timer.AutoReset = false;
 
             AdjustKnownSeeds();
-
-            // TODO: I think, this won't send anything, as we are still a child here...
-            Animator.TrySetMovementAnimation("STAND"); 
-
-            // we created a new ScenePresence (a new child agent) in a fresh region.
-            // Request info about all the (root) agents in this region
-            // Note: This won't send data *to* other clients in that region (children don't send)
-
-// MIC: This gets called again in CompleteMovement
-            // SendInitialFullUpdateToAllClients();
-            SendOtherAgentsAvatarDataToMe();
-            SendOtherAgentsAppearanceToMe();
 
             RegisterToEvents();
             SetDirectionVectors();
@@ -869,22 +847,18 @@ namespace OpenSim.Region.Framework.Scenes
             return m_scene.Permissions.GenerateClientFlags(m_uuid, ObjectID);
         }
 
-        /// <summary>
-        /// Send updates to the client about prims which have been placed on the update queue.  We don't
-        /// necessarily send updates for all the parts on the queue, e.g. if an updates with a more recent
-        /// timestamp has already been sent.
-        /// </summary>
-        public void SendPrimUpdates()
-        {
-            SceneViewer.SendPrimUpdates();
-        }
-
         #region Status Methods
 
         /// <summary>
-        /// This turns a child agent, into a root agent
-        /// This is called when an agent teleports into a region, or if an
-        /// agent crosses into this region from a neighbor over the border
+        /// Turns a child agent into a root agent.
+        /// </summary>
+        /// Child agents are logged into neighbouring sims largely to observe changes.  Root agents exist when the
+        /// avatar is actual in the sim.  They can perform all actions.
+        /// This change is made whenever an avatar enters a region, whether by crossing over from a neighbouring sim,
+        /// teleporting in or on initial login.
+        ///
+        /// This method is on the critical path for transferring an avatar from one region to another.  Delay here
+        /// delays that crossing.
         /// </summary>
         public void MakeRootAgent(Vector3 pos, bool isFlying)
         {
@@ -1015,13 +989,17 @@ namespace OpenSim.Region.Framework.Scenes
 
         /// <summary>
         /// This turns a root agent into a child agent
+        /// </summary>
+        /// <remarks>
         /// when an agent departs this region for a neighbor, this gets called.
         ///
         /// It doesn't get called for a teleport.  Reason being, an agent that
         /// teleports out may not end up anywhere near this region
-        /// </summary>
+        /// </remarks>
         public void MakeChildAgent()
         {
+            m_log.DebugFormat("[SCENE PRESENCE]: Making {0} a child agent in {1}", Name, Scene.RegionInfo.RegionName);
+
             // Reset these so that teleporting in and walking out isn't seen
             // as teleporting back
             TeleportFlags = TeleportFlags.Default;
@@ -1214,9 +1192,9 @@ namespace OpenSim.Region.Framework.Scenes
         {
 //            DateTime startTime = DateTime.Now;
             
-            m_log.DebugFormat(
-                "[SCENE PRESENCE]: Completing movement of {0} into region {1}", 
-                client.Name, Scene.RegionInfo.RegionName);
+//            m_log.DebugFormat(
+//                "[SCENE PRESENCE]: Completing movement of {0} into region {1}", 
+//                client.Name, Scene.RegionInfo.RegionName);
 
             Vector3 look = Velocity;
             if ((look.X == 0) && (look.Y == 0) && (look.Z == 0))
@@ -1248,7 +1226,7 @@ namespace OpenSim.Region.Framework.Scenes
             //m_log.DebugFormat("[SCENE PRESENCE] Completed movement");
 
             ControllingClient.MoveAgentIntoRegion(m_scene.RegionInfo, AbsolutePosition, look);
-            SendInitialData();
+            ValidateAndSendAppearanceAndAgentData();
 
             // Create child agents in neighbouring regions
             if (openChildAgents && !IsChildAgent)
@@ -1316,11 +1294,11 @@ namespace OpenSim.Region.Framework.Scenes
 //                "[SCENE PRESENCE]: In {0} received agent update from {1}",
 //                Scene.RegionInfo.RegionName, remoteClient.Name);
 
-            //if (IsChildAgent)
-            //{
+            if (IsChildAgent)
+            {
             //    // m_log.Debug("DEBUG: HandleAgentUpdate: child agent");
-            //    return;
-            //}
+                return;
+            }
 
             ++m_movementUpdateCount;
             if (m_movementUpdateCount < 1)
@@ -1389,14 +1367,14 @@ namespace OpenSim.Region.Framework.Scenes
 
             #endregion Inputs
 
-            // Make anims work for client side autopilot
-            if ((flags & AgentManager.ControlFlags.AGENT_CONTROL_AT_POS) != 0)
-                m_updateCount = UPDATE_COUNT;
-
-            // Make turning in place work
-            if ((flags & AgentManager.ControlFlags.AGENT_CONTROL_YAW_POS) != 0 ||
-                (flags & AgentManager.ControlFlags.AGENT_CONTROL_YAW_NEG) != 0)
-                m_updateCount = UPDATE_COUNT;
+//            // Make anims work for client side autopilot
+//            if ((flags & AgentManager.ControlFlags.AGENT_CONTROL_AT_POS) != 0)
+//                m_updateCount = UPDATE_COUNT;
+//
+//            // Make turning in place work
+//            if ((flags & AgentManager.ControlFlags.AGENT_CONTROL_YAW_POS) != 0 ||
+//                (flags & AgentManager.ControlFlags.AGENT_CONTROL_YAW_NEG) != 0)
+//                m_updateCount = UPDATE_COUNT;
 
             if ((flags & AgentManager.ControlFlags.AGENT_CONTROL_STAND_UP) != 0)
             {
@@ -1605,8 +1583,8 @@ namespace OpenSim.Region.Framework.Scenes
 //                    }
 //                }
 
-                if (update_movementflag && ParentID == 0)
-                    Animator.UpdateMovementAnimations();
+//                if (update_movementflag && ParentID == 0)
+//                    Animator.UpdateMovementAnimations();
             }
 
             m_scene.EventManager.TriggerOnClientMovement(this);
@@ -2445,13 +2423,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void HandleAgentSitOnGround()
         {
-            m_updateCount = 0;  // Kill animation update burst so that the SIT_G.. will stick.
+//            m_updateCount = 0;  // Kill animation update burst so that the SIT_G.. will stick.
             Animator.TrySetMovementAnimation("SIT_GROUND_CONSTRAINED");
-
-            // TODO: This doesn't prevent the user from walking yet.
-            // Setting parent ID would fix this, if we knew what value
-            // to use.  Or we could add a m_isSitting variable.
-            //Animator.TrySetMovementAnimation("SIT_GROUND_CONSTRAINED");
             SitGround = true;
             RemoveFromPhysicalScene();
         }
@@ -2540,17 +2513,11 @@ namespace OpenSim.Region.Framework.Scenes
 
         #region Overridden Methods
 
-        private bool sendingPrims = false;
-
         public override void Update()
         {
             const float ROTATION_TOLERANCE = 0.01f;
             const float VELOCITY_TOLERANCE = 0.001f;
             const float POSITION_TOLERANCE = 0.05f;
-            //const int TIME_MS_TOLERANCE = 3000;
-
-            if (!sendingPrims)
-                Util.FireAndForget(delegate { sendingPrims = true; SendPrimUpdates(); sendingPrims = false; });
 
             if (IsChildAgent == false)
             {
@@ -2564,7 +2531,6 @@ namespace OpenSim.Region.Framework.Scenes
                 if (!Rotation.ApproxEquals(m_lastRotation, ROTATION_TOLERANCE) ||
                     !Velocity.ApproxEquals(m_lastVelocity, VELOCITY_TOLERANCE) ||
                     !m_pos.ApproxEquals(m_lastPosition, POSITION_TOLERANCE))
-                    //Environment.TickCount - m_lastTerseSent > TIME_MS_TOLERANCE)
                 {
                     SendTerseUpdateToAllClients();
 
@@ -2572,7 +2538,6 @@ namespace OpenSim.Region.Framework.Scenes
                     m_lastPosition = m_pos;
                     m_lastRotation = Rotation;
                     m_lastVelocity = Velocity;
-                    //m_lastTerseSent = Environment.TickCount;
                 }
 
                 // followed suggestion from mic bowman. reversed the two lines below.
@@ -2673,11 +2638,31 @@ namespace OpenSim.Region.Framework.Scenes
             ControllingClient.SendCoarseLocationUpdate(avatarUUIDs, coarseLocations);
         }
 
+        public void SendInitialDataToMe()
+        {
+            // Send all scene object to the new client
+            Util.FireAndForget(delegate
+            {
+                // we created a new ScenePresence (a new child agent) in a fresh region.
+                // Request info about all the (root) agents in this region
+                // Note: This won't send data *to* other clients in that region (children don't send)
+                SendOtherAgentsAvatarDataToMe();
+                SendOtherAgentsAppearanceToMe();
+
+                EntityBase[] entities = Scene.Entities.GetEntities();
+                foreach(EntityBase e in entities)
+                {
+                    if (e != null && e is SceneObjectGroup)
+                        ((SceneObjectGroup)e).SendFullUpdateToClient(ControllingClient);
+                }
+            });
+        }
+
         /// <summary>
         /// Do everything required once a client completes its movement into a region and becomes
         /// a root agent.
         /// </summary>
-        private void SendInitialData()
+        private void ValidateAndSendAppearanceAndAgentData()
         {
             //m_log.DebugFormat("[SCENE PRESENCE] SendInitialData: {0} ({1})", Name, UUID);
             // Moved this into CompleteMovement to ensure that Appearance is initialized before
@@ -2700,7 +2685,7 @@ namespace OpenSim.Region.Framework.Scenes
             }
             
             // This agent just became root. We are going to tell everyone about it. The process of
-            // getting other avatars information was initiated in the constructor... don't do it 
+            // getting other avatars information was initiated elsewhere immediately after the child circuit connected... don't do it
             // again here... this comes after the cached appearance check because the avatars
             // appearance goes into the avatar update packet
             SendAvatarDataToAllAgents();
@@ -2991,6 +2976,8 @@ namespace OpenSim.Region.Framework.Scenes
                             Velocity = Vector3.Zero;
                             AbsolutePosition = pos;
 
+//                            m_log.DebugFormat("[SCENE PRESENCE]: Prevented flyoff for {0} at {1}", Name, AbsolutePosition);
+
                             AddToPhysicalScene(isFlying);
                         }
                     }
@@ -3066,9 +3053,12 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void Reset()
         {
+//            m_log.DebugFormat("[SCENE PRESENCE]: Resetting {0} in {1}", Name, Scene.RegionInfo.RegionName);
+
             // Put the child agent back at the center
             AbsolutePosition 
                 = new Vector3(((float)Constants.RegionSize * 0.5f), ((float)Constants.RegionSize * 0.5f), 70);
+
             Animator.ResetAnimations();
         }
 
@@ -3291,7 +3281,7 @@ namespace OpenSim.Region.Framework.Scenes
             }
         }
 
-        public void CopyFrom(AgentData cAgent)
+        private void CopyFrom(AgentData cAgent)
         {
             m_originRegionID = cAgent.RegionID;
 
@@ -3353,13 +3343,10 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             }
             catch { }
-            // Animations
-            try
-            {
-                Animator.ResetAnimations();
+
+            // FIXME: Why is this null check necessary?  Where are the cases where we get a null Anims object?
+            if (cAgent.Anims != null)
                 Animator.Animations.FromArray(cAgent.Anims);
-            }
-            catch {  }
 
             if (cAgent.AttachmentObjects != null && cAgent.AttachmentObjects.Count > 0)
             {
@@ -3441,19 +3428,32 @@ namespace OpenSim.Region.Framework.Scenes
                 ControllingClient.SendAgentAlertMessage("Physics is having a problem with your avatar.  You may not be able to move until you relog.", true);
         }
 
-        // Event called by the physics plugin to tell the avatar about a collision.
-        private void PhysicsCollisionUpdate(EventArgs e)
+        /// <summary>
+        /// Event called by the physics plugin to tell the avatar about a collision.
+        /// </summary>
+        /// <remarks>
+        /// This function is called continuously, even when there are no collisions.  If the avatar is walking on the
+        /// ground or a prim then there will be collision information between the avatar and the surface.
+        ///
+        /// FIXME: However, we can't safely avoid calling this yet where there are no collisions without analyzing whether
+        /// any part of this method is relying on an every-frame call.
+        /// </remarks>
+        /// <param name="e"></param>
+        public void PhysicsCollisionUpdate(EventArgs e)
         {
+            if (IsChildAgent)
+                return;
+            
             //if ((Math.Abs(Velocity.X) > 0.1e-9f) || (Math.Abs(Velocity.Y) > 0.1e-9f))
             // The Physics Scene will send updates every 500 ms grep: PhysicsActor.SubscribeEvents(
             // as of this comment the interval is set in AddToPhysicalScene
             if (Animator != null)
             {
-                if (m_updateCount > 0)
-                {
+//                if (m_updateCount > 0)
+//                {
                     Animator.UpdateMovementAnimations();
-                    m_updateCount--;
-                }
+//                    m_updateCount--;
+//                }
             }
 
             CollisionEventUpdate collisionData = (CollisionEventUpdate)e;
@@ -3461,13 +3461,13 @@ namespace OpenSim.Region.Framework.Scenes
 
             CollisionPlane = Vector4.UnitW;
 
-            // No collisions at all means we may be flying. Update always
-            // to make falling work
-            if (m_lastColCount != coldata.Count || coldata.Count == 0)
-            {	
-                m_updateCount = UPDATE_COUNT;
-                m_lastColCount = coldata.Count;
-            }
+//            // No collisions at all means we may be flying. Update always
+//            // to make falling work
+//            if (m_lastColCount != coldata.Count || coldata.Count == 0)
+//            {
+//                m_updateCount = UPDATE_COUNT;
+//                m_lastColCount = coldata.Count;
+//            }
 
             if (coldata.Count != 0 && Animator != null)
             {
@@ -3557,8 +3557,6 @@ namespace OpenSim.Region.Framework.Scenes
             // I don't get it but mono crashes when you try to dispose of this timer,
             // unsetting the elapsed callback should be enough to allow for cleanup however.
             // m_reprioritizationTimer.Dispose(); 
-
-            SceneViewer.Close();
 
             RemoveFromPhysicalScene();
             Animator.Close();
@@ -3685,23 +3683,23 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="args">The arguments for the event</param>
         public void SendScriptEventToAttachments(string eventName, Object[] args)
         {
-            if (m_scriptEngines != null)
-            {
-                lock (m_attachments)
-                {
-                    foreach (SceneObjectGroup grp in m_attachments)
-                    {
-                        // 16384 is CHANGED_ANIMATION
-                        //
-                        // Send this to all attachment root prims
-                        //
-                        foreach (IScriptModule m in m_scriptEngines)
-                        {
-                            if (m == null) // No script engine loaded
-                                continue;
+            if (m_scriptEngines.Length == 0)
+                return;
 
-                            m.PostObjectEvent(grp.RootPart.UUID, "changed", new Object[] { (int)Changed.ANIMATION });
-                        }
+            lock (m_attachments)
+            {
+                foreach (SceneObjectGroup grp in m_attachments)
+                {
+                    // 16384 is CHANGED_ANIMATION
+                    //
+                    // Send this to all attachment root prims
+                    //
+                    foreach (IScriptModule m in m_scriptEngines)
+                    {
+                        if (m == null) // No script engine loaded
+                            continue;
+
+                        m.PostObjectEvent(grp.RootPart.UUID, "changed", new Object[] { (int)Changed.ANIMATION });
                     }
                 }
             }

@@ -25,44 +25,46 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Timers;
+using Nini.Config;
+using NUnit.Framework;
 using OpenMetaverse;
+using OpenSim.Framework;
+using OpenSim.Framework.Communications;
+using OpenSim.Region.Framework.Scenes;
+using OpenSim.Region.Framework.Interfaces;
+using OpenSim.Region.CoreModules.Framework.EntityTransfer;
+using OpenSim.Region.CoreModules.World.Serialiser;
+using OpenSim.Region.CoreModules.ServiceConnectorsOut.Simulation;
+using OpenSim.Region.Physics.Manager;
+using OpenSim.Tests.Common;
+using OpenSim.Tests.Common.Mock;
 
-namespace OpenSim.Framework
+namespace OpenSim.Region.Framework.Scenes.Tests
 {
-    public delegate void ExpectUserDelegate(AgentCircuitData agent);
-
-
-    public delegate void UpdateNeighbours(List<RegionInfo> neighbours);
-
-    public delegate void AgentCrossing(UUID agentID, Vector3 position, bool isFlying);
-
-    public delegate void PrimCrossing(UUID primID, Vector3 position, bool isPhysical);
-
-    public delegate void AcknowledgeAgentCross(UUID agentID);
-
-    public delegate void AcknowledgePrimCross(UUID PrimID);
-
-    public delegate bool CloseAgentConnection(UUID agentID);
-
-    public delegate bool ChildAgentUpdate(ChildAgentDataUpdate cAgentData);
-
-    public delegate void LogOffUser(UUID agentID, UUID regionSecret, string message);
-
-    public delegate LandData GetLandData(uint x, uint y);
-
-    public interface IRegionCommsListener
+    /// <summary>
+    /// Scene presence animation tests
+    /// </summary>
+    [TestFixture]
+    public class ScenePresenceAnimationTests
     {
-        event ExpectUserDelegate OnExpectUser;
-        event GenericCall2 OnExpectChildAgent;
-        event AgentCrossing OnAvatarCrossingIntoRegion;
-        event PrimCrossing OnPrimCrossingIntoRegion;
-        event AcknowledgeAgentCross OnAcknowledgeAgentCrossed;
-        event AcknowledgePrimCross OnAcknowledgePrimCrossed;
-        event UpdateNeighbours OnNeighboursUpdate;
-        event CloseAgentConnection OnCloseAgentConnection;
-        event ChildAgentUpdate OnChildAgentUpdate;
-        event LogOffUser OnLogOffUser;
-        event GetLandData OnGetLandData;
+        [Test]
+        public void TestFlyingAnimation()
+        {
+            TestHelpers.InMethod();
+//            log4net.Config.XmlConfigurator.Configure();
+
+            TestScene scene = SceneHelpers.SetupScene();
+            ScenePresence sp = SceneHelpers.AddScenePresence(scene, TestHelpers.ParseTail(0x1));
+            sp.PhysicsActor.Flying = true;
+            sp.PhysicsCollisionUpdate(new CollisionEventUpdate());
+
+            Assert.That(sp.Animator.CurrentMovementAnimation, Is.EqualTo("HOVER"));
+        }
     }
 }
