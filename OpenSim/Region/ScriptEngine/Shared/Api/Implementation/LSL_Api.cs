@@ -3742,7 +3742,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             // parse for sitting avatare-uuids
             World.ForEachRootScenePresence(delegate(ScenePresence presence)
             {
-                if (presence.ParentID != 0 && m_host.ParentGroup.HasChildPrim(presence.ParentID))
+                if (presence.ParentID != 0 && m_host.ParentGroup.LocalId == presence.ParentID)
                     keytable.Add(presence.UUID);
             });
 
@@ -3804,7 +3804,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             List<String> nametable = new List<String>();
             World.ForEachRootScenePresence(delegate(ScenePresence presence)
             {
-                if (presence.ParentID != 0 && m_host.ParentGroup.HasChildPrim(presence.ParentID))
+                if (presence.ParentID != 0 && m_host.ParentGroup.LocalId == presence.ParentID)
                     nametable.Add(presence.ControllingClient.Name);
             });
 
@@ -7613,7 +7613,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             int avatarCount = 0;
             World.ForEachRootScenePresence(delegate(ScenePresence presence)
             {
-                if (presence.ParentID != 0 && m_host.ParentGroup.HasChildPrim(presence.ParentID))
+                if (presence.ParentID != 0 && m_host.ParentGroup.LocalId == presence.ParentID)
                         avatarCount++;
             });
 
