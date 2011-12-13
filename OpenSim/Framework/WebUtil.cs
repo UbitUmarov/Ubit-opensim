@@ -114,6 +114,8 @@ namespace OpenSim.Framework
                         {
                             string responseStr = responseStream.GetStreamString();
                             OSD responseOSD = OSDParser.Deserialize(responseStr);
+                            responseStream.Close();
+                            response.Close();
                             if (responseOSD.Type == OSDType.Map)
                                 return (OSDMap)responseOSD;
                             else
@@ -179,6 +181,7 @@ namespace OpenSim.Framework
                 request.Method = method;
                 request.Timeout = timeout;
                 request.KeepAlive = false;
+//                request.KeepAlive = true;
                 request.MaximumAutomaticRedirections = 10;
                 request.ReadWriteTimeout = timeout / 4;
                 request.Headers[OSHeaderRequestID] = reqnum.ToString();
@@ -226,7 +229,9 @@ namespace OpenSim.Framework
                     {
                         string responseStr = null;
                         responseStr = responseStream.GetStreamString();
-                        // m_log.DebugFormat("[WEB UTIL]: <{0}> response is <{1}>",reqnum,responseStr);
+//                        m_log.DebugFormat("[WEB UTIL]: <{0}> response is <{1}>",reqnum,responseStr);
+                        responseStream.Close();
+                        response.Close();
                         return CanonicalizeResults(responseStr);
                     }
                 }
@@ -251,6 +256,7 @@ namespace OpenSim.Framework
                 if (tickdiff > LongCallTime)
                     m_log.DebugFormat("[WEB UTIL]: osd request <{0}> (URI:{1}, METHOD:{2}) took {3}ms overall, {4}ms writing",
                                      reqnum,url,method,tickdiff,tickdata);
+                
             }
            
 	        m_log.DebugFormat("[WEB UTIL]: <{0}> osd request for {1}, method {2} FAILED: {3}", reqnum, url, method, errorMessage); 
@@ -356,6 +362,8 @@ namespace OpenSim.Framework
 
                         responseStr = responseStream.GetStreamString();
                         OSD responseOSD = OSDParser.Deserialize(responseStr);
+                        responseStream.Close();
+                        response.Close();
                         if (responseOSD.Type == OSDType.Map)
                             return (OSDMap)responseOSD;
                     }
