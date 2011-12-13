@@ -94,7 +94,8 @@ namespace OpenSim.Framework.Servers.HttpServer
             {
                 Watchdog.UpdateThread();
                 ProcessQueuedRequests();
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
+                Thread.Sleep(200);
             }
         }
 
