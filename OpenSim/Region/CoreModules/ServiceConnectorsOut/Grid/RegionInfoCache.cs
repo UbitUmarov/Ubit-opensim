@@ -65,13 +65,27 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.Grid
             }
         }
 
+        internal struct ScopedRegionHandle
+        {
+            public UUID m_scopeID;
+            public ulong m_handle;
+            public ScopedRegionHandle(UUID scopeID, ulong handle)
+            {
+                m_scopeID = scopeID;
+                m_handle = handle;
+            }
+        }
+
+
         private ExpiringCache<ScopedRegionUUID, GridRegion> m_UUIDCache;
         private ExpiringCache<ScopedRegionName, ScopedRegionUUID> m_NameCache;
+        private ExpiringCache<ScopedRegionHandle, ScopedRegionUUID> m_HandleCache;
 
         public RegionInfoCache()
         {
             m_UUIDCache = new ExpiringCache<ScopedRegionUUID, GridRegion>();
-            m_NameCache = new ExpiringCache<ScopedRegionName, ScopedRegionUUID>(); 
+            m_NameCache = new ExpiringCache<ScopedRegionName, ScopedRegionUUID>();
+            m_HandleCache = new ExpiringCache<ScopedRegionHandle, ScopedRegionUUID>();
         }
 
         public void Cache(GridRegion rinfo)
@@ -96,6 +110,8 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.Grid
             {
                 ScopedRegionName name = new ScopedRegionName(scopeID,rinfo.RegionName);
                 m_NameCache.AddOrUpdate(name, id, CACHE_EXPIRATION_SECONDS);
+                ScopedRegionHandle hnd = new ScopedRegionHandle(scopeID, rinfo.RegionHandle);
+                m_HandleCache.AddOrUpdate(hnd,id,CACHE_EXPIRATION_SECONDS);
             }
         }
 
@@ -133,5 +149,34 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.Grid
             
             return null;
         }
+
+        public GridRegion Get(UUID scopeID, uint x ,uint y, out bool inCache)
+        {
+            //            ulong handle = Util.UIntsToLong((x * (uint)Constants.RegionSize), (y * (uint)Constants.RegionSize));
+            ulong handle = Util.UIntsToLong(x , y );
+
+            return Get(scopeID, handle, out inCache);
+        }
+
+        public GridRegion Get(UUID scopeID, ulong handle, out bool inCache)
+        {
+            inCache = false;
+
+            ScopedRegionHandle hnd = new ScopedRegionHandle(scopeID, handle);
+
+            ScopedRegionUUID id;
+            if (m_HandleCache.TryGetValue(hnd, out id))
+            {
+                GridRegion rinfo = null;
+                if (m_UUIDCache.TryGetValue(id, out rinfo))
+                {
+                    inCache = true;
+                    return rinfo;
+                }
+            }
+
+            return null;
+        }
+
     }
 }

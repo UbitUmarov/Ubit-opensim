@@ -186,9 +186,17 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.Grid
 
         public GridRegion GetRegionByPosition(UUID scopeID, int x, int y)
         {
-            GridRegion rinfo = m_LocalGridService.GetRegionByPosition(scopeID, x, y);
+            bool inCache = false;
+            GridRegion rinfo = m_RegionInfoCache.Get(scopeID, (uint)x, (uint)y, out inCache);
+            if (inCache)
+                return rinfo;
+
+            rinfo = m_LocalGridService.GetRegionByPosition(scopeID, x, y);
             if (rinfo == null)
                 rinfo = m_RemoteGridService.GetRegionByPosition(scopeID, x, y);
+
+            if (rinfo != null)
+                m_RegionInfoCache.Cache(rinfo);
 
             return rinfo;
         }
