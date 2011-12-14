@@ -147,6 +147,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 uint x = 0, y = 0;
                 List<string> simulatorList = new List<string>();
+                simulatorList.Add(m_regionInfo.ServerURI); // avoid sending to old regions on simiar uri
                 foreach (ulong regionHandle in presence.KnownRegionHandles)
                 {
                     if (regionHandle != m_regionInfo.RegionHandle)
@@ -166,6 +167,7 @@ namespace OpenSim.Region.Framework.Scenes
                             d.BeginInvoke(cAgentData, m_regionInfo.ScopeID, dest,
                                           SendChildAgentDataUpdateCompleted,
                                           d);
+
                         }
                     }
                 }
