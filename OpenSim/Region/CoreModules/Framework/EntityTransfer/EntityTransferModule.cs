@@ -904,6 +904,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             Scene initiatingScene)
         {
             Thread.Sleep(10000);
+            
             IMessageTransferModule im = initiatingScene.RequestModuleInterface<IMessageTransferModule>();
             if (im != null)
             {
@@ -1765,7 +1766,14 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 //if (m_interregionCommsOut != null)
                 //    successYN = m_interregionCommsOut.SendCreateObject(newRegionHandle, grp, true);
                 if (m_aScene.SimulationService != null)
-                    successYN = m_aScene.SimulationService.CreateObject(destination, grp, true);
+                    try
+                    {
+                        successYN = m_aScene.SimulationService.CreateObject(destination, grp, true);
+                    }
+                    catch
+                    {
+                        successYN = false;
+                    }
 
                 if (successYN)
                 {
@@ -1784,7 +1792,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                 else
                 {
-/*
+
                     if (!grp.IsDeleted)
                     {
                         if (grp.RootPart.PhysActor != null)
@@ -1793,7 +1801,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                         }
                     }
 
-*/
+
                     m_log.ErrorFormat("[ENTITY TRANSFER MODULE]: Prim crossing failed for {0}", grp);
                 }
             }

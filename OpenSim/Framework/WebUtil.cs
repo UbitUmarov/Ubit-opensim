@@ -258,7 +258,7 @@ namespace OpenSim.Framework
                                      reqnum,url,method,tickdiff,tickdata);
                 
             }
-           
+            throw new WebException();
 	        m_log.DebugFormat("[WEB UTIL]: <{0}> osd request for {1}, method {2} FAILED: {3}", reqnum, url, method, errorMessage); 
             return ErrorResponseMap(errorMessage);
         }
