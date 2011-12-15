@@ -51,15 +51,15 @@ namespace OpenSim.Region.RegionCombinerModule
         public ILandChannel RegionLandChannel;
         public uint X;
         public uint Y;
-        public int XEnd;
-        public int YEnd;
+        public int XExtend;
+        public int YExtend;
         public List<RegionData> ConnectedRegions;
         public RegionCombinerPermissionModule PermissionModule;
         public RegionCombinerClientEventForwarder ClientEventForwarder;
         public void UpdateExtents(Vector3 extents)
         {
-            XEnd = (int)extents.X;
-            YEnd = (int)extents.Y;
+            XExtend = (int)extents.X;
+            YExtend = (int)extents.Y;
         }
     }
 }

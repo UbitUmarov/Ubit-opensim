@@ -205,8 +205,6 @@ namespace OpenSim.Region.RegionCombinerModule
             westBorder.CrossDirection = Cardinals.W;
             scene.WestBorders[0] = westBorder;
 
-
-
             RegionConnections regionConnections = new RegionConnections();
             regionConnections.ConnectedRegions = new List<RegionData>();
             regionConnections.RegionScene = scene;
@@ -214,9 +212,8 @@ namespace OpenSim.Region.RegionCombinerModule
             regionConnections.RegionId = scene.RegionInfo.originRegionID;
             regionConnections.X = scene.RegionInfo.RegionLocX;
             regionConnections.Y = scene.RegionInfo.RegionLocY;
-            regionConnections.XEnd = (int)Constants.RegionSize;
-            regionConnections.YEnd = (int)Constants.RegionSize;
-
+            regionConnections.XExtend = (int)Constants.RegionSize;
+            regionConnections.YExtend = (int)Constants.RegionSize;
 
             lock (m_regions)
             {
@@ -224,174 +221,14 @@ namespace OpenSim.Region.RegionCombinerModule
 
                 foreach (RegionConnections conn in m_regions.Values)
                 {
-                    #region commented
-                    /*
-                    // If we're one region over +x +y
-                    //xxy
-                    //xxx
-                    //xxx
-                    if ((((int)conn.X * (int)Constants.RegionSize) + conn.XEnd 
-                        == (regionConnections.X * (int)Constants.RegionSize)) 
-                        && (((int)conn.Y * (int)Constants.RegionSize) - conn.YEnd 
-                        == (regionConnections.Y * (int)Constants.RegionSize)))
-                    {
-                        Vector3 offset = Vector3.Zero;
-                        offset.X = (((regionConnections.X * (int) Constants.RegionSize)) -
-                                    ((conn.X * (int) Constants.RegionSize)));
-                        offset.Y = (((regionConnections.Y * (int) Constants.RegionSize)) -
-                                    ((conn.Y * (int) Constants.RegionSize)));
-
-                        Vector3 extents = Vector3.Zero;
-                        extents.Y = regionConnections.YEnd + conn.YEnd;
-                        extents.X = conn.XEnd + conn.XEnd;
-
-                        m_log.DebugFormat("Scene: {0} to the northwest of Scene{1}.  Offset: {2}.  Extents:{3}",
-                                          conn.RegionScene.RegionInfo.RegionName,
-                                          regionConnections.RegionScene.RegionInfo.RegionName,
-                                          offset, extents);
-
-                        scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, extents);
-                            
-                        connectedYN = true;
-                        break;
-                    }
-                    */
-
-                    /*
-                    //If we're one region over x +y
-                    //xxx
-                    //xxx
-                    //xyx
-                    if ((((int)conn.X * (int)Constants.RegionSize)
-                        == (regionConnections.X * (int)Constants.RegionSize))
-                        && (((int)conn.Y * (int)Constants.RegionSize) - conn.YEnd
-                        == (regionConnections.Y * (int)Constants.RegionSize)))
-                    {
-                        Vector3 offset = Vector3.Zero;
-                        offset.X = (((regionConnections.X * (int)Constants.RegionSize)) -
-                                    ((conn.X * (int)Constants.RegionSize)));
-                        offset.Y = (((regionConnections.Y * (int)Constants.RegionSize)) -
-                                    ((conn.Y * (int)Constants.RegionSize)));
-
-                        Vector3 extents = Vector3.Zero;
-                        extents.Y = regionConnections.YEnd + conn.YEnd;
-                        extents.X = conn.XEnd;
-
-                        m_log.DebugFormat("Scene: {0} to the north of Scene{1}.  Offset: {2}. Extents:{3}",
-                                          conn.RegionScene.RegionInfo.RegionName,
-                                          regionConnections.RegionScene.RegionInfo.RegionName, offset, extents);
-
-                        scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, extents);
-                        connectedYN = true;
-                        break;
-                    }
-                    */
-
-                    /*
-                    // If we're one region over -x +y
-                    //xxx
-                    //xxx
-                    //yxx
-                    if ((((int)conn.X * (int)Constants.RegionSize) - conn.XEnd
-                        == (regionConnections.X * (int)Constants.RegionSize))
-                        && (((int)conn.Y * (int)Constants.RegionSize) - conn.YEnd
-                        == (regionConnections.Y * (int)Constants.RegionSize)))
-                    {
-                        Vector3 offset = Vector3.Zero;
-                        offset.X = (((regionConnections.X * (int)Constants.RegionSize)) -
-                                    ((conn.X * (int)Constants.RegionSize)));
-                        offset.Y = (((regionConnections.Y * (int)Constants.RegionSize)) -
-                                    ((conn.Y * (int)Constants.RegionSize)));
-
-                        Vector3 extents = Vector3.Zero;
-                        extents.Y = regionConnections.YEnd + conn.YEnd;
-                        extents.X = conn.XEnd + conn.XEnd;
-
-                        m_log.DebugFormat("Scene: {0} to the northeast of Scene.  Offset: {2}. Extents:{3}",
-                                          conn.RegionScene.RegionInfo.RegionName,
-                                          regionConnections.RegionScene.RegionInfo.RegionName, offset, extents);
-
-                        scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, extents);
-
-
-                        connectedYN = true;
-                        break;
-                    }
-                    */
-
-                    /*
-                    // If we're one region over -x y
-                    //xxx
-                    //yxx
-                    //xxx
-                    if ((((int)conn.X * (int)Constants.RegionSize) - conn.XEnd
-                        == (regionConnections.X * (int)Constants.RegionSize))
-                        && (((int)conn.Y * (int)Constants.RegionSize)
-                        == (regionConnections.Y * (int)Constants.RegionSize)))
-                    {
-                        Vector3 offset = Vector3.Zero;
-                        offset.X = (((regionConnections.X * (int)Constants.RegionSize)) -
-                                    ((conn.X * (int)Constants.RegionSize)));
-                        offset.Y = (((regionConnections.Y * (int)Constants.RegionSize)) -
-                                    ((conn.Y * (int)Constants.RegionSize)));
-
-                        Vector3 extents = Vector3.Zero;
-                        extents.Y = regionConnections.YEnd;
-                        extents.X = conn.XEnd + conn.XEnd;
-
-                        m_log.DebugFormat("Scene: {0} to the east of Scene{1} Offset: {2}. Extents:{3}",
-                                          conn.RegionScene.RegionInfo.RegionName,
-                                          regionConnections.RegionScene.RegionInfo.RegionName, offset, extents);
-
-                        scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, extents);
-
-                        connectedYN = true;
-                        break;
-                    }
-                    */
-
-                    /*
-                        // If we're one region over -x -y
-                        //yxx
-                        //xxx
-                        //xxx
-                        if ((((int)conn.X * (int)Constants.RegionSize) - conn.XEnd
-                            == (regionConnections.X * (int)Constants.RegionSize))
-                            && (((int)conn.Y * (int)Constants.RegionSize) + conn.YEnd
-                            == (regionConnections.Y * (int)Constants.RegionSize)))
-                        {
-                            Vector3 offset = Vector3.Zero;
-                            offset.X = (((regionConnections.X * (int)Constants.RegionSize)) -
-                                        ((conn.X * (int)Constants.RegionSize)));
-                            offset.Y = (((regionConnections.Y * (int)Constants.RegionSize)) -
-                                        ((conn.Y * (int)Constants.RegionSize)));
-
-                            Vector3 extents = Vector3.Zero;
-                            extents.Y = regionConnections.YEnd + conn.YEnd;
-                            extents.X = conn.XEnd + conn.XEnd;
-
-                            m_log.DebugFormat("Scene: {0} to the northeast of Scene{1} Offset: {2}. Extents:{3}",
-                                              conn.RegionScene.RegionInfo.RegionName,
-                                              regionConnections.RegionScene.RegionInfo.RegionName, offset, extents);
-
-                            scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, extents);
-
-                            connectedYN = true;
-                            break;
-                        }
-                        */
-                    #endregion
+                    int dx = ((int)conn.X - (int)regionConnections.X) * (int)Constants.RegionSize;
+                    int dy = ((int)conn.Y - (int)regionConnections.Y) * (int)Constants.RegionSize;
 
                     // If we're one region over +x y
                     //xxx
                     //xxy
                     //xxx
-
-
-                    if ((((int)conn.X * (int)Constants.RegionSize) + conn.XEnd
-                        >= (regionConnections.X * (int)Constants.RegionSize))
-                        && (((int)conn.Y * (int)Constants.RegionSize)
-                        >= (regionConnections.Y * (int)Constants.RegionSize)))
+                    if (dx + conn.XExtend >= 0 && dy >= 0)
                     {
                         connectedYN = DoWorkForOneRegionOverPlusXY(conn, regionConnections, scene);
                         break;
@@ -401,10 +238,7 @@ namespace OpenSim.Region.RegionCombinerModule
                     //xyx
                     //xxx
                     //xxx
-                    if ((((int)conn.X * (int)Constants.RegionSize)
-                        >= (regionConnections.X * (int)Constants.RegionSize))
-                        && (((int)conn.Y * (int)Constants.RegionSize) + conn.YEnd
-                        >= (regionConnections.Y * (int)Constants.RegionSize)))
+                    if (dx >=0 && dy + conn.YExtend >=0)
                     {
                         connectedYN = DoWorkForOneRegionOverXPlusY(conn, regionConnections, scene);
                         break;
@@ -414,16 +248,14 @@ namespace OpenSim.Region.RegionCombinerModule
                     //xxy
                     //xxx
                     //xxx
-                    if ((((int)conn.X * (int)Constants.RegionSize) + conn.YEnd
-                        >= (regionConnections.X * (int)Constants.RegionSize))
-                        && (((int)conn.Y * (int)Constants.RegionSize) + conn.YEnd
-                        >= (regionConnections.Y * (int)Constants.RegionSize)))
+                    if (dx + conn.XExtend >=0 && dy + conn.YExtend >=0)
                     {
                         connectedYN = DoWorkForOneRegionOverPlusXPlusY(conn, regionConnections, scene);
                         break;
 
                     }
                 }
+
 
                 // If !connectYN means that this region is a root region
                 if (!connectedYN)
@@ -439,14 +271,12 @@ namespace OpenSim.Region.RegionCombinerModule
         private bool DoWorkForOneRegionOverPlusXY(RegionConnections conn, RegionConnections regionConnections, Scene scene)
         {
             Vector3 offset = Vector3.Zero;
-            offset.X = (((regionConnections.X * (int)Constants.RegionSize)) -
-                        ((conn.X * (int)Constants.RegionSize)));
-            offset.Y = (((regionConnections.Y * (int)Constants.RegionSize)) -
-                        ((conn.Y * (int)Constants.RegionSize)));
+            offset.X = ((int)regionConnections.X - (int)conn.X) * Constants.RegionSize;
+            offset.Y = ((int)regionConnections.Y - (int)conn.Y) * Constants.RegionSize;
 
             Vector3 extents = Vector3.Zero;
-            extents.Y = conn.YEnd;
-            extents.X = conn.XEnd + regionConnections.XEnd;
+            extents.Y = conn.YExtend;
+            extents.X = conn.XExtend + regionConnections.XExtend;
 
             conn.UpdateExtents(extents);
 
@@ -509,14 +339,12 @@ namespace OpenSim.Region.RegionCombinerModule
         private bool DoWorkForOneRegionOverXPlusY(RegionConnections conn, RegionConnections regionConnections, Scene scene)
         {
             Vector3 offset = Vector3.Zero;
-            offset.X = (((regionConnections.X * (int)Constants.RegionSize)) -
-                        ((conn.X * (int)Constants.RegionSize)));
-            offset.Y = (((regionConnections.Y * (int)Constants.RegionSize)) -
-                        ((conn.Y * (int)Constants.RegionSize)));
+            offset.X = ((int)regionConnections.X - (int)conn.X) * Constants.RegionSize;
+            offset.Y = ((int)regionConnections.Y - (int)conn.Y) * Constants.RegionSize;
 
             Vector3 extents = Vector3.Zero;
-            extents.Y = regionConnections.YEnd + conn.YEnd;
-            extents.X = conn.XEnd;
+            extents.Y = regionConnections.YExtend + conn.YExtend;
+            extents.X = conn.XExtend;
             conn.UpdateExtents(extents);
 
             scene.BordersLocked = true;
@@ -563,14 +391,12 @@ namespace OpenSim.Region.RegionCombinerModule
         private bool DoWorkForOneRegionOverPlusXPlusY(RegionConnections conn, RegionConnections regionConnections, Scene scene)
         {
             Vector3 offset = Vector3.Zero;
-            offset.X = (((regionConnections.X * (int)Constants.RegionSize)) -
-                        ((conn.X * (int)Constants.RegionSize)));
-            offset.Y = (((regionConnections.Y * (int)Constants.RegionSize)) -
-                        ((conn.Y * (int)Constants.RegionSize)));
+            offset.X = ((int)regionConnections.X - (int)conn.X) * Constants.RegionSize;
+            offset.Y = ((int)regionConnections.Y - (int)conn.Y) * Constants.RegionSize;
 
             Vector3 extents = Vector3.Zero;
-            extents.Y = regionConnections.YEnd + conn.YEnd;
-            extents.X = regionConnections.XEnd + conn.XEnd;
+            extents.Y = regionConnections.YExtend + conn.YExtend;
+            extents.X = regionConnections.XExtend + conn.XExtend;
             conn.UpdateExtents(extents);
 
             scene.BordersLocked = true;
