@@ -279,6 +279,7 @@ namespace OpenSim.Region.RegionCombinerModule
             extents.X = conn.XExtend + regionConnections.XExtend;
 
             conn.UpdateExtents(extents);
+            
 
             m_log.DebugFormat("Scene: {0} to the west of Scene{1} Offset: {2}. Extents:{3}",
                               conn.RegionScene.RegionInfo.RegionName,

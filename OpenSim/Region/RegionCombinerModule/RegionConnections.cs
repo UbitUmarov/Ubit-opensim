@@ -60,6 +60,8 @@ namespace OpenSim.Region.RegionCombinerModule
         {
             XExtend = (int)extents.X;
             YExtend = (int)extents.Y;
+            RegionScene.RegionInfo.RegionSizeX = (uint)extents.X;
+            RegionScene.RegionInfo.RegionSizeY = (uint)extents.Y;
         }
     }
 }
