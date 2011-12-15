@@ -136,6 +136,8 @@ namespace OpenSim.Framework
         protected IPEndPoint m_internalEndPoint;
         protected uint? m_regionLocX;
         protected uint? m_regionLocY;
+        protected uint m_regionSizeX;
+        protected uint m_regionSizeY;
         protected uint m_remotingPort;
         public UUID RegionID = UUID.Zero;
         public string RemotingAddress;
@@ -227,6 +229,9 @@ namespace OpenSim.Framework
         {
             m_regionLocX = regionLocX;
             m_regionLocY = regionLocY;
+
+            m_regionSizeX = Constants.RegionSize;
+            m_regionSizeY = Constants.RegionSize;
 
             m_internalEndPoint = internalEndPoint;
             m_externalHostName = externalUri;
@@ -431,6 +436,18 @@ namespace OpenSim.Framework
             set { m_regionLocY = value; }
         }
 
+        public uint RegionSizeX
+        {
+            get { return m_regionSizeX; }
+            set { m_regionSizeX = value; }
+        }
+
+        public uint RegionSizeY
+        {
+            get { return m_regionSizeY; }
+            set { m_regionSizeY = value; }
+        }
+
         public ulong RegionHandle
         {
             get { return Util.UIntsToLong((RegionLocX * (uint) Constants.RegionSize), (RegionLocY * (uint) Constants.RegionSize)); }
@@ -505,6 +522,9 @@ namespace OpenSim.Framework
 
             m_regionLocX = Convert.ToUInt32(locationElements[0]);
             m_regionLocY = Convert.ToUInt32(locationElements[1]);
+
+            m_regionSizeX = Constants.RegionSize;
+            m_regionSizeY = Constants.RegionSize;
 
             // Internal IP
             IPAddress address;
