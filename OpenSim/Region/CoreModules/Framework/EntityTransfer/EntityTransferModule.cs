@@ -497,6 +497,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                 // Now let's make it officially a child agent
                 sp.MakeChildAgent();
+                
 
 //                sp.Scene.CleanDroppedAttachments();
 
@@ -511,6 +512,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 else
                 {
                     // now we have a child agent in this region. 
+                    sp.IsInTransit = false; // not sure :(
                     sp.Reset();
                 }
 
@@ -800,7 +802,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
         public void InformClientToInitiateTeleportToLocationAsync(ScenePresence agent, uint regionX, uint regionY, Vector3 position,
             Scene initiatingScene)
         {
-            Thread.Sleep(10000);
+            Thread.Sleep(5000);
 
             Teleport(agent, initiatingScene.RegionInfo.CombinedRegionHandle, position, agent.Lookat, (uint)Constants.TeleportFlags.Godlike);
 /*
