@@ -673,7 +673,6 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             uint neighbourx;
             uint neighboury;
             const float boundaryDistance = 1.7f;
-            const float enterDistance = 0.5f;
 
             // assuming that the need for crossing was verified by callers
 
@@ -698,12 +697,12 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             if (pos.X - boundaryDistance < 0) // going W
             {
                 x = -1;
-                newpos.X = Constants.RegionSize - enterDistance;
+                newpos.X = Constants.RegionSize + pos.X - boundaryDistance;
             }
             else // assume we are going E
             {
                 x = ((int)(pos.X + boundaryDistance) / (int)Constants.RegionSize);
-                newpos.X = enterDistance;
+                newpos.X = pos.X - x * (int)Constants.RegionSize;
             }
 
             x += (int)scene.RegionInfo.RegionLocX;
@@ -713,12 +712,12 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             if (pos.Y - boundaryDistance < 0) // going S  SW or SE
             {
                 y = -1;
-                newpos.Y = Constants.RegionSize - enterDistance;
+                newpos.Y = Constants.RegionSize + pos.Y - boundaryDistance;
             }
             else // assume we are going N NW or NE
             {
                 y = ((int)(pos.Y + boundaryDistance) / (int)Constants.RegionSize);
-                newpos.Y = enterDistance;
+                newpos.Y = pos.Y - y * (int)Constants.RegionSize;
             }
 
             y += (int)scene.RegionInfo.RegionLocY;
