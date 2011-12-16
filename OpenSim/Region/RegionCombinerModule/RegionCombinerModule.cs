@@ -282,7 +282,6 @@ namespace OpenSim.Region.RegionCombinerModule
             scene.RootScene = conn.RegionScene;
             scene.RegionInfo.CombinedRegionHandle = conn.RegionScene.RegionInfo.RegionHandle;
 
-            scene.BordersLocked = true;
             conn.RegionScene.BordersLocked = true;
 
             RegionData ConnectedRegion = new RegionData();
@@ -297,6 +296,7 @@ namespace OpenSim.Region.RegionCombinerModule
             // Inform Child region that it needs to forward it's terrain to the root region
 
             scene.Physics_Enabled = false;
+            scene.Scripts_Enabled = false;
             scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, Vector3.Zero);
 
                         // Extend the borders as appropriate
@@ -309,16 +309,6 @@ namespace OpenSim.Region.RegionCombinerModule
 
             lock (conn.RegionScene.SouthBorders)
                 conn.RegionScene.SouthBorders[0].BorderLine.Y += (int)Constants.RegionSize;
-/*
-                        lock (scene.WestBorders)
-                        {
-                            scene.WestBorders[0].BorderLine.Z = (int)((scene.RegionInfo.RegionLocX - conn.RegionScene.RegionInfo.RegionLocX) * (int)Constants.RegionSize); //auto teleport West
-
-                            // Trigger auto teleport to root region
-                            scene.WestBorders[0].TriggerRegionX = conn.RegionScene.RegionInfo.RegionLocX;
-                            scene.WestBorders[0].TriggerRegionY = conn.RegionScene.RegionInfo.RegionLocY;
-                        }
-            */
             // Reset Terrain..  since terrain loads before we get here, we need to load 
             // it again so it loads in the root region
 
@@ -326,7 +316,6 @@ namespace OpenSim.Region.RegionCombinerModule
 
             // Unlock borders
             conn.RegionScene.BordersLocked = false;
-            scene.BordersLocked = false;
 
             // Create a client event forwarder and add this region's events to the root region.
             if (conn.ClientEventForwarder != null)
@@ -349,7 +338,6 @@ namespace OpenSim.Region.RegionCombinerModule
             scene.RootScene = conn.RegionScene;
             scene.RegionInfo.CombinedRegionHandle = conn.RegionScene.RegionInfo.RegionHandle;
 
-            scene.BordersLocked = true;
             conn.RegionScene.BordersLocked = true;
 
             RegionData ConnectedRegion = new RegionData();
@@ -365,6 +353,7 @@ namespace OpenSim.Region.RegionCombinerModule
             conn.RegionScene.PhysicsScene.Combine(null, Vector3.Zero, extents);
 
             scene.Physics_Enabled = false;
+            scene.Scripts_Enabled = false;
             scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, Vector3.Zero);
 
             lock (conn.RegionScene.NorthBorders)
@@ -374,11 +363,8 @@ namespace OpenSim.Region.RegionCombinerModule
             lock (conn.RegionScene.WestBorders)
                 conn.RegionScene.WestBorders[0].BorderLine.Y += (int)Constants.RegionSize;
             // Reset Terrain..  since terrain normally loads first.
-            //conn.RegionScene.PhysicsScene.SetTerrain(conn.RegionScene.Heightmap.GetFloatsSerialised());
             scene.PhysicsScene.SetTerrain(scene.Heightmap.GetFloatsSerialised());
-            //conn.RegionScene.PhysicsScene.SetTerrain(conn.RegionScene.Heightmap.GetFloatsSerialised());
 
-            scene.BordersLocked = false;
             conn.RegionScene.BordersLocked = false;
             if (conn.ClientEventForwarder != null)
                 conn.ClientEventForwarder.AddSceneToEventForwarding(scene);
@@ -399,7 +385,6 @@ namespace OpenSim.Region.RegionCombinerModule
             scene.RootScene = conn.RegionScene;
             scene.RegionInfo.CombinedRegionHandle = conn.RegionScene.RegionInfo.RegionHandle;
 
-            scene.BordersLocked = true;
             conn.RegionScene.BordersLocked = true;
 
             RegionData ConnectedRegion = new RegionData();
@@ -416,6 +401,7 @@ namespace OpenSim.Region.RegionCombinerModule
             conn.RegionScene.PhysicsScene.Combine(null, Vector3.Zero, extents);
 
             scene.Physics_Enabled = false;
+            scene.Scripts_Enabled = false;
             scene.PhysicsScene.Combine(conn.RegionScene.PhysicsScene, offset, Vector3.Zero);
 
             lock (conn.RegionScene.NorthBorders)
@@ -452,7 +438,6 @@ namespace OpenSim.Region.RegionCombinerModule
             //conn.RegionScene.PhysicsScene.SetTerrain(conn.RegionScene.Heightmap.GetFloatsSerialised());
             scene.PhysicsScene.SetTerrain(scene.Heightmap.GetFloatsSerialised());
             //conn.RegionScene.PhysicsScene.SetTerrain(conn.RegionScene.Heightmap.GetFloatsSerialised());
-            scene.BordersLocked = false;
             conn.RegionScene.BordersLocked = false;
 
             if (conn.ClientEventForwarder != null)

@@ -3335,7 +3335,7 @@ namespace OpenSim.Region.Framework.Scenes
                 RegionInfo.RegionName, (agent.child ? "child" : "root"), agent.firstname, agent.lastname,
                 agent.AgentID, agent.circuitcode, teleportFlags);
 
-            if (LoginsDisabled)
+            if (LoginsDisabled || (RootScene!= null && RootScene.LoginsDisabled))
             {
                 reason = "Logins Disabled";
                 return false;

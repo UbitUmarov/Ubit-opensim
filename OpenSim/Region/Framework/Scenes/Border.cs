@@ -44,8 +44,6 @@ namespace OpenSim.Region.Framework.Scenes
         /// Direction cardinal of the border, think, 'which side of the region this is'.  EX South border: Cardinal.S
         /// </summary>
         public Cardinals CrossDirection = Cardinals.N;
-        public uint TriggerRegionX = 0;
-        public uint TriggerRegionY = 0;
 
         public Border()
         {
@@ -66,19 +64,12 @@ namespace OpenSim.Region.Framework.Scenes
         /// normally 256.  On the South cardinal, it's normally 0.  Any position past this 
         /// point on the cartesian coordinate will trigger the border cross as long as it 
         /// falls within the line start and the line end.</param>
-        /// <param name="triggerRegionX">When this border triggers, teleport to this regionX 
-        /// in the grid</param>
-        /// <param name="triggerRegionY">When this border triggers, teleport to this regionY 
-        /// in the grid</param>
         /// <param name="direction">Cardinal for border direction.  Think, 'which side of the 
         /// region is this'</param>
-        public Border(float lineStart, float lineEnd, float triggerCoordinate, uint triggerRegionX, 
-            uint triggerRegionY, Cardinals direction)
+        public Border(float lineStart, float lineEnd, float triggerCoordinate, Cardinals direction)
         {
-            BorderLine = new Vector3(lineStart,lineEnd,triggerCoordinate);
+            BorderLine = new Vector3(lineStart, lineEnd, triggerCoordinate);
             CrossDirection = direction;
-            TriggerRegionX = triggerRegionX;
-            TriggerRegionY = triggerRegionY;
         }
 
         public bool TestCross(Vector3 position)
