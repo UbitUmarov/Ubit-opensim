@@ -504,10 +504,10 @@ namespace OpenSim.Region.Framework.Scenes
                     // odd test
 //                    if ((Scene.TestBorderCross(val - Vector3.UnitX, Cardinals.E) || Scene.TestBorderCross(val + Vector3.UnitX, Cardinals.W)
 //                        || Scene.TestBorderCross(val - Vector3.UnitY, Cardinals.N) || Scene.TestBorderCross(val + Vector3.UnitY, Cardinals.S))
-                    if ((Scene.TestBorderCross(val, Cardinals.E) || Scene.TestBorderCross(val, Cardinals.W)
-                        || Scene.TestBorderCross(val, Cardinals.N) || Scene.TestBorderCross(val, Cardinals.S))
-  
-                        && !IsAttachmentCheckFull() && (!Scene.LoadingPrims))
+                    if ((m_scene.TestBorderCross(val, Cardinals.E) || m_scene.TestBorderCross(val, Cardinals.W)
+                        || m_scene.TestBorderCross(val, Cardinals.N) || m_scene.TestBorderCross(val, Cardinals.S)
+                        || Scene.RegionInfo.CombinedRegionHandle !=0)
+                        && !IsAttachmentCheckFull() && (!m_scene.LoadingPrims))
                     {
                         m_scene.CrossPrimGroupIntoNewRegion(val, this, true);
                     }

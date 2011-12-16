@@ -1428,6 +1428,9 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
             int thisx = (int)scene.RegionInfo.RegionLocX;
             int thisy = (int)scene.RegionInfo.RegionLocY;
+
+
+/*
             Vector3 EastCross = new Vector3(0.1f, 0, 0);
             Vector3 WestCross = new Vector3(-0.1f, 0, 0);
             Vector3 NorthCross = new Vector3(0, 0.1f, 0);
@@ -1595,9 +1598,62 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 // y + 1
             }
 
+ */
             // If we fail to cross the border, then reset the position of the scene object on that border.
-            uint x = 0, y = 0;
-            Utils.LongToUInts(newRegionHandle, out x, out y);
+//            Utils.LongToUInts(newRegionHandle, out x, out y);
+
+            int x, y;
+            Vector3 pos = attemptedPosition;
+            Vector3 newpos = pos;
+            float boundaryDistance = 1.0f;
+
+            if (scene.RegionInfo.CombinedRegionHandle != 0) // we are a slave region send to main region
+            {
+                uint tmp1;
+                uint tmp2;
+
+                Utils.LongToUInts(scene.RegionInfo.CombinedRegionHandle, out tmp1, out tmp2);
+                x = (int)tmp1;
+                y = (int)tmp2;
+
+                newpos.X += ((int)scene.RegionInfo.RegionLocX * Constants.RegionSize - x);
+                newpos.Y += ((int)scene.RegionInfo.RegionLocY * Constants.RegionSize - y);
+            }
+            else
+            {
+                if (pos.X - boundaryDistance < 0) // going W
+                {
+                    x = -1;
+                    newpos.X = Constants.RegionSize + pos.X - boundaryDistance;
+                }
+                else // assume we are going E
+                {
+                    x = ((int)(pos.X + boundaryDistance) / (int)Constants.RegionSize);
+                    newpos.X = pos.X - x * (int)Constants.RegionSize;
+                }
+
+                x += (int)scene.RegionInfo.RegionLocX;
+                x *= (int)Constants.RegionSize;
+
+                if (pos.Y - boundaryDistance < 0) // going S  SW or SE
+                {
+                    y = -1;
+                    newpos.Y = Constants.RegionSize + pos.Y - boundaryDistance;
+                }
+                else // assume we are going N NW or NE
+                {
+                    y = ((int)(pos.Y + boundaryDistance) / (int)Constants.RegionSize);
+                    newpos.Y = pos.Y - y * (int)Constants.RegionSize;
+                }
+
+                y += (int)scene.RegionInfo.RegionLocY;
+                y *= (int)Constants.RegionSize;
+            }
+
+            //            int x = (int)(neighbourx * Constants.RegionSize), y = (int)(neighboury * Constants.RegionSize);
+
+            ulong neighbourHandle = Utils.UIntsToLong((uint)x, (uint)y);
+
             GridRegion destination = scene.GridService.GetRegionByPosition(scene.RegionInfo.ScopeID, (int)x, (int)y);
 
             if (destination == null)
@@ -1616,7 +1672,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             {
                 // Offset the positions for the new region across the border
                 Vector3 oldGroupPosition = grp.RootPart.GroupPosition;
-                grp.RootPart.GroupPosition = pos;
+                grp.RootPart.GroupPosition = newpos;
                 if (!CrossPrimGroupIntoNewRegion(destination, grp, silent))
                 {
                     if (!grp.IsDeleted)
