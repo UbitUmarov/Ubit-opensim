@@ -142,6 +142,7 @@ namespace OpenSim.Framework
         public UUID RegionID = UUID.Zero;
         public string RemotingAddress;
         public UUID ScopeID = UUID.Zero;
+        private ulong m_combinedRegionHandle = 0;
 
 
         // Apparently, we're applying the same estatesettings regardless of whether it's local or remote.
@@ -236,6 +237,7 @@ namespace OpenSim.Framework
             m_internalEndPoint = internalEndPoint;
             m_externalHostName = externalUri;
             m_serverURI = string.Empty;
+            m_combinedRegionHandle = 0;
         }
 
         public RegionInfo()
@@ -448,6 +450,13 @@ namespace OpenSim.Framework
             set { m_regionSizeY = value; }
         }
 
+        
+        public ulong CombinedRegionHandle
+        {
+            get { return m_combinedRegionHandle; }
+            set { m_combinedRegionHandle = value; }
+        }
+
         public ulong RegionHandle
         {
             get { return Util.UIntsToLong((RegionLocX * (uint) Constants.RegionSize), (RegionLocY * (uint) Constants.RegionSize)); }
@@ -525,6 +534,7 @@ namespace OpenSim.Framework
 
             m_regionSizeX = Constants.RegionSize;
             m_regionSizeY = Constants.RegionSize;
+            m_combinedRegionHandle = 0;
 
             // Internal IP
             IPAddress address;

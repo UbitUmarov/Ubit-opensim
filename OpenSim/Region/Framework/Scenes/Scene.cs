@@ -64,6 +64,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         #region Fields
 
+        private Scene m_rootScene = null;
+
         public bool EmergencyMonitoring = false;
 
         public SynchronizeSceneHandler SynchronizeScene;
@@ -138,6 +140,14 @@ namespace OpenSim.Region.Framework.Scenes
         protected IDialogModule m_dialogModule;
         protected IEntityTransferModule m_teleportModule;
         protected ICapabilitiesModule m_capsModule;
+
+
+        public Scene RootScene
+        {
+            get { return m_rootScene; }
+            set { m_rootScene = value; }
+        }
+        
 
         /// <summary>
         /// Current scene frame number
@@ -249,6 +259,18 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_splitRegionID; }
             set { m_splitRegionID = value; }
         }
+
+        public bool Physics_Enabled
+        {
+            get { return m_physics_enabled; }
+            set { m_physics_enabled = value; }
+        }
+        public bool Scripts_Enabled
+        {
+            get { return m_scripts_enabled; }
+            set { m_scripts_enabled = value; }
+        }
+
 
         public bool BordersLocked
         {

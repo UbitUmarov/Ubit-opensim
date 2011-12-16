@@ -1245,6 +1245,9 @@ namespace OpenSim.Region.Framework.Scenes
                     friendsModule.SendFriendsOnlineIfNeeded(ControllingClient);
             }
 
+            if (m_scene.RegionInfo.CombinedRegionHandle != 0)
+                CheckForBorderCrossing();
+
 //            m_log.DebugFormat(
 //                "[SCENE PRESENCE]: Completing movement of {0} into region {1} took {2}ms", 
 //                client.Name, Scene.RegionInfo.RegionName, (DateTime.Now - startTime).Milliseconds);
@@ -2946,7 +2949,14 @@ namespace OpenSim.Region.Framework.Scenes
             // Checks if where it's headed exists a region
 
             bool needsTransit = false;
-            if (m_scene.TestBorderCross(PredictedPos, Cardinals.W))
+
+            if (m_scene.RegionInfo.CombinedRegionHandle != 0)
+            {
+                needsTransit = true;
+                neighbor = true;
+            }
+
+            else if (m_scene.TestBorderCross(PredictedPos, Cardinals.W))
             {
                 if (m_scene.TestBorderCross(PredictedPos, Cardinals.S))
                 {
