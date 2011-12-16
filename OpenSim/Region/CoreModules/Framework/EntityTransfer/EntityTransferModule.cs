@@ -668,9 +668,48 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             Scene scene = agent.Scene;
             Vector3 pos = agent.AbsolutePosition;
             Vector3 newpos = new Vector3(pos.X, pos.Y, pos.Z);
-            uint neighbourx = scene.RegionInfo.RegionLocX;
-            uint neighboury = scene.RegionInfo.RegionLocY;
+            //            uint neighbourx = scene.RegionInfo.RegionLocX;
+            uint neighbourx;
+            //            uint neighboury = scene.RegionInfo.RegionLocY;
+            uint neighboury;
             const float boundaryDistance = 1.7f;
+            const float enterDistance = 0.5f;
+
+// assuming that the need for crossing was verified by callers
+
+            int x,y;
+
+            if (pos.X - boundaryDistance < 0) // going W
+            {
+                x = -1;
+                newpos.X = Constants.RegionSize - enterDistance;
+            }
+            else // assume we are going E
+            {
+                x = ((int)(pos.X + boundaryDistance) / (int)Constants.RegionSize);
+                newpos.X = enterDistance;
+            }
+
+            x += (int)scene.RegionInfo.RegionLocX;
+            neighbourx = (uint)x;
+            x *= (int)Constants.RegionSize;
+
+            if (pos.Y - boundaryDistance < 0) // going S  SW or SE
+            {
+                y = -1;
+                newpos.Y = Constants.RegionSize - enterDistance;
+            }
+            else // assume we are going N NW or NE
+            {
+                y = ((int)(pos.Y + boundaryDistance) / (int)Constants.RegionSize);
+                newpos.Y = enterDistance;
+            }
+
+            y += (int)scene.RegionInfo.RegionLocY;
+            neighboury = (uint)y;
+            y *= (int)Constants.RegionSize;
+
+/*
             Vector3 northCross = new Vector3(0, boundaryDistance, 0);
             Vector3 southCross = new Vector3(0, -1 * boundaryDistance, 0);
             Vector3 eastCross = new Vector3(boundaryDistance, 0, 0);
@@ -680,7 +719,6 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
 
             // distance into new region to place avatar
-            const float enterDistance = 0.5f;
 
             if (scene.TestBorderCross(pos + westCross, Cardinals.W))
             {
@@ -808,7 +846,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 neighboury += (uint)(int)(b.BorderLine.Z / (int)Constants.RegionSize);
                 newpos.Y = enterDistance;
             }
-
+*/
             /*
 
             if (pos.X < boundaryDistance) //West
@@ -834,9 +872,9 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             }
             */
 
-            ulong neighbourHandle = Utils.UIntsToLong((uint)(neighbourx * Constants.RegionSize), (uint)(neighboury * Constants.RegionSize));
+//            int x = (int)(neighbourx * Constants.RegionSize), y = (int)(neighboury * Constants.RegionSize);
 
-            int x = (int)(neighbourx * Constants.RegionSize), y = (int)(neighboury * Constants.RegionSize);
+            ulong neighbourHandle = Utils.UIntsToLong((uint)x, (uint)y);
 
             ExpiringCache<ulong, DateTime> r;
             DateTime banUntil;
@@ -855,7 +893,10 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 r = null;
             }
 
-            GridRegion neighbourRegion = scene.GridService.GetRegionByPosition(scene.RegionInfo.ScopeID, (int)x, (int)y);
+            GridRegion neighbourRegion = scene.GridService.GetRegionByPosition(scene.RegionInfo.ScopeID, x, y);
+
+            if (neighbourRegion == null)
+                return false;
 
             string reason;
             string version;

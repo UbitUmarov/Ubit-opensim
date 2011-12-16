@@ -961,43 +961,39 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
-        /// Checks whether this region has a neighbour in the given direction.
+        /// Checks whether this region has a neighbour in the given position.
         /// </summary>
         /// <param name="car"></param>
         /// <param name="fix"></param>
         /// <returns>
-        /// An integer which represents a compass point.  N == 1, going clockwise until we reach NW == 8.
-        /// Returns a positive integer if there is a region in that direction, a negative integer if not.
         /// </returns>
-        public int HaveNeighbor(Cardinals car, ref int[] fix)
+        public bool HaveNeighbor(Vector3 targetpos)
         {
-            uint neighbourx = RegionInfo.RegionLocX;
-            uint neighboury = RegionInfo.RegionLocY;
+            int x, y;
+            if (targetpos.X < 0)
+                x = -1;
+            else
+                x = (int)(targetpos.X / Constants.RegionSize);
 
-            int dir = (int)car;
+            x += (int)RegionInfo.RegionLocX;
+            x *= (int)Constants.RegionSize;
 
-            if (dir > 1 && dir < 5) //Heading East
-                neighbourx++;
-            else if (dir > 5) // Heading West
-                neighbourx--;
+            if (targetpos.Y < 0)
+                y = -1;
+            else
+                y = (int)(targetpos.Y / Constants.RegionSize);
 
-            if (dir < 3 || dir == 8) // Heading North
-                neighboury++;
-            else if (dir > 3 && dir < 7) // Heading Sout
-                neighboury--;
+            y += (int)RegionInfo.RegionLocY;
+            y *= (int)Constants.RegionSize;
 
-            int x = (int)(neighbourx * Constants.RegionSize);
-            int y = (int)(neighboury * Constants.RegionSize);
             GridRegion neighbourRegion = GridService.GetRegionByPosition(RegionInfo.ScopeID, x, y);
 
             if (neighbourRegion == null)
             {
-                fix[0] = (int)(RegionInfo.RegionLocX - neighbourx);
-                fix[1] = (int)(RegionInfo.RegionLocY - neighboury);
-                return dir * (-1);
+                return false;
             }
             else
-                return dir;
+                return true;
         }
 
         // Alias IncomingHelloNeighbour OtherRegionUp, for now
@@ -1049,11 +1045,11 @@ namespace OpenSim.Region.Framework.Scenes
                     try
                     {
                         ForEachRootScenePresence(delegate(ScenePresence agent)
-                                             {
-                                                     if (m_teleportModule != null)
-                                                         m_teleportModule.EnableChildAgent(agent, r);
-                            });
-                                                 }
+                            {
+                                if (m_teleportModule != null)
+                                m_teleportModule.EnableChildAgent(agent, r);
+                             });
+                    }
                     catch (NullReferenceException)
                     {
                         // This means that we're not booted up completely yet.
@@ -3940,13 +3936,13 @@ namespace OpenSim.Region.Framework.Scenes
                 if (TestBorderCross(position, Cardinals.N))
                     result = true;
 
-                if (TestBorderCross(position, Cardinals.S))
+                else if (TestBorderCross(position, Cardinals.S))
                     result = true;
 
-                if (TestBorderCross(position, Cardinals.E))
+                else if (TestBorderCross(position, Cardinals.E))
                     result = true;
 
-                if (TestBorderCross(position, Cardinals.W))
+                else if (TestBorderCross(position, Cardinals.W))
                     result = true;
 
                 // bordercross if position is outside of region
