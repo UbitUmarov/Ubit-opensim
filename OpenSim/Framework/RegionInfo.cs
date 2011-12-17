@@ -604,9 +604,9 @@ namespace OpenSim.Framework
 
             // Prim stuff
             //
-            m_nonphysPrimMax = config.GetInt("NonphysicalPrimMax", 256);
+            m_nonphysPrimMax = config.GetInt("NonphysicalPrimMax", 0);
 
-            m_physPrimMax = config.GetInt("PhysicalPrimMax", 10);
+            m_physPrimMax = config.GetInt("PhysicalPrimMax", 0);
 
             m_clampPrimSize = config.GetBoolean("ClampPrimSize", false);
 
