@@ -648,7 +648,7 @@ namespace OpenSim
 
             scene.LoadWorldMap();
 
-            scene.PhysicsScene = GetPhysicsScene(scene.RegionInfo.RegionName);
+            scene.PhysicsScene = GetPhysicsScene(scene.RegionInfo);
             scene.PhysicsScene.SetTerrain(scene.Heightmap.GetFloatsSerialised());
             scene.PhysicsScene.SetWaterLevel((float) regionInfo.RegionSettings.WaterHeight);
 
@@ -706,10 +706,10 @@ namespace OpenSim
 
         # region Setup methods
 
-        protected override PhysicsScene GetPhysicsScene(string osSceneIdentifier)
+        protected override PhysicsScene GetPhysicsScene(RegionInfo region)
         {
             return GetPhysicsScene(
-                m_configSettings.PhysicsEngine, m_configSettings.MeshEngineName, m_config.Source, osSceneIdentifier);
+                m_configSettings.PhysicsEngine, m_configSettings.MeshEngineName, m_config.Source, region);
         }
 
         /// <summary>

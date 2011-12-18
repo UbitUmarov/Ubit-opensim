@@ -82,7 +82,7 @@ namespace OpenSim.Region.Physics.Manager
             }
         }
 
-        public abstract void Initialise(IMesher meshmerizer, IConfigSource config);
+        public abstract void Initialise(IMesher meshmerizer, IConfigSource config,RegionInfo region);
 
         /// <summary>
         /// Add an avatar

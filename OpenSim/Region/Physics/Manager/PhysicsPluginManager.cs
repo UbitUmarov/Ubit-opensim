@@ -31,6 +31,7 @@ using System.IO;
 using System.Reflection;
 using Nini.Config;
 using log4net;
+using OpenSim.Framework;
 
 namespace OpenSim.Region.Physics.Manager
 {
@@ -65,13 +66,17 @@ namespace OpenSim.Region.Physics.Manager
         /// <param name="meshEngineName"></param>
         /// <param name="config"></param>
         /// <returns></returns>
-        public PhysicsScene GetPhysicsScene(string physEngineName, string meshEngineName, IConfigSource config, string regionName)
+        public PhysicsScene GetPhysicsScene(string physEngineName, string meshEngineName, IConfigSource config, RegionInfo region)
         {
+            string regionName = region.RegionName;
+
             if (String.IsNullOrEmpty(physEngineName))
             {
                 return PhysicsScene.Null;
             }
 
+            
+            
             if (String.IsNullOrEmpty(meshEngineName))
             {
                 return PhysicsScene.Null;
@@ -93,7 +98,7 @@ namespace OpenSim.Region.Physics.Manager
             {
                 m_log.Info("[PHYSICS]: creating " + physEngineName);
                 PhysicsScene result = _PhysPlugins[physEngineName].GetScene(regionName);
-                result.Initialise(meshEngine, config);
+                result.Initialise(meshEngine, config, region);
                 return result;
             }
             else

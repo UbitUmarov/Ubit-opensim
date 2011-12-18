@@ -172,7 +172,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private const uint m_regionHeight = Constants.RegionSize;
 
         public float ODE_STEPSIZE = 0.020f; // make it visible
-        private float metersInSpace = 29.9f;
+        private float metersInSpace = 25.6f;
         private float m_timeDilation = 1.0f;
 
         public float gravityx = 0f;
@@ -394,7 +394,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 #endif
 
         // Initialize the mesh plugin
-        public override void Initialise(IMesher meshmerizer, IConfigSource config)
+        public override void Initialise(IMesher meshmerizer, IConfigSource config, RegionInfo region )
         {
             mesher = meshmerizer;
             m_config = config;
@@ -518,8 +518,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.WorldSetContactMaxCorrectingVel(world, 100.0f);
 
             spacesPerMeter = 1 / metersInSpace;
-            spaceGridMaxX = (int)(300 * spacesPerMeter);
-            spaceGridMaxY = (int)(300 * spacesPerMeter);
+            spaceGridMaxX = (int)(WorldExtents.X * spacesPerMeter);
+            spaceGridMaxY = (int)(WorldExtents.Y * spacesPerMeter);
 
             staticPrimspace = new IntPtr[spaceGridMaxX, spaceGridMaxY];
 
