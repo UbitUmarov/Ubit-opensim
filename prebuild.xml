@@ -1827,6 +1827,7 @@
       <Reference name="OpenSim.Region.CoreModules"/>
       <Reference name="OpenSim.Region.Framework"/>
 	  <Reference name="OpenSim.Region.RegionCombinerModule"/>
+	  <Reference name="OpenSim.ApplicationPlugins.RegionModulesController"/>
       <Reference name="OpenSim.Framework"/>
       <Reference name="OpenSim.Framework.Console"/>
       <Reference name="OpenSim.Framework.RegionLoader.Filesystem"/>
