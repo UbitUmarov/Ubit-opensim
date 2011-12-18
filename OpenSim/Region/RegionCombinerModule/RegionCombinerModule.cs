@@ -63,8 +63,24 @@ namespace OpenSim.Region.RegionCombinerModule
         private bool enabledYN = false;
         private Dictionary<UUID, Scene> m_startingScenes = new Dictionary<UUID, Scene>();
 
+        private float m_regionsMinX = float.MaxValue;
+        private float m_regionsMaxX = float.MinValue;
+        private float m_regionsMinY = float.MaxValue;
+        private float m_regionsMaxY = float.MinValue;
+
+        private RegionInfo m_firstRegion = null;
+        private Scene m_rootScene = null;
+        private RegionConnections m_rootConnection = null;
+
+        private int m_nRegionsToLoad = 0;
+        private int m_nRegions = 0;
+
+        private int m_numberCombinedRegionsX = 0;
+        private int m_numberCombinedRegionsY = 0;
+
+
         public void Initialise(IConfigSource source)
-        {
+        {           
             IConfig myConfig = source.Configs["Startup"];
             enabledYN = myConfig.GetBoolean("CombineContiguousRegions", false);
             //enabledYN = true;
@@ -77,9 +93,66 @@ namespace OpenSim.Region.RegionCombinerModule
         {
         }
 
+        public bool InitLoadAddRegion(RegionInfo regioninfo)
+        {
+            if (enabledYN)
+            {
+                if (m_firstRegion == null)
+                    m_firstRegion = regioninfo;
+
+                if (regioninfo.RegionLocX < m_regionsMinX)
+                    m_regionsMinX = regioninfo.RegionLocX;
+
+                else if (regioninfo.RegionLocX > m_regionsMaxX)
+                    m_regionsMaxX = regioninfo.RegionLocX;
+
+                if (regioninfo.RegionLocY < m_regionsMinY)
+                    m_regionsMinY = regioninfo.RegionLocY;
+
+                else if (regioninfo.RegionLocY > m_regionsMaxY)
+                    m_regionsMaxY = regioninfo.RegionLocY;
+
+                m_nRegionsToLoad++;
+
+                return true;
+            }
+            else
+                return true;
+        }
+
+        public bool InitLoadCheckRegions()
+        {
+            if (enabledYN)
+            {
+                m_numberCombinedRegionsX = 1 + (int)(m_regionsMaxX - m_regionsMinX);
+                m_numberCombinedRegionsY = 1 + (int)(m_regionsMaxY - m_regionsMinY);
+
+                if( m_numberCombinedRegionsX * m_numberCombinedRegionsY != m_nRegionsToLoad)
+                {
+                    m_log.ErrorFormat(
+                        "[RegionCombiner] The combined regions must be placed in grid forming a filled rectangle. Please verify your regions configuration");
+                    return false;
+                }
+                if (m_firstRegion == null)
+                {
+                    m_log.ErrorFormat(
+                        "[RegionCombiner] Ooops no first region?");
+                    return false;
+                }
+
+                m_firstRegion.RegionSizeX = (uint)(m_numberCombinedRegionsX * Constants.RegionSize);
+                m_firstRegion.RegionSizeY = (uint)(m_numberCombinedRegionsY * Constants.RegionSize);
+
+                return true;
+            }
+            else
+                return true;
+        }
+
         public void AddRegion(Scene scene)
         {
         }
+
 
         public void RemoveRegion(Scene scene)
         {
@@ -209,55 +282,168 @@ namespace OpenSim.Region.RegionCombinerModule
             regionConnections.XExtend = (int)Constants.RegionSize;
             regionConnections.YExtend = (int)Constants.RegionSize;
 
-            lock (m_regions)
+
+            if (m_nRegions == 0)
             {
-                bool connectedYN = false;
+                // this is root region
+                regionConnections.XExtend *= m_numberCombinedRegionsX;
+                regionConnections.YExtend *= m_numberCombinedRegionsY;
 
-                foreach (RegionConnections conn in m_regions.Values)
+                m_rootScene = scene;
+                m_rootConnection = regionConnections;
+
+                // save it's land channel
+                regionConnections.RegionLandChannel = scene.LandChannel;
+
+                scene.RootScene = null;
+                scene.RegionInfo.CombinedRegionHandle = 0;
+
+                Vector3 extents;
+                extents.X = regionConnections.XExtend;
+                extents.Y = regionConnections.YExtend;
+                extents.Z = 0;
+
+                scene.RegionInfo.RegionSizeX = (uint)extents.X;
+                scene.RegionInfo.RegionSizeY = (uint)extents.Y;
+
+                scene.PhysicsScene.Combine(null, Vector3.Zero, extents);
+
+                lock (scene.SouthBorders)
+                    scene.SouthBorders[0].BorderLine.Y = regionConnections.XExtend;
+
+                lock (scene.WestBorders)
+                    scene.WestBorders[0].BorderLine.Y = regionConnections.YExtend;
+
+                lock (scene.EastBorders)
                 {
-                    int dx = ((int)conn.X - (int)regionConnections.X) * (int)Constants.RegionSize;
-                    int dy = ((int)conn.Y - (int)regionConnections.Y) * (int)Constants.RegionSize;
-
-                    // If we're one region over +x y
-                    //xxx
-                    //xxy
-                    //xxx
-                    if (dx + conn.XExtend >= 0 && dy >= 0)
-                    {
-                        connectedYN = DoWorkForOneRegionOverPlusXY(conn, regionConnections, scene);
-                        break;
-                    }
-
-                    // If we're one region over x +y
-                    //xyx
-                    //xxx
-                    //xxx
-                    if (dx >=0 && dy + conn.YExtend >=0)
-                    {
-                        connectedYN = DoWorkForOneRegionOverXPlusY(conn, regionConnections, scene);
-                        break;
-                    }
-
-                    // If we're one region over +x +y
-                    //xxy
-                    //xxx
-                    //xxx
-                    if (dx + conn.XExtend >=0 && dy + conn.YExtend >=0)
-                    {
-                        connectedYN = DoWorkForOneRegionOverPlusXPlusY(conn, regionConnections, scene);
-                        break;
-
-                    }
+                    scene.EastBorders[0].BorderLine.Z = regionConnections.XExtend;
+                    scene.EastBorders[0].BorderLine.Y = regionConnections.YExtend;
                 }
 
-
-                // If !connectYN means that this region is a root region
-                if (!connectedYN)
+                lock (scene.NorthBorders)
                 {
-                    DoWorkForRootRegion(regionConnections, scene);
+                    scene.NorthBorders[0].BorderLine.Z = regionConnections.YExtend;
+                    scene.NorthBorders[0].BorderLine.Y = regionConnections.XExtend;
+                }
 
+                // Substitue our landchannel
+
+                RegionData rdata = new RegionData();
+                rdata.Offset = Vector3.Zero;
+                rdata.RegionId = scene.RegionInfo.originRegionID;
+                rdata.RegionScene = scene;
+
+                RegionCombinerLargeLandChannel lnd = new RegionCombinerLargeLandChannel(rdata, scene.LandChannel,
+                                                                regionConnections.ConnectedRegions);
+
+                scene.LandChannel = lnd;
+                // Forward the permissions modules of each of the connected regions to the root region
+                // Create the root region's Client Event Forwarder
+                regionConnections.ClientEventForwarder = new RegionCombinerClientEventForwarder(regionConnections);
+
+                // Sets up the CoarseLocationUpdate forwarder for this root region
+                scene.EventManager.OnNewPresence += SetCourseLocationDelegate;
+
+                // Adds this root region to a dictionary of regions that are connectable
+                m_regions.Add(scene.RegionInfo.originRegionID, regionConnections);
+               
+            }
+
+            else if (m_rootScene != null)
+            {
+                scene.RootScene = m_rootScene;
+                scene.RegionInfo.CombinedRegionHandle = m_rootScene.RegionInfo.RegionHandle;
+
+                Vector3 offset = Vector3.Zero;
+                offset.X = ((int)regionConnections.X - (int)m_rootConnection.X) * Constants.RegionSize;
+                offset.Y = ((int)regionConnections.Y - (int)m_rootConnection.Y) * Constants.RegionSize;
+
+                RegionData ConnectedRegion = new RegionData();
+                ConnectedRegion.Offset = offset;
+                ConnectedRegion.RegionId = scene.RegionInfo.originRegionID;
+                ConnectedRegion.RegionScene = scene;
+                m_rootConnection.ConnectedRegions.Add(ConnectedRegion);
+
+                scene.Physics_Enabled = false;
+                scene.Scripts_Enabled = false;
+
+                scene.PhysicsScene.Combine(m_rootScene.PhysicsScene, offset, Vector3.Zero);
+                // Reset Terrain..  since terrain loads before we get here, we need to load 
+                // it again so it loads in the root region
+                scene.PhysicsScene.SetTerrain(scene.Heightmap.GetFloatsSerialised());
+
+                // Create a client event forwarder and add this region's events to the root region.
+                if (m_rootConnection.ClientEventForwarder != null)
+                    m_rootConnection.ClientEventForwarder.AddSceneToEventForwarding(scene);
+            }
+
+            m_nRegions++;
+
+            if (m_nRegions == m_nRegionsToLoad)
+            {
+                // final work
+                lock (m_regions)
+                {
+                    foreach (RegionData r in regionConnections.ConnectedRegions)
+                    {
+                        ForwardPermissionRequests(regionConnections, r.RegionScene);
+                    }
                 }
             }
+
+            AdjustLargeRegionBounds();
+            return;
+
+
+                lock (m_regions)
+                {
+                    bool connectedYN = false;
+
+                    foreach (RegionConnections conn in m_regions.Values)
+                    {
+                        int dx = ((int)conn.X - (int)regionConnections.X) * (int)Constants.RegionSize;
+                        int dy = ((int)conn.Y - (int)regionConnections.Y) * (int)Constants.RegionSize;
+
+                        // If we're one region over +x y
+                        //xxx
+                        //xxy
+                        //xxx
+                        if (dx + conn.XExtend >= 0 && dy >= 0)
+                        {
+                            connectedYN = DoWorkForOneRegionOverPlusXY(conn, regionConnections, scene);
+                            break;
+                        }
+
+                        // If we're one region over x +y
+                        //xyx
+                        //xxx
+                        //xxx
+                        if (dx >= 0 && dy + conn.YExtend >= 0)
+                        {
+                            connectedYN = DoWorkForOneRegionOverXPlusY(conn, regionConnections, scene);
+                            break;
+                        }
+
+                        // If we're one region over +x +y
+                        //xxy
+                        //xxx
+                        //xxx
+                        if (dx + conn.XExtend >= 0 && dy + conn.YExtend >= 0)
+                        {
+                            connectedYN = DoWorkForOneRegionOverPlusXPlusY(conn, regionConnections, scene);
+                            break;
+
+                        }
+                    }
+
+
+                    // If !connectYN means that this region is a root region
+                    if (!connectedYN)
+                    {
+                        DoWorkForRootRegion(regionConnections, scene);
+
+                    }
+                }
             // Set up infinite borders around the entire AABB of the combined ConnectedRegions
             AdjustLargeRegionBounds();
         }

@@ -27,6 +27,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Xml;
+using System.Xml.Serialization;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -136,13 +138,17 @@ namespace OpenSim.Framework
         protected IPEndPoint m_internalEndPoint;
         protected uint? m_regionLocX;
         protected uint? m_regionLocY;
-        protected uint m_regionSizeX;
-        protected uint m_regionSizeY;
         protected uint m_remotingPort;
         public UUID RegionID = UUID.Zero;
         public string RemotingAddress;
         public UUID ScopeID = UUID.Zero;
+
+        [XmlIgnore]
         private ulong m_combinedRegionHandle = 0;
+        [XmlIgnore]
+        protected uint m_regionSizeX = Constants.RegionSize;
+        [XmlIgnore]
+        protected uint m_regionSizeY = Constants.RegionSize;
 
 
         // Apparently, we're applying the same estatesettings regardless of whether it's local or remote.
@@ -438,19 +444,21 @@ namespace OpenSim.Framework
             set { m_regionLocY = value; }
         }
 
+        [XmlIgnore]
         public uint RegionSizeX
         {
             get { return m_regionSizeX; }
             set { m_regionSizeX = value; }
         }
 
+        [XmlIgnore]
         public uint RegionSizeY
         {
             get { return m_regionSizeY; }
             set { m_regionSizeY = value; }
         }
 
-        
+        [XmlIgnore]
         public ulong CombinedRegionHandle
         {
             get { return m_combinedRegionHandle; }

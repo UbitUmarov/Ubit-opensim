@@ -32,6 +32,7 @@ using System.Threading;
 using log4net;
 using OpenMetaverse;
 using OpenSim.Framework;
+using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Framework.RegionLoader.Filesystem;
 using OpenSim.Framework.RegionLoader.Web;
 using OpenSim.Region.CoreModules.Agent.AssetTransaction;
@@ -39,6 +40,8 @@ using OpenSim.Region.CoreModules.Avatar.InstantMessage;
 using OpenSim.Region.CoreModules.Scripting.DynamicTexture;
 using OpenSim.Region.CoreModules.Scripting.LoadImageURL;
 using OpenSim.Region.CoreModules.Scripting.XMLRPC;
+using OpenSim.Region.RegionCombinerModule;
+using OpenSim.ApplicationPlugins.RegionModulesController;
 
 namespace OpenSim.ApplicationPlugins.LoadRegions
 {
@@ -54,6 +57,8 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
         // TODO: required by IPlugin, but likely not at all right
         private string m_name = "LoadRegionsPlugin";
         private string m_version = "0.0";
+
+        public RegionCombinerModule m_regionCombiner = null;
 
         public string Version
         {
@@ -82,7 +87,7 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
         public void PostInitialise()
         {
             //m_log.Info("[LOADREGIONS]: Load Regions addin being initialised");
-
+            
             IRegionLoader regionLoader;
             if (m_openSim.ConfigSource.Source.Configs["Startup"].GetString("region_info_source", "filesystem") == "filesystem")
             {
@@ -108,6 +113,12 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
 //            m_log.Info("[LOADREGIONSPLUGIN]: AssetTransactionModule...");
 //            m_openSim.ModuleLoader.LoadDefaultSharedModule(new AssetTransactionModule());
             m_log.Info("[LOAD REGIONS PLUGIN]: Done.");
+
+            IRegionModulesController controller;
+            if (m_openSim.ApplicationRegistry.TryGet(out controller))
+            {
+                m_regionCombiner = (RegionCombinerModule)(((RegionModulesControllerPlugin)controller).FindSharedRegionModule("RegionCombinerModule"));
+            }
 
             if (!CheckRegionsForSanity(regionsToLoad))
             {
@@ -167,8 +178,15 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
                 }
             }
 
-            for (int i = 0; i < regions.Length - 1; i++)
+            int i;
+            for (i = 0; i < regions.Length - 1; i++)
             {
+                if (m_regionCombiner != null)
+                {
+                    if (!m_regionCombiner.InitLoadAddRegion(regions[i]))
+                        return false;
+                }
+
                 for (int j = i + 1; j < regions.Length; j++)
                 {
                     if (regions[i].RegionID == regions[j].RegionID)
@@ -195,6 +213,18 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
                     }
                 }
             }
+
+            
+            if (m_regionCombiner != null)
+            {
+                // do the last one also
+                if (!m_regionCombiner.InitLoadAddRegion(regions[i]))
+                    return false;
+
+                if (!m_regionCombiner.InitLoadCheckRegions())
+                    return false;
+            }
+
 
             return true;
         }
