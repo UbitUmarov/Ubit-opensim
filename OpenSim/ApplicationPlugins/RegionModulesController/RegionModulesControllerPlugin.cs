@@ -478,6 +478,17 @@ namespace OpenSim.ApplicationPlugins.RegionModulesController
             scene.RegionModules.Clear();
         }
 
+        public ISharedRegionModule FindSharedRegionModule(string name)
+        {
+            foreach(ISharedRegionModule mod in m_sharedInstances)
+            {
+                if (mod.Name==name)
+                    return mod;
+            }
+            return null;
+        }
+
+
 #endregion
 
     }
