@@ -398,6 +398,12 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             mesher = meshmerizer;
             m_config = config;
+
+            if (region != null)
+            {
+                WorldExtents.X = region.RegionSizeX;
+                WorldExtents.Y = region.RegionSizeY;
+            }
             // Defaults
 
             avPIDD = 2200.0f;
