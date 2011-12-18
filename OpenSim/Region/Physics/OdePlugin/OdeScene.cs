@@ -1169,14 +1169,14 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
         #endregion
-
+/*
         public override void Combine(PhysicsScene pScene, Vector3 offset, Vector3 extents)
         {
             m_worldOffset = offset;
             WorldExtents = new Vector2(extents.X, extents.Y);
             m_parentScene = pScene;
         }
-
+*/
         // Recovered for use by fly height. Kitto Flora
         //Ubit: interpolated for higher resolution
         // assumes 1m size grid and constante size square region
@@ -2875,6 +2875,11 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
         }
 
+        public override void CombineTerrain(float[] heightMap, Vector3 pOffset)
+        {
+            SetTerrain(heightMap, pOffset);
+        }
+
         public void SetTerrain(float[] heightMap, Vector3 pOffset)
             {
 
@@ -3009,7 +3014,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             return true;
         }
-
+/*
         public override void UnCombine(PhysicsScene pScene)
         {
             IntPtr localGround = IntPtr.Zero;
@@ -3068,7 +3073,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
         }
-
+*/
         public override void SetWaterLevel(float baseheight)
         {
             waterlevel = baseheight;

@@ -306,7 +306,7 @@ namespace OpenSim.Region.RegionCombinerModule
                 scene.RegionInfo.RegionSizeX = (uint)extents.X;
                 scene.RegionInfo.RegionSizeY = (uint)extents.Y;
 
-                scene.PhysicsScene.Combine(null, Vector3.Zero, extents);
+//                scene.PhysicsScene.Combine(null, Vector3.Zero, extents);
 
                 lock (scene.SouthBorders)
                     scene.SouthBorders[0].BorderLine.Y = regionConnections.XExtend;
@@ -367,10 +367,7 @@ namespace OpenSim.Region.RegionCombinerModule
                 scene.Physics_Enabled = false;
                 scene.Scripts_Enabled = false;
 
-                scene.PhysicsScene.Combine(m_rootScene.PhysicsScene, offset, Vector3.Zero);
-                // Reset Terrain..  since terrain loads before we get here, we need to load 
-                // it again so it loads in the root region
-                scene.PhysicsScene.SetTerrain(scene.Heightmap.GetFloatsSerialised());
+                m_rootScene.PhysicsScene.CombineTerrain(scene.Heightmap.GetFloatsSerialised(),offset);
 
                 // Create a client event forwarder and add this region's events to the root region.
                 if (m_rootConnection.ClientEventForwarder != null)
