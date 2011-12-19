@@ -1037,7 +1037,13 @@ namespace OpenSim.Region.Physics.OdePlugin
             mesh.getIndexListAsPtrToIntArray(out indices, out triStride, out indexCount); // Also fixed, needs release after usage
 
             if (vertexCount == 0 || indexCount == 0)
+            {
+                m_log.WarnFormat("[PHYSICS]: Got invalid mesh on prim {0} at <{1},{2},{3}>. It can be a sculp with alpha channel in map. Replacing it by a small box.", Name, _position.X, _position.Y, _position.Z);
+                _size.X = 0.01f;
+                _size.Y = 0.01f;
+                _size.Z = 0.01f;
                 return false;
+            }
 
             primOOBoffset = mesh.GetCentroid();
             hasOOBoffsetFromMesh = true;
