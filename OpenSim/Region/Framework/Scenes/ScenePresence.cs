@@ -509,7 +509,7 @@ namespace OpenSim.Region.Framework.Scenes
    
                     if (m_sitPart != null)
                     {
-                        return m_sitPart.AbsolutePosition + (m_pos * m_sitPart.RotationOffset);
+                        return m_sitPart.AbsolutePosition + (m_pos * m_sitPart.GetWorldRotation());
                     }
                     else
                     {
@@ -548,7 +548,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             get
             {
-                if (m_sitPart != null)
+                if (m_sitPart != null && m_sitPart.ParentID != 0)
                 {
                     return m_sitPart.OffsetPosition + (m_pos * m_sitPart.RotationOffset);
                 }
@@ -603,8 +603,8 @@ namespace OpenSim.Region.Framework.Scenes
         {
             get
             {
-                if (m_sitPart != null)
-                {
+                if (m_sitPart != null && m_sitPart.ParentID != 0)
+                {                   
                     return m_bodyRot * m_sitPart.RotationOffset;
                 }
                 else
