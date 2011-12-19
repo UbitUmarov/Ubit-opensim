@@ -224,7 +224,7 @@ namespace OpenSim.Region.Framework.Scenes
                 // If this presence is a child agent, we don't want its coarse locations
                 if (sp.IsChildAgent)
                     continue;
-
+/*
                 if (sp.ParentID != 0)
                 {
                     // sitting avatar
@@ -243,9 +243,10 @@ namespace OpenSim.Region.Framework.Scenes
                 }
                 else
                 {
+ */
                     coarseLocations.Add(sp.AbsolutePosition);
                     avatarUUIDs.Add(sp.UUID);
-                }
+//                }
             }
         }
 
