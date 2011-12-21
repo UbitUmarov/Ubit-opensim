@@ -367,9 +367,12 @@ namespace OpenSim.Region.RegionCombinerModule
                 scene.Physics_Enabled = false;
                 scene.Scripts_Enabled = false;
 
+
                 m_rootScene.PhysicsScene.CombineTerrain(scene.Heightmap.GetFloatsSerialised(),offset);
 
+                scene.EventManager.OnNewPresence += SetCourseLocationDelegate;
                 // Create a client event forwarder and add this region's events to the root region.
+                
                 if (m_rootConnection.ClientEventForwarder != null)
                     m_rootConnection.ClientEventForwarder.AddSceneToEventForwarding(scene);
             }
@@ -403,49 +406,13 @@ namespace OpenSim.Region.RegionCombinerModule
         // This combined region version will not use the pre-compiled lists of locations and ids
         private void SendCourseLocationUpdates(UUID sceneId, ScenePresence presence, List<Vector3> coarseLocations, List<UUID> avatarUUIDs)
         {
-            RegionConnections connectiondata = null; 
-            lock (m_regions)
-            {
-                if (m_regions.ContainsKey(sceneId))
-                    connectiondata = m_regions[sceneId];
-                else
-                    return;
-            }
 
-            List<Vector3> CoarseLocations = new List<Vector3>();
-            List<UUID> AvatarUUIDs = new List<UUID>();
-            connectiondata.RegionScene.ForEachRootScenePresence(delegate(ScenePresence sp)
-            {
-                if (sp.UUID != presence.UUID)
-                {
-                    CoarseLocations.Add(sp.AbsolutePosition);
-                    AvatarUUIDs.Add(sp.UUID);
-/* don't send for sitted avatars
-                    if (sp.ParentID != 0)
-                    {
-                        // sitting avatar
-                        SceneObjectPart sop = connectiondata.RegionScene.GetSceneObjectPart(sp.ParentID);
-                        if (sop != null)
-                        {
-                            CoarseLocations.Add(sop.AbsolutePosition + sp.AbsolutePosition);
-                            AvatarUUIDs.Add(sp.UUID);
-                        }
-                        else
-                        {
-                            // we can't find the parent..  ! arg!
-                            CoarseLocations.Add(sp.AbsolutePosition);
-                            AvatarUUIDs.Add(sp.UUID);
-                        }
-                    }
-                    else
-                    {
-                        CoarseLocations.Add(sp.AbsolutePosition);
-                        AvatarUUIDs.Add(sp.UUID);
-                    }
- */
-                }
-            });
-            DistributeCourseLocationUpdates(CoarseLocations, AvatarUUIDs, connectiondata, presence);
+        // only do it if called from main region
+            if (m_firstRegion == null || m_firstRegion.originRegionID != sceneId)
+                return;
+
+            RegionConnections connectiondata = m_rootConnection;
+            DistributeCourseLocationUpdates(coarseLocations, avatarUUIDs, connectiondata, presence);
         }
 
         private void DistributeCourseLocationUpdates(List<Vector3> locations, List<UUID> uuids, 
@@ -516,7 +483,7 @@ namespace OpenSim.Region.RegionCombinerModule
             // Send out the CoarseLocationupdates from their respective client connection based on where the avatar is
             foreach (Vector2 offset in updates.Keys)
             {
-                if (updates[offset].UserAPI != null)
+                if (updates[offset].UserAPI != null )// && updates[offset].Locations.Count !=0)
                 {
                     updates[offset].UserAPI.SendCoarseLocationUpdate(updates[offset].Uuids,updates[offset].Locations);
                 }
