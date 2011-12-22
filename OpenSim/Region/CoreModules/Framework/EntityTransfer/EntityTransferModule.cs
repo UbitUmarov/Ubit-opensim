@@ -801,7 +801,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
         public void InformClientToInitiateTeleportToLocationAsync(ScenePresence agent, uint regionX, uint regionY, Vector3 position,
             Scene initiatingScene)
         {
-            Thread.Sleep(5000);
+            Thread.Sleep(10000);
 
             Teleport(agent, initiatingScene.RegionInfo.CombinedRegionHandle, position, agent.Lookat, (uint)Constants.TeleportFlags.Godlike);
 /*
