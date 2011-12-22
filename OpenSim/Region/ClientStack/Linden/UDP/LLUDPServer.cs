@@ -96,6 +96,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <summary>Maximum transmission unit, or UDP packet size, for the LLUDP protocol</summary>
         public const int MTU = 1400;
 
+
+
+//        List<Packet> debugPackectsRecv = new List<Packet>();
+
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         /// <summary>The measured resolution of Environment.TickCount</summary>
@@ -188,7 +192,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             IConfig config = configSource.Configs["ClientStack.LindenUDP"];
             if (config != null)
             {
-                m_asyncPacketHandling = config.GetBoolean("async_packet_handling", true);
+                m_asyncPacketHandling = config.GetBoolean("async_packet_handling", false);
                 m_recvBufferSize = config.GetInt("client_socket_rcvbuf_size", 0);
                 sceneThrottleBps = config.GetInt("scene_throttle_max_bps", 0);
 
@@ -244,7 +248,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             base.Start(m_recvBufferSize, m_asyncPacketHandling);
 
             // Start the packet processing threads
-            Watchdog.StartThread(IncomingPacketHandler, "Incoming Packets (" + m_scene.RegionInfo.RegionName + ")", ThreadPriority.Normal, false);
+            Watchdog.StartThread(IncomingPacketHandler, "Incoming Packets (" + m_scene.RegionInfo.RegionName + ")", ThreadPriority.Normal, false,10200);
             Watchdog.StartThread(OutgoingPacketHandler, "Outgoing Packets (" + m_scene.RegionInfo.RegionName + ")", ThreadPriority.Normal, false);
             m_elapsedMSSinceLastStatReport = Environment.TickCount;
         }
@@ -613,7 +617,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             Interlocked.Increment(ref udpClient.PacketsSent);
 
             // Put the UDP payload on the wire
-            AsyncBeginSend(buffer);
+            UDPBaseSend(buffer);
 
             // Keep track of when this packet was sent out (right now)
             outgoingPacket.TickCount = Environment.TickCount & Int32.MaxValue;
@@ -699,6 +703,9 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             #endregion Decoding
 
             #region Packet to Client Mapping
+
+//            debugPackectsRecv.Add(packet);
+
 
             // UseCircuitCode handling
             if (packet.Type == PacketType.UseCircuitCode)
@@ -983,7 +990,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             Buffer.BlockCopy(packetData, 0, buffer.Data, 0, length);
 
-            AsyncBeginSend(buffer);
+            UDPBaseSend(buffer);
         }
 
         private bool IsClientAuthorized(UseCircuitCodePacket useCircuitCode, out AuthenticateResponse sessionInfo)
@@ -1061,8 +1068,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         //m_log.Debug("[LLUDPSERVER]: Incoming packet handler is sleeping");
                         Thread.Sleep(30);
                     }
-
-                    if (packetInbox.Dequeue(100, ref incomingPacket))
+                    if (packetInbox.Dequeue(8000, ref incomingPacket))
                         ProcessInPacket(incomingPacket);//, incomingPacket); Util.FireAndForget(ProcessInPacket, incomingPacket);
                 }
                 catch (Exception ex)

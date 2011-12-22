@@ -243,12 +243,35 @@ namespace OpenMetaverse
 
                     // Synchronous mode waits until the packet callback completes
                     // before starting the receive to fetch another packet
-                    if (!m_asyncPacketHandling)
+                    if (!m_asyncPacketHandling && !m_shutdownFlag)
                         AsyncBeginReceive();
                 }
 
             }
         }
+
+
+        public void UDPBaseSend(UDPPacketBuffer buf)
+        {
+            if (m_shutdownFlag)
+                return;
+            if (m_asyncPacketHandling)
+                AsyncBeginSend(buf);
+            else
+                try
+                {
+                    m_udpSocket.SendTo(
+                        buf.Data,
+                        0,
+                        buf.DataLength,
+                        SocketFlags.None,
+                        buf.RemoteEndPoint
+                        );
+                }
+                catch (SocketException) { }
+                catch (ObjectDisposedException) { }
+            }
+
 
         public void AsyncBeginSend(UDPPacketBuffer buf)
         {
