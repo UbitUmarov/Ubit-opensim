@@ -708,8 +708,12 @@ namespace OpenSim
 
         protected override PhysicsScene GetPhysicsScene(RegionInfo region)
         {
-            return GetPhysicsScene(
-                m_configSettings.PhysicsEngine, m_configSettings.MeshEngineName, m_config.Source, region);
+            // Only root regions get physics
+            if (region.CombinedRegionHandle == 0)
+                return GetPhysicsScene(
+                    m_configSettings.PhysicsEngine, m_configSettings.MeshEngineName, m_config.Source, region);
+            else
+                return PhysicsScene.Null;
         }
 
         /// <summary>

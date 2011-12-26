@@ -185,6 +185,10 @@ namespace OpenSim.Framework.Servers
                         "show threads",
                         "Show thread status", HandleShow);
 
+                m_console.Commands.AddCommand("base", false, "show systhreads",
+                        "show systhreads",
+                        "Show system threads", HandleShow);
+
                 m_console.Commands.AddCommand("base", false, "show uptime",
                         "show uptime",
                         "Show server uptime", HandleShow);
@@ -273,12 +277,33 @@ namespace OpenSim.Framework.Servers
             }
 
             int workers = 0, ports = 0, maxWorkers = 0, maxPorts = 0;
+            int minWorkers = 0, minPorts = 0;
             ThreadPool.GetAvailableThreads(out workers, out ports);
             ThreadPool.GetMaxThreads(out maxWorkers, out maxPorts);
+            ThreadPool.GetMinThreads(out minWorkers, out minPorts);
 
             sb.Append(Environment.NewLine + "*** ThreadPool threads ***"  + Environment.NewLine);
-            sb.Append("workers: " + (maxWorkers - workers) + " (" + maxWorkers + "); ports: " + (maxPorts - ports) + " (" + maxPorts + ")" + Environment.NewLine);
+            sb.Append("workers: " + (maxWorkers - workers) + " (" + minWorkers + "/" + maxWorkers + "); ports: " + (maxPorts - ports) + " (" + minPorts + "/" + maxPorts + ")" + Environment.NewLine);
 
+            sb.Append(Environment.NewLine + "*** System threads ***" + Environment.NewLine);
+            sb.Append("Total System threads: " + System.Diagnostics.Process.GetCurrentProcess().Threads.Count);
+            return sb.ToString();
+        }
+
+        protected string GetSysThreadsReport()
+        {
+
+            StringBuilder sb = new StringBuilder();
+            Watchdog.ThreadWatchdogInfo[] threads = Watchdog.GetThreads();
+
+
+            sb.Append(Environment.NewLine + "*** System threads ***" + Environment.NewLine);
+            sb.Append("Total System threads: " + System.Diagnostics.Process.GetCurrentProcess().Threads.Count + Environment.NewLine+ Environment.NewLine);
+
+            foreach (ProcessThread p in System.Diagnostics.Process.GetCurrentProcess().Threads)
+            {
+                sb.Append("Id: " + p.Id + " StartAddr: " + p.StartAddress + " State: " + p.ThreadState + Environment.NewLine);
+            }
             return sb.ToString();
         }
 
@@ -408,6 +433,10 @@ namespace OpenSim.Framework.Servers
 
                 case "threads":
                     Notice(GetThreadsReport());
+                    break;
+
+                case "systhreads":
+                    Notice(GetSysThreadsReport());
                     break;
 
                 case "uptime":
