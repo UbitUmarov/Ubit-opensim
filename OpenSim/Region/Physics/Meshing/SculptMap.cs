@@ -76,7 +76,7 @@ namespace PrimMesher
             {
                 if (needsScaling)
                     bm = ScaleImage(bm, width, height,
-                        System.Drawing.Drawing2D.InterpolationMode.Bicubic);
+                        System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor);
             }
 
             catch (Exception e)
