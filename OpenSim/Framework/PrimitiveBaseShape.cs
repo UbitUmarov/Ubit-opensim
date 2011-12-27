@@ -112,6 +112,7 @@ namespace OpenSim.Framework
         [XmlIgnore] private UUID _sculptTexture;
         [XmlIgnore] private byte _sculptType;
         [XmlIgnore] private byte[] _sculptData = Utils.EmptyBytes;
+        [XmlIgnore] private bool _sculptDataloaded = false;
 
         // Flexi
         [XmlIgnore] private int _flexiSoftness;
@@ -245,7 +246,8 @@ namespace OpenSim.Framework
             SculptData = prim.Sculpt.GetBytes();
             SculptTexture = prim.Sculpt.SculptTexture;
             SculptType = (byte)prim.Sculpt.Type;
-        }
+            SculptDataLoaded = false;
+            }
 
         [XmlIgnore]
         public Primitive.TextureEntry Textures
@@ -635,8 +637,22 @@ namespace OpenSim.Framework
             }
             set
             {
-//                m_log.DebugFormat("[PRIMITIVE BASE SHAPE]: Setting SculptData to data with length {0}", value.Length);
+                //                m_log.DebugFormat("[PRIMITIVE BASE SHAPE]: Setting SculptData to data with length {0}", value.Length);
                 _sculptData = value;
+            }
+        }
+
+        [XmlIgnore]
+        public bool SculptDataLoaded
+        {
+            get
+            {
+                return _sculptDataloaded;
+            }
+            set
+            {
+                //                m_log.DebugFormat("[PRIMITIVE BASE SHAPE]: Setting SculptData to data with length {0}", value.Length);
+                _sculptDataloaded = value;
             }
         }
 

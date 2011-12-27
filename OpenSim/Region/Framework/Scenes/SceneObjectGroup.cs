@@ -1736,7 +1736,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (part.PhysActor != null && userExposed)
                 {
                     PrimitiveBaseShape pbs = newPart.Shape;
-
+                    
                     newPart.PhysActor
                         = m_scene.PhysicsScene.AddPrimShape(
                             string.Format("{0}/{1}", newPart.Name, newPart.UUID),

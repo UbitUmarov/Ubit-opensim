@@ -850,9 +850,6 @@ namespace OpenSim.Region.Framework.Scenes
                             actor.Position = GetWorldPosition();
                             actor.Orientation = GetWorldRotation();
                         }
-
-                        // Tell the physics engines that this prim changed.
-                        ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
                     }
                     catch (Exception e)
                     {
@@ -969,9 +966,6 @@ namespace OpenSim.Region.Framework.Scenes
                             //m_log.Info("[PART]: RO2:" + actor.Orientation.ToString());
                         }
 
-                        if (ParentGroup != null)
-                            ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
-                        //}
                     }
                     catch (Exception ex)
                     {
@@ -1016,7 +1010,6 @@ namespace OpenSim.Region.Framework.Scenes
                     if (actor.IsPhysical)
                     {
                         actor.Velocity = value;
-                        ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(actor);
                     }
                 }
             }
@@ -1166,10 +1159,8 @@ namespace OpenSim.Region.Framework.Scenes
                             {
                                 actor.Size = m_shape.Scale;
 
-//                                if (Shape.SculptEntry)
-//                                    CheckSculptAndLoad();
-//                                else
-                                    ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(PhysActor);
+                                if (Shape.SculptEntry)
+                                    CheckSculptAndLoad();
                             }
                         }
                     }
@@ -1865,7 +1856,7 @@ namespace OpenSim.Region.Framework.Scenes
                     // Basic Physics returns null..  joy joy joy.
                     if (PhysActor != null)
                     {
-//                        CheckSculptAndLoad();
+                        CheckSculptAndLoad();
                         PhysActor.SOPName = this.Name; // save object name and desc into the PhysActor so ODE internals know the joint/body info
                         PhysActor.SetMaterial(Material);
                         if(VolumeDetectActive)
@@ -2197,8 +2188,6 @@ namespace OpenSim.Region.Framework.Scenes
 
                     if (Shape.SculptEntry)
                         CheckSculptAndLoad();
-                    else
-                        ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(PhysActor);
                 }
             }
         }
@@ -3241,8 +3230,6 @@ namespace OpenSim.Region.Framework.Scenes
                     {
                         // Update the physics actor with the new loaded sculpt data and set the taint signal.
                         PhysActor.Shape = m_shape;
-
-                        ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(PhysActor);
                     }
                 }
             }
@@ -3798,7 +3785,6 @@ namespace OpenSim.Region.Framework.Scenes
             if (PhysActor != null)
             {
                 PhysActor.LockAngularMotion(RotationAxis);
-                ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(PhysActor);
             }
         }
 
@@ -4896,13 +4882,13 @@ namespace OpenSim.Region.Framework.Scenes
                 if(m_shape.SculptData != null)
                     m_shape.SculptData=null;
                 if(m_shape.SculptTexture != UUID.Zero)
-                    m_shape.SculptTexture = UUID.Zero;               
+                    m_shape.SculptTexture = UUID.Zero;
+                m_shape.SculptDataLoaded = false;
             }
 
             if (PhysActor != null)
             {
                 PhysActor.Shape = m_shape;
-                ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(PhysActor);
             }
 
             // This is what makes vehicle trailers work
@@ -4937,7 +4923,7 @@ namespace OpenSim.Region.Framework.Scenes
             if ((ParentGroup.RootPart.GetEffectiveObjectFlags() & (uint)PrimFlags.Phantom) != 0)
                 return;
 
-            if (Shape.SculptEntry && Shape.SculptTexture != UUID.Zero)
+            if (Shape.SculptEntry && Shape.SculptTexture != UUID.Zero && !Shape.SculptDataLoaded)
             {
                 // check if a previously decoded sculpt map has been cached
                 // We don't read the file here - the meshmerizer will do that later.

@@ -246,6 +246,19 @@ namespace OpenSim.Region.Framework.Scenes
 
         public float SimulationFrameTime
         {
+            set
+            {
+                if(value > 500.0f)
+                    m_simframetime = 500.0f; // 2fps
+                else if(value < 20.0f)
+                    m_simframetime = 20.0f; // 50fps
+                else
+                    m_simframetime = value;
+
+                if(m_simframetime > m_simphysframetime)
+                    m_simphysframetime = m_simframetime;
+            }
+
             get
             {
                 return m_simframetime;
