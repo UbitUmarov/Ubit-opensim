@@ -163,21 +163,18 @@ namespace PrimMesher
         {
             if (((Image)srcImage).PixelFormat == PixelFormat.Format32bppArgb)
             {
-                Bitmap tmpImage = new Bitmap(srcImage.Width, srcImage.Height, PixelFormat.Format24bppRgb);
                 Color c;
                 for (int y = 0; y < srcImage.Height; y++)
                 {
                     for (int x = 0; x < srcImage.Width; x++)
                     {
                         c = srcImage.GetPixel(x, y);
-                        tmpImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
+                        srcImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
                     }
                 }
-                srcImage.Dispose();
-                srcImage = tmpImage;
             }
 
-            Bitmap scaledImage = new Bitmap(destWidth, destHeight, PixelFormat.Format24bppRgb);           
+            Bitmap scaledImage = new Bitmap(srcImage,destWidth, destHeight);           
             scaledImage.SetResolution(96.0f, 96.0f);
 
             Graphics grPhoto = Graphics.FromImage(scaledImage);
@@ -187,7 +184,8 @@ namespace PrimMesher
             grPhoto.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
             grPhoto.PageUnit = GraphicsUnit.Pixel;
             grPhoto.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-
+            if (((Image)srcImage).PixelFormat == PixelFormat.Format32bppArgb)
+                grPhoto.Clear(Color.White);
             grPhoto.DrawImage(srcImage,
                 new Rectangle(0, 0, destWidth, destHeight),
                 new Rectangle(0, 0, srcImage.Width, srcImage.Height),
