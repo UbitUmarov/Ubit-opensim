@@ -163,7 +163,7 @@ namespace PrimMesher
         {
             Bitmap scaledImage = new Bitmap(destWidth, destHeight,PixelFormat.Format24bppRgb);
 
-            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb)
+//            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb)
             {
                 Color c;
                 float scale = srcImage.Height / destHeight;
