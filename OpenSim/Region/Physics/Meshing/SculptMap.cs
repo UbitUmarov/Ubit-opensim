@@ -161,7 +161,7 @@ namespace PrimMesher
         private Bitmap ScaleImage(Bitmap srcImage, int destWidth, int destHeight,
                 System.Drawing.Drawing2D.InterpolationMode interpMode)
         {
-            if ((srcImage.Flags & (int)(ImageFlags.HasAlpha)) != 0)
+            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb)
             {
                 Color c;
                 for (int y = 0; y < srcImage.Height; y++)
