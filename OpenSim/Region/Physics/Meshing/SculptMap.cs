@@ -76,7 +76,7 @@ namespace PrimMesher
             {
                 if (needsScaling)
                     bm = ScaleImage(bm, width, height,
-                        System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor);
+                        System.Drawing.Drawing2D.InterpolationMode.High);
             }
 
             catch (Exception e)
@@ -181,8 +181,11 @@ namespace PrimMesher
             scaledImage.SetResolution(96.0f, 96.0f);
 
             Graphics grPhoto = Graphics.FromImage(scaledImage);
- 
-            grPhoto.InterpolationMode = interpMode;
+
+//            grPhoto.InterpolationMode = interpMode;
+            grPhoto.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Default;
+            grPhoto.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+            grPhoto.PageUnit = GraphicsUnit.Pixel;
             grPhoto.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
 
             grPhoto.DrawImage(srcImage,
