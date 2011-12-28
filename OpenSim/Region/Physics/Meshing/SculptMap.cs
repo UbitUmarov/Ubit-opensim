@@ -84,7 +84,7 @@ namespace PrimMesher
                 throw new Exception("Exception in ScaleImage(): e: " + e.ToString());
             }
 
-            if (width * height > lod * lod)
+            if (width * height > numLodPixels)
             {
                 width >>= 1;
                 height >>= 1;
@@ -140,16 +140,18 @@ namespace PrimMesher
 
             int rowNdx, colNdx;
             int smNdx = 0;
+            
 
             for (rowNdx = 0; rowNdx < numRows; rowNdx++)
             {
                 List<Coord> row = new List<Coord>(numCols);
                 for (colNdx = 0; colNdx < numCols; colNdx++)
                 {
+                    
                     if (mirror)
-                        row.Add(new Coord(-(redBytes[smNdx] * pixScale - 0.5f), (greenBytes[smNdx] * pixScale - 0.5f), blueBytes[smNdx] * pixScale - 0.5f));
+                        row.Add(new Coord(-((float)redBytes[smNdx] * pixScale - 0.5f), ((float)greenBytes[smNdx] * pixScale - 0.5f), (float)blueBytes[smNdx] * pixScale - 0.5f));
                     else
-                        row.Add(new Coord(redBytes[smNdx] * pixScale - 0.5f, greenBytes[smNdx] * pixScale - 0.5f, blueBytes[smNdx] * pixScale - 0.5f));
+                        row.Add(new Coord((float)redBytes[smNdx] * pixScale - 0.5f, (float)greenBytes[smNdx] * pixScale - 0.5f, (float)blueBytes[smNdx] * pixScale - 0.5f));
 
                     ++smNdx;
                 }
@@ -163,16 +165,17 @@ namespace PrimMesher
         {
             Bitmap scaledImage = new Bitmap(destWidth, destHeight,PixelFormat.Format24bppRgb);
 
-//            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb)
+            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb) // do sampling
             {
                 Color c;
-                float scale = srcImage.Height / destHeight;
+                float xscale = srcImage.Width / destWidth;
+                float yscale = srcImage.Height / destHeight;
                 for (int y = 0; y < destHeight; y++)
                 {
                     for (int x = 0; x < destWidth; x++)
                     {
-                        c = srcImage.GetPixel((int)(x*scale), (int)(y*scale));
-                        scaledImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
+                        c = srcImage.GetPixel((int)(x*xscale), (int)(y*yscale));
+                        scaledImage.SetPixel(x, y, Color.FromArgb(c.R, c.G, c.B));
                     }
                 }
                 return scaledImage;
