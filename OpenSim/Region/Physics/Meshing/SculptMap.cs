@@ -161,26 +161,28 @@ namespace PrimMesher
         private Bitmap ScaleImage(Bitmap srcImage, int destWidth, int destHeight,
                 System.Drawing.Drawing2D.InterpolationMode interpMode)
         {
-            if (((Image)srcImage).PixelFormat == PixelFormat.Format32bppArgb)
+            Bitmap scaledImage = new Bitmap(destWidth, destHeight,PixelFormat.Format24bppRgb);
+
+            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb)
             {
                 Color c;
-                for (int y = 0; y < srcImage.Height; y++)
+                float scale = srcImage.Height / destHeight;
+                for (int y = 0; y < destHeight; y++)
                 {
-                    for (int x = 0; x < srcImage.Width; x++)
+                    for (int x = 0; x < destWidth; x++)
                     {
-                        c = srcImage.GetPixel(x, y);
-                        srcImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
+                        c = srcImage.GetPixel((int)(x*scale), (int)(y*scale));
+                        scaledImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
                     }
                 }
+                return scaledImage;
             }
 
-            Bitmap scaledImage = new Bitmap(srcImage,destWidth, destHeight);           
             scaledImage.SetResolution(96.0f, 96.0f);
 
             Graphics grPhoto = Graphics.FromImage(scaledImage);
 
-//            grPhoto.InterpolationMode = interpMode;
-            grPhoto.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Default;
+            grPhoto.InterpolationMode = interpMode;
             grPhoto.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
             grPhoto.PageUnit = GraphicsUnit.Pixel;
             grPhoto.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
