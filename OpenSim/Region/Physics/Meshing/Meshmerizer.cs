@@ -529,20 +529,6 @@ namespace OpenSim.Region.Physics.Meshing
             bool mirror = ((primShape.SculptType & 128) != 0);
             bool invert = ((primShape.SculptType & 64) != 0);
 
-            if (idata.PixelFormat == PixelFormat.Format32bppArgb)
-            {
-                Color c;
-                for (int y = 0; y < idata.Height; y++)
-                {
-                    for (int x = 0; x < idata.Width; x++)
-                    {
-                        c = ((Bitmap)idata).GetPixel(x, y);
-                        ((Bitmap)idata).SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
-                    }
-                }
-                m_log.ErrorFormat(" AS ALPHA");
-            }
-
             sculptMesh = new PrimMesher.SculptMesh((Bitmap)idata, sculptType, (int)lod, false, mirror, invert);
 
             idata.Dispose();

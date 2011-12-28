@@ -163,15 +163,18 @@ namespace PrimMesher
         {
             if (((Image)srcImage).PixelFormat == PixelFormat.Format32bppArgb)
             {
+                Bitmap tmpImage = new Bitmap(srcImage.Width, srcImage.Height, PixelFormat.Format24bppRgb);
                 Color c;
                 for (int y = 0; y < srcImage.Height; y++)
                 {
                     for (int x = 0; x < srcImage.Width; x++)
                     {
                         c = srcImage.GetPixel(x, y);
-                        srcImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
+                        tmpImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
                     }
-                }              
+                }
+                srcImage.Dispose();
+                srcImage = tmpImage;
             }
 
             Bitmap scaledImage = new Bitmap(destWidth, destHeight, PixelFormat.Format24bppRgb);           
