@@ -161,7 +161,7 @@ namespace PrimMesher
         private Bitmap ScaleImage(Bitmap srcImage, int destWidth, int destHeight,
                 System.Drawing.Drawing2D.InterpolationMode interpMode)
         {
-            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb)
+            if (((Image)srcImage).PixelFormat == PixelFormat.Format32bppArgb)
             {
                 Color c;
                 for (int y = 0; y < srcImage.Height; y++)
@@ -171,8 +171,7 @@ namespace PrimMesher
                         c = srcImage.GetPixel(x, y);
                         srcImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
                     }
-                }
-                throw new Exception("AS ALPHA");
+                }              
             }
 
             Bitmap scaledImage = new Bitmap(destWidth, destHeight, PixelFormat.Format24bppRgb);           
