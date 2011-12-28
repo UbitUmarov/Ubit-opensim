@@ -172,6 +172,7 @@ namespace PrimMesher
                         srcImage.SetPixel(x, y, Color.FromArgb(255, c.R, c.G, c.B));
                     }
                 }
+                throw new Exception("AS ALPHA");
             }
 
             Bitmap scaledImage = new Bitmap(destWidth, destHeight, PixelFormat.Format24bppRgb);           
