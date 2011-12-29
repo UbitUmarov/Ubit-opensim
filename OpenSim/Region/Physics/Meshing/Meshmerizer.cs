@@ -485,7 +485,7 @@ namespace OpenSim.Region.Physics.Meshing
 
                     if (cacheSculptMaps)
                     {
-                        try { idata.Save(decodedSculptFileName, ImageFormat.MemoryBmp); }
+                        try { idata.Save(decodedSculptFileName, ImageFormat.Png); }
                         catch (Exception e) { m_log.Error("[SCULPT]: unable to cache sculpt map " + decodedSculptFileName + " " + e.Message); }
                     }
                 }
