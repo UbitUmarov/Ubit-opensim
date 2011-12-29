@@ -483,9 +483,11 @@ namespace OpenSim.Region.Physics.Meshing
 
                     //idata = CSJ2K.J2kImage.FromBytes(primShape.SculptData);
 
+
+
                     if (cacheSculptMaps)
                     {
-                        try { idata.Save(decodedSculptFileName, ImageFormat.Png); }
+                        try { idata.Save(decodedSculptFileName, ImageFormat.MemoryBmp); }
                         catch (Exception e) { m_log.Error("[SCULPT]: unable to cache sculpt map " + decodedSculptFileName + " " + e.Message); }
                     }
                 }
@@ -528,6 +530,12 @@ namespace OpenSim.Region.Physics.Meshing
 
             bool mirror = ((primShape.SculptType & 128) != 0);
             bool invert = ((primShape.SculptType & 64) != 0);
+
+            if (((ImageFlags)(idata.Flags) & ImageFlags.HasAlpha) != 0)
+            {
+                Color c = ((Bitmap)idata).GetPixel(1, 1);
+                m_log.WarnFormat("[MESH] as alpha A {0} r {1} g {2} b {3}:", c.A, c.R, c.G, c.B);
+            }
 
             sculptMesh = new PrimMesher.SculptMesh((Bitmap)idata, sculptType, (int)lod, false, mirror, invert);
 
