@@ -87,7 +87,15 @@ namespace OpenSim.Region.Physics.Meshing
             IConfig mesh_config = config.Configs["Mesh"];
 
             decodedSculptMapPath = start_config.GetString("DecodedSculptMapPath","j2kDecodeCache");
-            cacheSculptMaps = start_config.GetBoolean("CacheSculptMaps", cacheSculptMaps);
+
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                cacheSculptMaps = false;
+                m_log.Warn("[MESH]: Forced CacheSculptMaps = false because Image.FromFile in mono destroys sculp maps if they have alpha channel");
+            }
+            else
+                cacheSculptMaps = start_config.GetBoolean("CacheSculptMaps", cacheSculptMaps);
+
             if(mesh_config != null)
                 useMeshiesPhysicsMesh = mesh_config.GetBoolean("UseMeshiesPhysicsMesh", useMeshiesPhysicsMesh);
 
@@ -487,7 +495,7 @@ namespace OpenSim.Region.Physics.Meshing
 
                     if (cacheSculptMaps)
                     {
-                        try { idata.Save(decodedSculptFileName, ImageFormat.Wmf); }
+                        try { idata.Save(decodedSculptFileName, ImageFormat.MemoryBmp); }
                         catch (Exception e) { m_log.Error("[SCULPT]: unable to cache sculpt map " + decodedSculptFileName + " " + e.Message); }
                     }
                 }
@@ -530,12 +538,6 @@ namespace OpenSim.Region.Physics.Meshing
 
             bool mirror = ((primShape.SculptType & 128) != 0);
             bool invert = ((primShape.SculptType & 64) != 0);
-
-            if (((ImageFlags)(idata.Flags) & ImageFlags.HasAlpha) != 0)
-            {
-                Color c = ((Bitmap)idata).GetPixel(1, 1);
-                m_log.WarnFormat("[MESH] as alpha A {0} r {1} g {2} b {3}:", c.A, c.R, c.G, c.B);
-            }
 
             sculptMesh = new PrimMesher.SculptMesh((Bitmap)idata, sculptType, (int)lod, false, mirror, invert);
 

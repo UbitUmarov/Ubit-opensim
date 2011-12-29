@@ -65,7 +65,7 @@ namespace PrimMesher
 
             width = bmW;
             height = bmH;
-            while (width * height > numLodPixels *4) 
+            while (width * height > numLodPixels * 4)
             {
                 width >>= 1;
                 height >>= 1;
@@ -140,14 +140,14 @@ namespace PrimMesher
 
             int rowNdx, colNdx;
             int smNdx = 0;
-            
+
 
             for (rowNdx = 0; rowNdx < numRows; rowNdx++)
             {
                 List<Coord> row = new List<Coord>(numCols);
                 for (colNdx = 0; colNdx < numCols; colNdx++)
                 {
-                    
+
                     if (mirror)
                         row.Add(new Coord(-((float)redBytes[smNdx] * pixScale - 0.5f), ((float)greenBytes[smNdx] * pixScale - 0.5f), (float)blueBytes[smNdx] * pixScale - 0.5f));
                     else
@@ -163,42 +163,37 @@ namespace PrimMesher
         private Bitmap ScaleImage(Bitmap srcImage, int destWidth, int destHeight,
                 System.Drawing.Drawing2D.InterpolationMode interpMode)
         {
-            Bitmap scaledImage = new Bitmap(destWidth, destHeight,PixelFormat.Format24bppRgb);
 
-            if (srcImage.PixelFormat == PixelFormat.Format32bppArgb) // do sampling
+            Bitmap scaledImage = new Bitmap(destWidth, destHeight, PixelFormat.Format24bppRgb);
+            
+            Color c;
+            float xscale = srcImage.Width / destWidth;
+            float yscale = srcImage.Height / destHeight;
+            
+            float sy = 0.5f;
+            for (int y = 0; y < destHeight; y++)
             {
-                Color c;
-                float xscale = srcImage.Width / destWidth;
-                float yscale = srcImage.Height / destHeight;
-                for (int y = 0; y < destHeight; y++)
+                float sx = 0.5f;
+                for (int x = 0; x < destWidth; x++)
                 {
-                    for (int x = 0; x < destWidth; x++)
+                    try
                     {
-                        c = srcImage.GetPixel((int)(x*xscale), (int)(y*yscale));
+                        c = srcImage.GetPixel((int)(sx), (int)(sy));
                         scaledImage.SetPixel(x, y, Color.FromArgb(c.R, c.G, c.B));
                     }
+                    catch (IndexOutOfRangeException)
+                    {
+                    }
+
+                    sx += xscale;
                 }
-                return scaledImage;
+                sy += yscale;
             }
-
-            scaledImage.SetResolution(96.0f, 96.0f);
-
-            Graphics grPhoto = Graphics.FromImage(scaledImage);
-
-            grPhoto.InterpolationMode = interpMode;
-            grPhoto.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-            grPhoto.PageUnit = GraphicsUnit.Pixel;
-            grPhoto.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-            if (((Image)srcImage).PixelFormat == PixelFormat.Format32bppArgb)
-                grPhoto.Clear(Color.White);
-            grPhoto.DrawImage(srcImage,
-                new Rectangle(0, 0, destWidth, destHeight),
-                new Rectangle(0, 0, srcImage.Width, srcImage.Height),
-                GraphicsUnit.Pixel);
-
-            grPhoto.Dispose();
+            srcImage.Dispose();
             return scaledImage;
         }
+
+    }        
+    
     }
-}
 #endif
