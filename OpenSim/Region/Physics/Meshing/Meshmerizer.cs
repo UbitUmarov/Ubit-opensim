@@ -285,7 +285,8 @@ namespace OpenSim.Region.Physics.Meshing
             }
 
             // Remove the reference to any JPEG2000 sculpt data so it can be GCed
-            primShape.SculptData = Utils.EmptyBytes;
+            // don't loose it
+//            primShape.SculptData = Utils.EmptyBytes;
             primShape.SculptDataLoaded = true;
 
             int numCoords = coords.Count;
