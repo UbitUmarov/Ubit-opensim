@@ -74,6 +74,8 @@ namespace OpenSim.Region.Physics.Meshing
 #endif
 
         private bool cacheSculptMaps = true;
+        private bool cacheSculptAlphaMaps = true;
+
         private string decodedSculptMapPath = null;
         private bool useMeshiesPhysicsMesh = false;
 
@@ -88,13 +90,14 @@ namespace OpenSim.Region.Physics.Meshing
 
             decodedSculptMapPath = start_config.GetString("DecodedSculptMapPath","j2kDecodeCache");
 
+            cacheSculptMaps = start_config.GetBoolean("CacheSculptMaps", cacheSculptMaps);
+
             if (Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                cacheSculptMaps = false;
-                m_log.Warn("[MESH]: Forced CacheSculptMaps = false because Image.FromFile in mono destroys sculp maps if they have alpha channel");
+                cacheSculptAlphaMaps = false;
             }
             else
-                cacheSculptMaps = start_config.GetBoolean("CacheSculptMaps", cacheSculptMaps);
+                cacheSculptAlphaMaps = cacheSculptMaps;      
 
             if(mesh_config != null)
                 useMeshiesPhysicsMesh = mesh_config.GetBoolean("UseMeshiesPhysicsMesh", useMeshiesPhysicsMesh);
@@ -492,9 +495,8 @@ namespace OpenSim.Region.Physics.Meshing
 
                     //idata = CSJ2K.J2kImage.FromBytes(primShape.SculptData);
 
-
-
-                    if (cacheSculptMaps)
+                    if (cacheSculptMaps && (cacheSculptAlphaMaps || (((ImageFlags)(idata.Flags) & ImageFlags.HasAlpha) ==0)))
+                        // don't cache images with alpha channel in linux since mono can't load them correctly)
                     {
                         try { idata.Save(decodedSculptFileName, ImageFormat.MemoryBmp); }
                         catch (Exception e) { m_log.Error("[SCULPT]: unable to cache sculpt map " + decodedSculptFileName + " " + e.Message); }
