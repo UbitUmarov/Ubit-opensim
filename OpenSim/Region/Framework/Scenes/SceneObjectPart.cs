@@ -800,25 +800,36 @@ namespace OpenSim.Region.Framework.Scenes
         {
             get
             {
-                // If this is a linkset, we don't want the physics engine mucking up our group position here.
-                PhysicsActor actor = PhysActor;
-                if (actor != null && ParentID == 0)
-                {
-                    Vector3 t = actor.Position;
-                    if (m_groupPosition != t)
-                    {
-                        m_groupPosition = actor.Position;
-                        m_parentGroup.GPosVersionInc();
-                        m_validPoff = false;
-                    }
-                }
-
                 if (ParentGroup.IsAttachment)
                 {
                     ScenePresence sp = ParentGroup.Scene.GetScenePresence(ParentGroup.AttachedAvatar);
                     if (sp != null)
                         return sp.AbsolutePosition;
                 }
+
+                if (ParentID != 0)
+                {
+
+                    m_groupPosition = ParentGroup.RootPart.GroupPosition;
+                    m_validPoff = false;
+                }
+                else
+                {
+                    PhysicsActor actor = ParentGroup.RootPart.PhysActor;
+
+                    // If this is a linkset, we don't want the physics engine mucking up our group position here.
+                    if (actor != null)
+                    {
+                        Vector3 t = actor.Position;
+                        if (m_groupPosition != t)
+                        {
+                            m_groupPosition = actor.Position;
+                            m_parentGroup.GPosVersionInc();
+                            m_validPoff = false;
+                        }
+                    }
+                }
+
 
                 return m_groupPosition;
             }
