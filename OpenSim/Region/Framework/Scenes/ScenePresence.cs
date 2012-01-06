@@ -1746,8 +1746,8 @@ namespace OpenSim.Region.Framework.Scenes
 //                "[SCENE PRESENCE]: Avatar {0} received request to move to position {1} in {2}",
 //                Name, pos, m_scene.RegionInfo.RegionName);
 
-            if (pos.X < 0 || pos.X >= Constants.RegionSize
-                || pos.Y < 0 || pos.Y >= Constants.RegionSize
+            if (pos.X < 0 || pos.X >= m_scene.RegionInfo.RegionSizeX
+                || pos.Y < 0 || pos.Y >= m_scene.RegionInfo.RegionSizeY
                 || pos.Z < 0)
                 return;
 
