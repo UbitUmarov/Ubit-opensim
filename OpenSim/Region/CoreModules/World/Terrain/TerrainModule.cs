@@ -603,7 +603,16 @@ namespace OpenSim.Region.CoreModules.World.Terrain
             if (m_tainted)
             {
                 m_tainted = false;
-                m_scene.PhysicsScene.SetTerrain(m_channel.GetFloatsSerialised());
+                if (m_scene.RootScene != null)
+                {
+                    Vector3 offset = Vector3.Zero;
+                    offset.X = ((int)m_scene.RegionInfo.RegionLocX - (int)m_scene.RootScene.RegionInfo.RegionLocX) * Constants.RegionSize;
+                    offset.Y = ((int)m_scene.RegionInfo.RegionLocY - (int)m_scene.RootScene.RegionInfo.RegionLocY) * Constants.RegionSize;
+
+                    m_scene.RootScene.PhysicsScene.CombineTerrain(m_scene.Heightmap.GetFloatsSerialised(), offset);
+                }
+                else
+                    m_scene.PhysicsScene.SetTerrain(m_channel.GetFloatsSerialised());
                 m_scene.SaveTerrain();
 
                 // Clients who look at the map will never see changes after they looked at the map, so i've commented this out.
