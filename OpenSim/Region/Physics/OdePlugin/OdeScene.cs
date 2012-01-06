@@ -1169,20 +1169,11 @@ namespace OpenSim.Region.Physics.OdePlugin
         }
 
         #endregion
-/*
-        public override void Combine(PhysicsScene pScene, Vector3 offset, Vector3 extents)
-        {
-            m_worldOffset = offset;
-            WorldExtents = new Vector2(extents.X, extents.Y);
-            m_parentScene = pScene;
-        }
-*/
-        // Recovered for use by fly height. Kitto Flora
-        //Ubit: interpolated for higher resolution
-        // assumes 1m size grid and constante size square region
+
 
         public float GetTerrainHeightAtXY(float x, float y)
         {
+            // assumes 1m size grid and constante size square regions
             // region offset in mega position
 
             int offsetX = ((int)(x / (int)Constants.RegionSize)) * (int)Constants.RegionSize;
@@ -1200,12 +1191,12 @@ namespace OpenSim.Region.Physics.OdePlugin
             if (!TerrainHeightFieldHeights.ContainsKey(heightFieldGeom))
                 return 0f;
 
-            // TerrainHeightField for ODE as offset 1
+            // TerrainHeightField for ODE as offset 1m
             x += 1f - offsetX;
             y += 1f - offsetY;
 
             // make position fit into array
-            if (x < 0) 
+            if (x < 0)
                 x = 0;
             if (y < 0)
                 y = 0;
@@ -1220,7 +1211,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             int regsize = (int)Constants.RegionSize + 2; // map size see setterrain
 
             // we  still have square fixed size regions
-            // also flip x and y because of map is done for ODE fliped axis
+            // also flip x and y because of how map is done for ODE fliped axis
             // so ix,iy,dx and dy are inter exchanged
             if (x < regsize - 1)
             {
@@ -1229,7 +1220,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
             else // out world use external height
             {
-                iy = regsize - 1; 
+                iy = regsize - 1;
                 dy = 0;
             }
             if (y < regsize - 1)
@@ -1248,43 +1239,25 @@ namespace OpenSim.Region.Physics.OdePlugin
             float h2;
 
             iy *= regsize;
+            iy += ix; // all indexes have iy + ix
 
-            float [] heights = TerrainHeightFieldHeights[heightFieldGeom];
+            float[] heights = TerrainHeightFieldHeights[heightFieldGeom];
 
             if ((dx + dy) <= 1.0f)
             {
-                h0 = ((float)heights[iy + ix]);
-
-                if (dx > 0)
-                    h1 = (((float)heights[iy + ix + 1]) - h0) * dx;
-                else
-                    h1 = 0;
-
-                if (dy > 0)
-                    h2 = (((float)heights[iy + regsize + ix]) - h0) * dy;
-                else
-                    h2 = 0;
-
-                return h0 + h1 + h2;
+                h0 = ((float)heights[iy]); // 0,0 vertice
+                h1 = (((float)heights[iy + 1]) - h0) * dx; // 1,0 vertice minus 0,0
+                h2 = (((float)heights[iy + regsize]) - h0) * dy; // 0,1 vertice minus 0,0
             }
             else
             {
-                h0 = ((float)heights[iy + regsize + ix + 1]);
-
-                if (dx > 0)
-                    h1 = (((float)heights[iy + ix + 1]) - h0) * (1 - dy);
-                else
-                    h1 = 0;
-
-                if (dy > 0)
-                    h2 = (((float)heights[iy + regsize + ix]) - h0) * (1 - dx);
-                else
-                    h2 = 0;
-
-                return h0 + h1 + h2;
+                h0 = ((float)heights[iy + regsize + 1]); // 1,1 vertice
+                h1 = (((float)heights[iy + 1]) - h0) * (1 - dy); // 1,1 vertice minus 1,0
+                h2 = (((float)heights[iy + regsize]) - h0) * (1 - dx); // 1,1 vertice minus 0,1
             }
-        } 
-// End recovered. Kitto Flora
+
+            return h0 + h1 + h2;
+        }
 
         /// <summary>
         /// Add actor to the list that should receive collision events in the simulate loop.
