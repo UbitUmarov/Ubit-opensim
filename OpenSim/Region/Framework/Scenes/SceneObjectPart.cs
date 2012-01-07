@@ -4765,7 +4765,7 @@ namespace OpenSim.Region.Framework.Scenes
                         )
                     {
                         PhysActor.OnCollisionUpdate += PhysicsCollision;
-                        PhysActor.SubscribeEvents(1000);
+                        PhysActor.SubscribeEvents(100);
                     }
                 }
                 else // it already has a physical representation
@@ -5051,7 +5051,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (PhysActor != null)
                 {
                     PhysActor.OnCollisionUpdate += PhysicsCollision;
-                    PhysActor.SubscribeEvents(1000);
+                    PhysActor.SubscribeEvents(100);
                 }
             }
             else
