@@ -3490,11 +3490,11 @@ namespace OpenSim.Region.Framework.Scenes
                             ContactPoint lowest;
                             lowest.SurfaceNormal = Vector3.Zero;
                             lowest.Position = Vector3.Zero;
-                            lowest.Position.Z = Single.NaN;
+                            lowest.Position.Z = float.MaxValue;
 
                             foreach (ContactPoint contact in coldata.Values)
                             {
-                                if (Single.IsNaN(lowest.Position.Z) || contact.Position.Z < lowest.Position.Z)
+                                if (contact.Position.Z < lowest.Position.Z)
                                 {
                                     lowest = contact;
                                 }

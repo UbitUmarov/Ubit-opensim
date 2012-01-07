@@ -137,6 +137,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public d.Mass ShellMass;
         public bool collidelock = false;
 
+        private bool m_haseventsubscription = false;
         public int m_eventsubscription = 0;
         private CollisionEventUpdate CollisionEventsThisFrame = new CollisionEventUpdate();
 
@@ -1161,32 +1162,34 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override void SubscribeEvents(int ms)
         {
-//            m_requestedUpdateFrequency = ms;
+            m_requestedUpdateFrequency = ms;
             m_eventsubscription = ms;
             _parent_scene.AddCollisionEventReporting(this);
+            m_haseventsubscription = true;
         }
 
         public override void UnSubscribeEvents()
         {
+            m_haseventsubscription = false;
             _parent_scene.RemoveCollisionEventReporting(this);
-//            m_requestedUpdateFrequency = 0;
+            m_requestedUpdateFrequency = 0;
             m_eventsubscription = 0;
         }
 
         public void AddCollisionEvent(uint CollidedWith, ContactPoint contact)
         {
-//            if (m_eventsubscription > 0)
-//            {
+            if (m_haseventsubscription)
+            {
                 //                m_log.DebugFormat(
                 //                    "[PHYSICS]: Adding collision event for {0}, collidedWith {1}, contact {2}", "", CollidedWith, contact);
 
                 CollisionEventsThisFrame.AddCollider(CollidedWith, contact);
- //           }
+            }
         }
 
         public void SendCollisions()
         {
-            if (m_eventsubscription > m_requestedUpdateFrequency)
+            if (m_haseventsubscription && m_eventsubscription > m_requestedUpdateFrequency)
             {
                 if (CollisionEventsThisFrame != null)
                 {
@@ -1199,9 +1202,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public override bool SubscribedEvents()
         {
-            if (m_eventsubscription > 0)
-                return true;
-            return false;
+            return m_haseventsubscription;
         }
 
         public void ProcessTaints(float timestep)
