@@ -67,6 +67,7 @@ namespace OpenSim.Region.Framework.Scenes
         private Scene m_rootScene = null;
 
         public bool EmergencyMonitoring = false;
+        public bool DEBUG = false;
 
         public SynchronizeSceneHandler SynchronizeScene;
         public SimStatsReporter StatsReporter;
@@ -703,7 +704,9 @@ namespace OpenSim.Region.Framework.Scenes
                 //
                 IConfig startupConfig = m_config.Configs["Startup"];
 
-                m_defaultDrawDistance = startupConfig.GetFloat("DefaultDrawDistance", m_defaultDrawDistance);
+                DEBUG = startupConfig.GetBoolean("DEBUG", false);
+
+                m_defaultDrawDistance = startupConfig.GetFloat("DefaultDrawDistance",m_defaultDrawDistance);
                 m_useBackup = startupConfig.GetBoolean("UseSceneBackup", m_useBackup);
                 if (!m_useBackup)
                     m_log.InfoFormat("[SCENE]: Backup has been disabled for {0}", RegionInfo.RegionName);
@@ -2629,7 +2632,7 @@ namespace OpenSim.Region.Framework.Scenes
                 sp = m_sceneGraph.CreateAndAddChildScenePresence(client, aCircuit.Appearance, type);
                 m_eventManager.TriggerOnNewPresence(sp);
 
-                sp.TeleportFlags = (TeleportFlags)aCircuit.teleportFlags;
+                sp.TeleportFlags = (TPFlags)aCircuit.teleportFlags;
 
                 // The first agent upon login is a root agent by design.
                 // For this agent we will have to rez the attachments.
@@ -3434,7 +3437,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 // Let the SP know how we got here. This has a lot of interesting
                 // uses down the line.
-                sp.TeleportFlags = (TeleportFlags)teleportFlags;
+                sp.TeleportFlags = (TPFlags)teleportFlags;
 
                 if (sp.IsChildAgent)
                 {

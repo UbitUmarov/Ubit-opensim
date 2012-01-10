@@ -40,6 +40,7 @@ using OpenSim.Region.Framework.Scenes.Types;
 using OpenSim.Region.Physics.Manager;
 using GridRegion = OpenSim.Services.Interfaces.GridRegion;
 using OpenSim.Services.Interfaces;
+using TeleportFlags = OpenSim.Framework.Constants.TeleportFlags;
 
 namespace OpenSim.Region.Framework.Scenes
 {
@@ -3983,9 +3984,13 @@ namespace OpenSim.Region.Framework.Scenes
 
         private void CheckAndAdjustLandingPoint(ref Vector3 pos)
         {
+
             ILandObject land = m_scene.LandChannel.GetLandObject(pos.X, pos.Y);
             if (land != null)
             {
+                if (Scene.DEBUG)
+                    TeleportFlagsDebug();
+
                 // If we come in via login, landmark or map, we want to
                 // honor landing points. If we come in via Lure, we want
                 // to ignore them.
@@ -4002,7 +4007,8 @@ namespace OpenSim.Region.Framework.Scenes
                         GodLevel < 200 &&
                         ((land.LandData.OwnerID != m_uuid &&
                         (!m_scene.Permissions.IsGod(m_uuid)) &&
-                        (!m_scene.RegionInfo.EstateSettings.IsEstateManager(m_uuid))) || (m_teleportFlags & TeleportFlags.ViaLocation) != 0))
+                        (!m_scene.RegionInfo.EstateSettings.IsEstateManager(m_uuid))) || (m_teleportFlags & TeleportFlags.ViaLocation) != 0) ||
+                        ((m_teleportFlags & (TeleportFlags)Constants.TeleportFlags.ViaHGLogin) == (TeleportFlags)Constants.TeleportFlags.ViaHGLogin))
                     {
                         pos = land.LandData.UserLocation;
                     }
@@ -4011,5 +4017,31 @@ namespace OpenSim.Region.Framework.Scenes
                 land.SendLandUpdateToClient(ControllingClient);
             }
         }
+
+        private void TeleportFlagsDebug() {
+    
+            // Some temporary debugging help to show all the TeleportFlags we have...
+            bool HG = false;
+            if((m_teleportFlags & TeleportFlags.ViaHGLogin) == TeleportFlags.ViaHGLogin)
+                HG = true;
+    
+            m_log.InfoFormat("[SCENE PRESENCE]: TELEPORT ******************");
+    
+            uint i = 0u;
+            for (int x = 0; x <= 30 ; x++, i = 1u << x)
+            {
+                i = 1u << x;
+    
+                if((m_teleportFlags & (TeleportFlags)i) == (TeleportFlags)i)
+                    if (HG == false)
+                        m_log.InfoFormat("[SCENE PRESENCE]: Teleport Flags include {0}", ((TeleportFlags) i).ToString());
+                    else
+                        m_log.InfoFormat("[SCENE PRESENCE]: HG Teleport Flags include {0}", ((TeleportFlags)i).ToString());
+            }
+    
+            m_log.InfoFormat("[SCENE PRESENCE]: TELEPORT ******************");
+    
+        }
+
     }
 }
