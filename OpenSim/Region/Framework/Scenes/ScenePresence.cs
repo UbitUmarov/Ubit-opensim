@@ -2962,65 +2962,48 @@ namespace OpenSim.Region.Framework.Scenes
                 if (m_scene.TestBorderCross(PredictedPos, Cardinals.S))
                 {
                     needsTransit = true;
-                        neighbor = m_scene.HaveNeighbor(Cardinals.SW, ref fix);
                     neighbor = m_scene.HaveNeighbor(PredictedPos);
                 }
-                    else if (m_scene.TestBorderCross(pos2, Cardinals.N))
                 else if (m_scene.TestBorderCross(PredictedPos, Cardinals.N))
                 {
                     needsTransit = true;
-                        neighbor = m_scene.HaveNeighbor(Cardinals.NW, ref fix);
                     neighbor = m_scene.HaveNeighbor(PredictedPos);
                 }
                 else
                 {
                     needsTransit = true;
-                        neighbor = m_scene.HaveNeighbor(Cardinals.W, ref fix);
                     neighbor = m_scene.HaveNeighbor(PredictedPos);
                 }
             }
-                else if (m_scene.TestBorderCross(pos2, Cardinals.E))
             else if (m_scene.TestBorderCross(PredictedPos, Cardinals.E))
             {
-                    if (m_scene.TestBorderCross(pos2, Cardinals.S))
                 if (m_scene.TestBorderCross(PredictedPos, Cardinals.S))
                 {
                     needsTransit = true;
-                        neighbor = m_scene.HaveNeighbor(Cardinals.SE, ref fix);
                     neighbor = m_scene.HaveNeighbor(PredictedPos);
                 }
-                    else if (m_scene.TestBorderCross(pos2, Cardinals.N))
                 else if (m_scene.TestBorderCross(PredictedPos, Cardinals.N))
                 {
                     needsTransit = true;
-                        neighbor = m_scene.HaveNeighbor(Cardinals.NE, ref fix);
                     neighbor = m_scene.HaveNeighbor(PredictedPos);
                 }
                 else
                 {
                     needsTransit = true;
-                        neighbor = m_scene.HaveNeighbor(Cardinals.E, ref fix);
                     neighbor = m_scene.HaveNeighbor(PredictedPos);
                 }
             }
-                else if (m_scene.TestBorderCross(pos2, Cardinals.S))
             else if (m_scene.TestBorderCross(PredictedPos, Cardinals.S))
             {
                 needsTransit = true;
-                    neighbor = m_scene.HaveNeighbor(Cardinals.S, ref fix);
                 neighbor = m_scene.HaveNeighbor(PredictedPos);
             }
-                else if (m_scene.TestBorderCross(pos2, Cardinals.N))
             else if (m_scene.TestBorderCross(PredictedPos, Cardinals.N))
             {
                 needsTransit = true;
-                    neighbor = m_scene.HaveNeighbor(Cardinals.N, ref fix);
                 neighbor = m_scene.HaveNeighbor(PredictedPos);
             }
 
-                // Makes sure avatar does not end up outside region
-                if (neighbor <= 0)
-                {
             if (needsTransit)
             {
                         if (m_requestedSitTargetUUID == UUID.Zero)
@@ -3040,15 +3023,6 @@ namespace OpenSim.Region.Framework.Scenes
 
                     RemoveFromPhysicalScene();
 
-                            Vector3 pos = AbsolutePosition;
-                            if (AbsolutePosition.X < 0)
-                                pos.X += Velocity.X * 2;
-                            else if (AbsolutePosition.X > Constants.RegionSize)
-                                pos.X -= Velocity.X * 2;
-                            if (AbsolutePosition.Y < 0)
-                                pos.Y += Velocity.Y * 2;
-                            else if (AbsolutePosition.Y > Constants.RegionSize)
-                                pos.Y -= Velocity.Y * 2;
                     PredictedPos = AbsolutePosition;
                     if (PredictedPos.X - 0.5 < 0)
                         PredictedPos.X = 0.5f;
@@ -3059,7 +3033,6 @@ namespace OpenSim.Region.Framework.Scenes
                     else if (PredictedPos.Y + 0.5f > Scene.RegionInfo.RegionSizeY)
                         PredictedPos.Y = Scene.RegionInfo.RegionSizeY - 0.5f;
                     Velocity = Vector3.Zero;
-                            AbsolutePosition = pos;
                     AbsolutePosition = PredictedPos;
 
                     //                            m_log.DebugFormat("[SCENE PRESENCE]: Prevented flyoff for {0} at {1}", Name, AbsolutePosition);

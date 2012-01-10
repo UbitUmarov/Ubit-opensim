@@ -143,6 +143,8 @@ namespace OpenSim.Framework
         public string RemotingAddress;
         public UUID ScopeID = UUID.Zero;
 
+        private Dictionary<String, String> m_otherSettings = new Dictionary<string, string>();
+
         [XmlIgnore]
         private ulong m_combinedRegionHandle = 0;
         [XmlIgnore]

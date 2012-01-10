@@ -747,6 +747,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         public override Vector3 Acceleration
         {
             get { return _acceleration; }
+            set { }
         }
 
         public void SetAcceleration(Vector3 accel)
