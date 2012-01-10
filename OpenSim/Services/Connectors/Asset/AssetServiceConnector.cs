@@ -87,11 +87,8 @@ namespace OpenSim.Services.Connectors
                 m_log.Error("[ASSET CONNECTOR]: No Server URI named in section AssetService");
                 throw new Exception("Asset connector init error");
             }
-            m_ServerURI = serviceURI;
 
-            MainConsole.Instance.Commands.AddCommand("asset", false, "dump asset",
-                                          "dump asset <id> <file>",
-                                          "dump one cached asset", HandleDumpAsset);
+            m_ServerURI = serviceURI;
         }
 
         protected void SetCache(IImprovedAssetCache cache)
@@ -101,6 +98,8 @@ namespace OpenSim.Services.Connectors
 
         public AssetBase Get(string id)
         {
+//            m_log.DebugFormat("[ASSET SERVICE CONNECTOR]: Synchronous get request for {0}", id);
+
             string uri = m_ServerURI + "/assets/" + id;
 
             AssetBase asset = null;
@@ -120,6 +119,8 @@ namespace OpenSim.Services.Connectors
 
         public AssetBase GetCached(string id)
         {
+//            m_log.DebugFormat("[ASSET SERVICE CONNECTOR]: Cache request for {0}", id);
+
             if (m_Cache != null)
                 return m_Cache.Get(id);
 
@@ -178,6 +179,8 @@ namespace OpenSim.Services.Connectors
 
         public bool Get(string id, Object sender, AssetRetrieved handler)
         {
+//            m_log.DebugFormat("[ASSET SERVICE CONNECTOR]: Potentially asynchronous get request for {0}", id);
+
             string uri = m_ServerURI + "/assets/" + id;
 
             AssetBase asset = null;
@@ -324,44 +327,6 @@ namespace OpenSim.Services.Connectors
                 return true;
             }
             return false;
-        }
-
-        private void HandleDumpAsset(string module, string[] args)
-        {
-            if (args.Length != 4)
-            {
-                MainConsole.Instance.Output("Syntax: dump asset <id> <file>");
-                return;
-            }
-
-            UUID assetID;
-
-            if (!UUID.TryParse(args[2], out assetID))
-            {
-                MainConsole.Instance.Output("Invalid asset ID");
-                return;
-            }
-
-            if (m_Cache == null)
-            {
-                MainConsole.Instance.Output("Instance uses no cache");
-                return;
-            }
-
-            AssetBase asset = m_Cache.Get(assetID.ToString());
-
-            if (asset == null)
-            {
-                MainConsole.Instance.Output("Asset not found in cache");
-                return;
-            }
-
-            string fileName = args[3];
-
-            FileStream fs = File.Create(fileName);
-            fs.Write(asset.Data, 0, asset.Data.Length);
-
-            fs.Close();
         }
     }
 }

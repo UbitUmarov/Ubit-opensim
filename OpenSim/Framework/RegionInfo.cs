@@ -477,6 +477,18 @@ namespace OpenSim.Framework
             m_internalEndPoint = tmpEPE;
         }
 
+        public string GetOtherSetting(string key)
+        {
+            string val;
+            m_otherSettings.TryGetValue(key, out val);
+            return val;
+        }
+
+        public void SetOtherSetting(string key, string value)
+        {
+            m_otherSettings[key] = value;
+        }
+
         private void ReadNiniConfig(IConfigSource source, string name)
         {
 //            bool creatingNew = false;
@@ -505,30 +517,39 @@ namespace OpenSim.Framework
             if (source.Configs[name] == null)
             {
                 source.AddConfig(name);
-
-//                creatingNew = true;
             }
 
+            RegionName = name;
             IConfig config = source.Configs[name];
 
-            // UUID
-            //
-            string regionUUID = config.GetString("RegionUUID", string.Empty);
+            // Track all of the keys in this config and remove as they are processed
+            // The remaining keys will be added to generic key-value storage for
+            // whoever might need it
+            HashSet<String> allKeys = new HashSet<String>();
+            foreach (string s in config.GetKeys())
+            {
+                allKeys.Add(s.ToLower());
+            }
 
+            // RegionUUID
+            //
+            allKeys.Remove(("RegionUUID").ToLower());
+            string regionUUID = config.GetString("RegionUUID", string.Empty);
             if (regionUUID == String.Empty)
             {
                 UUID newID = UUID.Random();
 
-                regionUUID = MainConsole.Instance.CmdPrompt("Region UUID", newID.ToString());
+                regionUUID = MainConsole.Instance.CmdPrompt("RegionUUID", newID.ToString());
                 config.Set("RegionUUID", regionUUID);
             }
 
             RegionID = new UUID(regionUUID);
-            originRegionID = RegionID; // What IS this?!
+            originRegionID = RegionID; // What IS this?! (Needed for RegionCombinerModule?)
 
-            RegionName = name;
+            // Location
+            //
+            allKeys.Remove(("Location").ToLower());
             string location = config.GetString("Location", String.Empty);
-
             if (location == String.Empty)
             {
                 location = MainConsole.Instance.CmdPrompt("Region Location", "1000,1000");
@@ -546,7 +567,7 @@ namespace OpenSim.Framework
 
             // Internal IP
             IPAddress address;
-
+            allKeys.Remove(("InternalAddress").ToLower());
             if (config.Contains("InternalAddress"))
             {
                 address = IPAddress.Parse(config.GetString("InternalAddress", String.Empty));
@@ -557,8 +578,10 @@ namespace OpenSim.Framework
                 config.Set("InternalAddress", address.ToString());
             }
 
+            // InternalPort
+            //
             int port;
-
+            allKeys.Remove(("InternalPort").ToLower());
             if (config.Contains("InternalPort"))
             {
                 port = config.GetInt("InternalPort", 9000);
@@ -568,9 +591,11 @@ namespace OpenSim.Framework
                 port = Convert.ToInt32(MainConsole.Instance.CmdPrompt("Internal port", "9000"));
                 config.Set("InternalPort", port);
             }
-
             m_internalEndPoint = new IPEndPoint(address, port);
 
+            // AllowAlternatePorts
+            //
+            allKeys.Remove(("AllowAlternatePorts").ToLower());
             if (config.Contains("AllowAlternatePorts"))
             {
                 m_allow_alternate_ports = config.GetBoolean("AllowAlternatePorts", true);
@@ -582,10 +607,10 @@ namespace OpenSim.Framework
                 config.Set("AllowAlternatePorts", m_allow_alternate_ports.ToString());
             }
 
-            // External IP
+            // ExternalHostName
             //
+            allKeys.Remove(("ExternalHostName").ToLower());
             string externalName;
-
             if (config.Contains("ExternalHostName"))
             {
                 externalName = config.GetString("ExternalHostName", "SYSTEMIP");
@@ -595,7 +620,6 @@ namespace OpenSim.Framework
                 externalName = MainConsole.Instance.CmdPrompt("External host name", "SYSTEMIP");
                 config.Set("ExternalHostName", externalName);
             }
-
             if (externalName == "SYSTEMIP")
             {
                 m_externalHostName = Util.GetLocalHost().ToString();
@@ -608,24 +632,32 @@ namespace OpenSim.Framework
                 m_externalHostName = externalName;
             }
 
+            // RegionType
             m_regionType = config.GetString("RegionType", String.Empty);
+            allKeys.Remove(("RegionType").ToLower());
 
             // Prim stuff
             //
             m_nonphysPrimMax = config.GetInt("NonphysicalPrimMax", 0);
-
+            allKeys.Remove(("NonphysicalPrimMax").ToLower());
             m_physPrimMax = config.GetInt("PhysicalPrimMax", 0);
-
+            allKeys.Remove(("PhysicalPrimMax").ToLower());
             m_clampPrimSize = config.GetBoolean("ClampPrimSize", false);
-
+            allKeys.Remove(("ClampPrimSize").ToLower());
             m_objectCapacity = config.GetInt("MaxPrims", 15000);
-
+            allKeys.Remove(("MaxPrims").ToLower());
             m_agentCapacity = config.GetInt("MaxAgents", 100);
-
+            allKeys.Remove(("MaxAgents").ToLower());
 
             // Multi-tenancy
             //
             ScopeID = new UUID(config.GetString("ScopeID", UUID.Zero.ToString()));
+            allKeys.Remove(("ScopeID").ToLower());
+
+            foreach (String s in allKeys)
+            {
+                m_otherSettings.Add(s, config.GetString(s));
+        }
         }
 
         private void WriteNiniConfig(IConfigSource source)

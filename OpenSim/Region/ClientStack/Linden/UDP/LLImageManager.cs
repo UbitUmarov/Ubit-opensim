@@ -39,6 +39,9 @@ using log4net;
 
 namespace OpenSim.Region.ClientStack.LindenUDP
 {
+    /// <summary>
+    /// This class handles UDP texture requests.
+    /// </summary>
     public class LLImageManager
     {
         private sealed class J2KImageComparer : IComparer<J2KImage>
@@ -81,7 +84,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <param name="newRequest"></param>
         public void EnqueueReq(TextureRequestArgs newRequest)
         {
-            //Make sure we're not shutting down..
             if (!m_shuttingdown)
             {
                 J2KImage imgrequest;
@@ -96,19 +98,23 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     {
                         //m_log.Debug("[TEX]: (CAN) ID=" + newRequest.RequestedAssetID);
 
-                        try 
+                        try
                         {
                             lock (m_syncRoot)
-                                m_priorityQueue.Delete(imgrequest.PriorityQueueHandle); 
+                                m_priorityQueue.Delete(imgrequest.PriorityQueueHandle);
                         }
                         catch (Exception) { }
                     }
                     else
                     {
+//                        m_log.DebugFormat(
+//                            "[LL IMAGE MANAGER]: Received duplicate of existing request for {0}, start packet {1} from {2}",
+//                            newRequest.RequestedAssetID, newRequest.PacketNumber, m_client.Name);
+
                         //m_log.DebugFormat("[TEX]: (UPD) ID={0}: D={1}, S={2}, P={3}",
                         //    newRequest.RequestedAssetID, newRequest.DiscardLevel, newRequest.PacketNumber, newRequest.Priority);
 
-                        //Check the packet sequence to make sure this isn't older than 
+                        //Check the packet sequence to make sure this isn't older than
                         //one we've already received
                         if (newRequest.requestSequence > imgrequest.LastSequence)
                         {
@@ -123,11 +129,34 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
                             //Update the requested priority
                             imgrequest.Priority = newRequest.Priority;
+
                             UpdateImageInQueue(imgrequest);
 
-                            //Run an update
                             imgrequest.RunUpdate();
+
+//                        J2KImage imgrequest2 = new J2KImage(this);
+//                        imgrequest2.J2KDecoder = m_j2kDecodeModule;
+//                        imgrequest2.AssetService = m_assetCache;
+//                        imgrequest2.AgentID = m_client.AgentId;
+//                        imgrequest2.InventoryAccessModule = m_client.Scene.RequestModuleInterface<IInventoryAccessModule>();
+//                        imgrequest2.DiscardLevel = newRequest.DiscardLevel;
+//                        imgrequest2.StartPacket = Math.Max(1, newRequest.PacketNumber);
+//                        imgrequest2.Priority = newRequest.Priority;
+//                        imgrequest2.TextureID = newRequest.RequestedAssetID;
+//                        imgrequest2.Priority = newRequest.Priority;
+//
+//                        //Add this download to the priority queue
+//                        AddImageToQueue(imgrequest2);
+//
+//                        imgrequest2.RunUpdate();
+
                         }
+//                        else
+//                        {
+//                            m_log.DebugFormat(
+//                                "[LL IMAGE MANAGER]: Ignoring duplicate of existing request for {0} (sequence {1}) from {2} as its request sequence {3} is not greater",
+//                                newRequest.RequestedAssetID, imgrequest.LastSequence, m_client.Name, newRequest.requestSequence);
+//                        }
                     }
                 }
                 else
@@ -139,6 +168,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     }
                     else
                     {
+//                        m_log.DebugFormat(
+//                            "[LL IMAGE MANAGER]: Received request for {0}, start packet {1} from {2}",
+//                            newRequest.RequestedAssetID, newRequest.PacketNumber, m_client.Name);
+
                         //m_log.DebugFormat("[TEX]: (NEW) ID={0}: D={1}, S={2}, P={3}",
                         //    newRequest.RequestedAssetID, newRequest.DiscardLevel, newRequest.PacketNumber, newRequest.Priority);
 
@@ -156,7 +189,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         //Add this download to the priority queue
                         AddImageToQueue(imgrequest);
 
-                        //Run an update
                         imgrequest.RunUpdate();
                     }
                 }
@@ -173,7 +205,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
                 // If null was returned, the texture priority queue is currently empty
                 if (image == null)
-                    return false;
+                    break;
 
                 if (image.IsDecoded)
                 {
@@ -191,9 +223,16 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     // written. Undecoded textures should not be going into the priority
                     // queue, because a high priority undecoded texture will clog up the
                     // pipeline for a client
-                    return true;
+//                    m_log.DebugFormat(
+//                        "[LL IMAGE MANAGER]: Exiting image queue processing early on encountering undecoded image {0}",
+//                        image.TextureID);
+
+                    break;
                 }
             }
+
+//            if (packetsSent != 0)
+//                m_log.DebugFormat("[LL IMAGE MANAGER]: Processed {0} packets from image queue", packetsSent);
 
             return m_priorityQueue.Count > 0;
         }
@@ -208,7 +247,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
         #region Priority Queue Helpers
 
-        J2KImage GetHighestPriorityImage()
+        private J2KImage GetHighestPriorityImage()
         {
             J2KImage image = null;
 
@@ -216,34 +255,50 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             {
                 if (m_priorityQueue.Count > 0)
                 {
-                    try { image = m_priorityQueue.FindMax(); }
+                    try
+                    {
+                        image = m_priorityQueue.FindMax();
+                    }
                     catch (Exception) { }
                 }
             }
             return image;
         }
 
-        void AddImageToQueue(J2KImage image)
+        private void AddImageToQueue(J2KImage image)
         {
             image.PriorityQueueHandle = null;
 
             lock (m_syncRoot)
-                try { m_priorityQueue.Add(ref image.PriorityQueueHandle, image); }
+            {
+                try
+                {
+                    m_priorityQueue.Add(ref image.PriorityQueueHandle, image);
+                }
                 catch (Exception) { }
+            }
         }
 
-        void RemoveImageFromQueue(J2KImage image)
-        {
-            lock (m_syncRoot)
-                try { m_priorityQueue.Delete(image.PriorityQueueHandle); }
-                catch (Exception) { }
-        }
-
-        void UpdateImageInQueue(J2KImage image)
+        private void RemoveImageFromQueue(J2KImage image)
         {
             lock (m_syncRoot)
             {
-                try { m_priorityQueue.Replace(image.PriorityQueueHandle, image); }
+                try
+                {
+                    m_priorityQueue.Delete(image.PriorityQueueHandle);
+                }
+                catch (Exception) { }
+            }
+        }
+
+        private void UpdateImageInQueue(J2KImage image)
+        {
+            lock (m_syncRoot)
+            {
+                try
+                {
+                    m_priorityQueue.Replace(image.PriorityQueueHandle, image);
+                }
                 catch (Exception)
                 {
                     image.PriorityQueueHandle = null;

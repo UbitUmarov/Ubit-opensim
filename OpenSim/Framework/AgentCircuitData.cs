@@ -296,7 +296,7 @@ namespace OpenSim.Framework
             if (args["start_pos"] != null)
                 Vector3.TryParse(args["start_pos"].AsString(), out startpos);
 
-            m_log.InfoFormat("[AGENTCIRCUITDATA]: agentid={0}, child={1}, startpos={2}", AgentID, child, startpos);
+            //m_log.InfoFormat("[AGENTCIRCUITDATA]: agentid={0}, child={1}, startpos={2}", AgentID, child, startpos);
             
             try
             {
@@ -311,7 +311,7 @@ namespace OpenSim.Framework
                 if (args.ContainsKey("packed_appearance") && (args["packed_appearance"].Type == OSDType.Map))
                 {
                     Appearance.Unpack((OSDMap)args["packed_appearance"]);
-                    m_log.InfoFormat("[AGENTCIRCUITDATA] unpacked appearance");
+//                    m_log.InfoFormat("[AGENTCIRCUITDATA] unpacked appearance");
                 }
                 else
                 {

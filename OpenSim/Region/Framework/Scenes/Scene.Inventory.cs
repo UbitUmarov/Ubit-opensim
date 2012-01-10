@@ -337,11 +337,12 @@ namespace OpenSim.Region.Framework.Scenes
             // Passing something to another avatar or a an object will already
             InventoryItemBase item = new InventoryItemBase(itemID, remoteClient.AgentId);
             item = InventoryService.GetItem(item);
-            if (item.Owner != remoteClient.AgentId)
-                return;
 
             if (item != null)
             {
+                if (item.Owner != remoteClient.AgentId)
+                    return;
+
                 if (UUID.Zero == transactionID)
                 {
                     item.Name = itemUpd.Name;
@@ -388,8 +389,9 @@ namespace OpenSim.Region.Framework.Scenes
             }
             else
             {
-                m_log.Error(
-                    "[AGENTINVENTORY]: Item ID " + itemID + " not found for an inventory item update.");
+                m_log.ErrorFormat(
+                    "[AGENTINVENTORY]: Item id {0} not found for an inventory item update for {1}.",
+                    itemID, remoteClient.Name);
             }
         }
 
@@ -977,25 +979,40 @@ namespace OpenSim.Region.Framework.Scenes
         public void RemoveTaskInventory(IClientAPI remoteClient, UUID itemID, uint localID)
         {
             SceneObjectPart part = GetSceneObjectPart(localID);
-            if (part == null)
-                return;
-
-            SceneObjectGroup group = part.ParentGroup;
-            if (!Permissions.CanEditObjectInventory(part.UUID, remoteClient.AgentId))
-                return;
-            
-            TaskInventoryItem item = group.GetInventoryItem(localID, itemID);
-            if (item == null)
-                return;
-
-            if (item.Type == 10)
+            SceneObjectGroup group = null;
+            if (part != null)
             {
-                part.RemoveScriptEvents(itemID);
-                EventManager.TriggerRemoveScript(localID, itemID);
+                group = part.ParentGroup;
             }
-            
-            group.RemoveInventoryItem(localID, itemID);
-            part.SendPropertiesToClient(remoteClient);
+            if (part != null && group != null)
+            {
+                if (!Permissions.CanEditObjectInventory(part.UUID, remoteClient.AgentId))
+                    return;
+
+                TaskInventoryItem item = group.GetInventoryItem(localID, itemID);
+                if (item == null)
+                    return;
+
+                InventoryFolderBase destFolder = InventoryService.GetFolderForType(remoteClient.AgentId, AssetType.TrashFolder);
+
+                // Move the item to trash. If this is a copiable item, only
+                // a copy will be moved and we will still need to delete
+                // the item from the prim. If it was no copy, is will be
+                // deleted by this method.
+                MoveTaskInventoryItem(remoteClient, destFolder.ID, part, itemID);
+
+                if (group.GetInventoryItem(localID, itemID) != null)
+                {
+                    if (item.Type == 10)
+                    {
+                        part.RemoveScriptEvents(itemID);
+                        EventManager.TriggerRemoveScript(localID, itemID);
+                    }
+
+                    group.RemoveInventoryItem(localID, itemID);
+                }
+                part.SendPropertiesToClient(remoteClient);
+            }
         }
 
         private InventoryItemBase CreateAgentInventoryItemFromTask(UUID destAgent, SceneObjectPart part, UUID itemId)
@@ -1056,7 +1073,15 @@ namespace OpenSim.Region.Framework.Scenes
             if (!Permissions.BypassPermissions())
             {
                 if ((taskItem.CurrentPermissions & (uint)PermissionMask.Copy) == 0)
+                {
+                    if (taskItem.Type == 10)
+                    {
+                        part.RemoveScriptEvents(itemId);
+                        EventManager.TriggerRemoveScript(part.LocalId, itemId);
+                    }
+
                     part.Inventory.RemoveInventoryItem(itemId);
+                }
             }
 
             return agentItem;

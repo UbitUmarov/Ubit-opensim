@@ -401,6 +401,9 @@ namespace OpenSim.Region.Framework.Scenes
         public delegate void RegionUp(GridRegion region);
         public event RegionUp OnRegionUp;
 
+        public delegate void RegionStarted(Scene scene);
+        public event RegionStarted OnRegionStarted;
+
         public delegate void LoginsEnabled(string regionName);
         public event LoginsEnabled OnLoginsEnabled;
 
@@ -1564,6 +1567,12 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void TriggerRequestChangeWaterHeight(float height)
         {
+            if (height < 0)
+            {
+                // ignore negative water height
+                return;
+            }
+
             RequestChangeWaterHeight handlerRequestChangeWaterHeight = OnRequestChangeWaterHeight;
             if (handlerRequestChangeWaterHeight != null)
             {
@@ -2231,6 +2240,27 @@ namespace OpenSim.Region.Framework.Scenes
                     {
                         m_log.ErrorFormat(
                             "[EVENT MANAGER]: Delegate for TriggerSceneShuttingDown failed - continuing.  {0} {1}", 
+                            e.Message, e.StackTrace);
+                    }
+                }
+            }
+        }
+
+        public void TriggerOnRegionStarted(Scene scene)
+        {
+            RegionStarted handler = OnRegionStarted;
+
+            if (handler != null)
+            {
+                foreach (RegionStarted d in handler.GetInvocationList())
+                {
+                    try
+                    {
+                        d(scene);
+                    }
+                    catch (Exception e)
+                    {
+                        m_log.ErrorFormat("[EVENT MANAGER]: Delegate for RegionStarted failed - continuing {0} - {1}",
                             e.Message, e.StackTrace);
                     }
                 }

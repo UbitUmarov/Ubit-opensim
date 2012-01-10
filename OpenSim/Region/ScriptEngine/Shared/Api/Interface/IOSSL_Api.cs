@@ -25,6 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+using System;
 using System.Collections;
 using OpenSim.Region.ScriptEngine.Interfaces;
 
@@ -41,6 +42,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
 {
     public enum ThreatLevel
     {
+        NoAccess = -1,
         None = 0,
         Nuisance = 1,
         VeryLow = 2,
@@ -140,6 +142,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
 
         string osGetScriptEngineName();
         string osGetSimulatorVersion();
+        Object osParseJSONNew(string JSON);
         Hashtable osParseJSON(string JSON);
 
         void osMessageObject(key objectUUID,string message);
@@ -169,6 +172,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         LSL_List osGetLinkPrimitiveParams(int linknumber, LSL_List rules);
 
         key osNpcCreate(string user, string name, vector position, string notecard);
+        key osNpcCreateOwned(string user, string name, vector position, string notecard);
         LSL_Key osNpcSaveAppearance(key npc, string notecard);
         void osNpcLoadAppearance(key npc, string notecard);
         vector osNpcGetPos(key npc);
@@ -181,6 +185,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         void osNpcSit(key npc, key target, int options);
         void osNpcStand(LSL_Key npc);
         void osNpcRemove(key npc);
+        void osNpcPlayAnimation(LSL_Key npc, string animation);
+        void osNpcStopAnimation(LSL_Key npc, string animation);
 
         LSL_Key osOwnerSaveAppearance(string notecard);
         LSL_Key osAgentSaveAppearance(key agentId, string notecard);

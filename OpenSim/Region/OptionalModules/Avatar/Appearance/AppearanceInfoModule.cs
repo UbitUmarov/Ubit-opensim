@@ -50,10 +50,8 @@ namespace OpenSim.Region.OptionalModules.Avatar.Appearance
     {
 //        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
-        public const string SHOW_APPEARANCE_FORMAT = "{0,-9}  {1}";
-
         private Dictionary<UUID, Scene> m_scenes = new Dictionary<UUID, Scene>();
-        private IAvatarFactoryModule m_avatarFactory;
+//        private IAvatarFactoryModule m_avatarFactory;
         
         public string Name { get { return "Appearance Information Module"; } }        
         
@@ -116,6 +114,16 @@ namespace OpenSim.Region.OptionalModules.Avatar.Appearance
                 "Send appearance data for each avatar in the simulator to other viewers.",
                 "Optionally, you can specify that only a particular avatar's appearance data is sent.",
                 HandleSendAppearanceCommand);
+
+            scene.AddCommand(
+                this, "appearance rebake",
+                "appearance rebake <first-name> <last-name>",
+                "Send a request to the user's viewer for it to rebake and reupload its appearance textures.",
+                "This is currently done for all baked texture references previously received, whether the simulator can find the asset or not."
+                    + "\nThis will only work for texture ids that the viewer has already uploaded."
+                    + "\nIf the viewer has not yet sent the server any texture ids then nothing will happen"
+                    + "\nsince requests can only be made for ids that the client has already sent us",
+                HandleRebakeAppearanceCommand);
         }
 
         private void HandleSendAppearanceCommand(string module, string[] cmd)
@@ -197,37 +205,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.Appearance
                     {
                         ScenePresence sp = scene.GetScenePresence(optionalTargetFirstName, optionalTargetLastName);
                         if (sp != null && !sp.IsChildAgent)
-                        {
-                            MainConsole.Instance.OutputFormat("For {0} in {1}", sp.Name, scene.RegionInfo.RegionName);
-                            MainConsole.Instance.OutputFormat(SHOW_APPEARANCE_FORMAT, "Bake Type", "UUID");
-
-                            Dictionary<BakeType, Primitive.TextureEntryFace> bakedTextures
-                                = scene.AvatarFactory.GetBakedTextureFaces(sp.UUID);
-                            foreach (BakeType bt in bakedTextures.Keys)
-                            {
-                                string rawTextureID;
-
-                                if (bakedTextures[bt] == null)
-                                {
-                                    rawTextureID = "not set";
-                                }
-                                else
-                                {
-                                    rawTextureID = bakedTextures[bt].TextureID.ToString();
-
-                                    if (scene.AssetService.Get(rawTextureID) == null)
-                                        rawTextureID += " (not found)";
-                                    else
-                                        rawTextureID += " (uploaded)";
-                                }
-
-                                MainConsole.Instance.OutputFormat(SHOW_APPEARANCE_FORMAT, bt, rawTextureID);
-                            }
-
-                            bool bakedTextureValid = scene.AvatarFactory.ValidateBakedTextureCache(sp);
-                            MainConsole.Instance.OutputFormat(
-                                "{0} baked appearance texture is {1}", sp.Name, bakedTextureValid ? "OK" : "corrupt");
-                        }
+                            scene.AvatarFactory.WriteBakedTexturesReport(sp, MainConsole.Instance.OutputFormat);
                     }
                     else
                     {
@@ -242,6 +220,39 @@ namespace OpenSim.Region.OptionalModules.Avatar.Appearance
                     }
                 }
             }
-        }      
+        }
+
+        private void HandleRebakeAppearanceCommand(string module, string[] cmd)
+        {
+            if (cmd.Length != 4)
+            {
+                MainConsole.Instance.OutputFormat("Usage: appearance rebake <first-name> <last-name>");
+                return;
+            }
+
+            string firstname = cmd[2];
+            string lastname = cmd[3];
+
+            lock (m_scenes)
+            {
+                foreach (Scene scene in m_scenes.Values)
+                {
+                    ScenePresence sp = scene.GetScenePresence(firstname, lastname);
+                    if (sp != null && !sp.IsChildAgent)
+                    {
+                        int rebakesRequested = scene.AvatarFactory.RequestRebake(sp, false);
+
+                        if (rebakesRequested > 0)
+                            MainConsole.Instance.OutputFormat(
+                                "Requesting rebake of {0} uploaded textures for {1} in {2}",
+                                rebakesRequested, sp.Name, scene.RegionInfo.RegionName);
+                        else
+                            MainConsole.Instance.OutputFormat(
+                                "No texture IDs available for rebake request for {0} in {1}",
+                                sp.Name, scene.RegionInfo.RegionName);
+                    }
+                }
+            }
+        }
     }
 }

@@ -396,6 +396,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             return m_OSSL_Functions.osParseJSON(JSON);
         }
+        
+        public Object osParseJSONNew(string JSON)
+        {
+            return m_OSSL_Functions.osParseJSONNew(JSON);
+        }
 
         public void osMessageObject(key objectUUID,string message)
         {
@@ -483,6 +488,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_OSSL_Functions.osNpcCreate(user, name, position, cloneFrom);
         }
 
+        public key osNpcCreateOwned(string user, string name, vector position, key cloneFrom)
+        {
+            return m_OSSL_Functions.osNpcCreateOwned(user, name, position, cloneFrom);
+        }
+
         public key osNpcSaveAppearance(key npc, string notecard)
         {
             return m_OSSL_Functions.osNpcSaveAppearance(npc, notecard);
@@ -541,6 +551,16 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public void osNpcRemove(key npc)
         {
             m_OSSL_Functions.osNpcRemove(npc);
+        }
+
+        public void osNpcPlayAnimation(LSL_Key npc, string animation)
+        {
+            m_OSSL_Functions.osNpcPlayAnimation(npc, animation);
+        }
+
+        public void osNpcStopAnimation(LSL_Key npc, string animation)
+        {
+            m_OSSL_Functions.osNpcStopAnimation(npc, animation);
         }
 
         public LSL_Key osOwnerSaveAppearance(string notecard)

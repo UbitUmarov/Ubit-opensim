@@ -206,13 +206,10 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="regionslst"></param>
         public void SendCloseChildAgentConnections(UUID agentID, List<ulong> regionslst)
         {
-            Util.FireAndForget(delegate
+            foreach (ulong handle in regionslst)
             {
-                foreach (ulong handle in regionslst)
-                {
-                    SendCloseChildAgent(agentID, handle);
-                }
-            });
+                SendCloseChildAgent(agentID, handle);
+            }
         }
        
         public List<GridRegion> RequestNamedRegions(string name, int maxNumber)

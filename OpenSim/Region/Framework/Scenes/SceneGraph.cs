@@ -334,7 +334,6 @@ namespace OpenSim.Region.Framework.Scenes
             if (rot != null)
                 sceneObject.UpdateGroupRotationR((Quaternion)rot);
 
-            //group.ApplyPhysics(m_physicalPrim);
             if (sceneObject.RootPart.PhysActor != null && sceneObject.RootPart.PhysActor.IsPhysical && vel != Vector3.Zero)
             {
                 sceneObject.RootPart.ApplyImpulse((vel * sceneObject.GetMass()), false);
@@ -573,20 +572,6 @@ namespace OpenSim.Region.Framework.Scenes
 
                 if (part != null)
                     part.Redo();
-            }
-        }
-
-        protected internal void HandleObjectGroupUpdate(
-            IClientAPI remoteClient, UUID GroupID, uint objectLocalID, UUID Garbage)
-        {
-            if (!remoteClient.IsGroupMember(GroupID))
-                return;
-
-            SceneObjectGroup group = GetGroupByPrim(objectLocalID);
-            if (group != null)
-            {
-                if (group.OwnerID == remoteClient.AgentId)
-                    group.SetGroup(GroupID, remoteClient);
             }
         }
 

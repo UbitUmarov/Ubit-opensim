@@ -301,8 +301,6 @@ namespace OpenSim.Region.Framework.Scenes
 
         private bool m_passTouches;
 
-        private UpdateRequired m_updateFlag;
-
         private PhysicsActor m_physActor;
         protected Vector3 m_acceleration;
         protected Vector3 m_angularVelocity;
@@ -1184,11 +1182,7 @@ namespace OpenSim.Region.Framework.Scenes
             }
         }
 
-        public UpdateRequired UpdateFlag
-        {
-            get { return m_updateFlag; }
-            set { m_updateFlag = value; }
-        }
+        public UpdateRequired UpdateFlag { get; set; }
 
         /// <summary>
         /// Used for media on a prim.
@@ -1826,6 +1820,9 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="VolumeDetectActive"></param>
         public void ApplyPhysics(uint rootObjectFlags, bool VolumeDetectActive, bool building)
         {
+            if (!ParentGroup.Scene.CollidablePrims)
+                return;
+
 //            m_log.DebugFormat(
 //                "[SCENE OBJECT PART]: Applying physics to {0} {1}, m_physicalPrim {2}",
 //                Name, LocalId, UUID, m_physicalPrim);
@@ -2122,7 +2119,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="isNew"></param>
         public void DoPhysicsPropertyUpdate(bool UsePhysics, bool isNew)
         {
-            if (!ParentGroup.Scene.m_physicalPrim && UsePhysics)
+            if (!ParentGroup.Scene.PhysicalPrims && UsePhysics)
                 return;
 
             if (IsJoint())
@@ -2352,14 +2349,12 @@ namespace OpenSim.Region.Framework.Scenes
         public Vector3 GetWorldPosition()
         {
             uint gversion = ParentGroup.GPosVersion;
-
             if (m_validPoff && gversion == m_curGPosVersion && !ParentGroup.IsAttachment) // avatars are odd things for now
             {
                 return m_positionInWord;
             }
             else
             {
-
                 Vector3 translationOffsetPosition = OffsetPosition;
                 translationOffsetPosition *= ParentGroup.RootPart.RotationOffset;
 
@@ -3253,8 +3248,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// Send a full update to the client for the given part
         /// </summary>
         /// <param name="remoteClient"></param>
-        /// <param name="clientFlags"></param>
-        protected internal void SendFullUpdate(IClientAPI remoteClient, uint clientFlags)
+        protected internal void SendFullUpdate(IClientAPI remoteClient)
         {
             if (ParentGroup == null)
                 return;
@@ -3266,16 +3260,16 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 if (ParentGroup.IsAttachment)
                 {
-                    SendFullUpdateToClient(remoteClient, AttachedPos, clientFlags);
+                    SendFullUpdateToClient(remoteClient, AttachedPos);
                 }
                 else
                 {
-                    SendFullUpdateToClient(remoteClient, AbsolutePosition, clientFlags);
+                    SendFullUpdateToClient(remoteClient, AbsolutePosition);
                 }
             }
             else
             {
-                SendFullUpdateToClient(remoteClient, clientFlags);
+                SendFullUpdateToClient(remoteClient);
             }
         }
 
@@ -3289,7 +3283,7 @@ namespace OpenSim.Region.Framework.Scenes
 
             ParentGroup.Scene.ForEachScenePresence(delegate(ScenePresence avatar)
             {
-                SendFullUpdate(avatar.ControllingClient, avatar.GenerateClientFlags(UUID));
+                SendFullUpdate(avatar.ControllingClient);
             });
         }
 
@@ -3297,12 +3291,9 @@ namespace OpenSim.Region.Framework.Scenes
         /// Sends a full update to the client
         /// </summary>
         /// <param name="remoteClient"></param>
-        /// <param name="clientFlags"></param>
-        public void SendFullUpdateToClient(IClientAPI remoteClient, uint clientflags)
+        public void SendFullUpdateToClient(IClientAPI remoteClient)
         {
-            Vector3 lPos;
-            lPos = OffsetPosition;
-            SendFullUpdateToClient(remoteClient, lPos, clientflags);
+            SendFullUpdateToClient(remoteClient, OffsetPosition);
         }
 
         /// <summary>
@@ -3310,8 +3301,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         /// <param name="remoteClient"></param>
         /// <param name="lPos"></param>
-        /// <param name="clientFlags"></param>
-        public void SendFullUpdateToClient(IClientAPI remoteClient, Vector3 lPos, uint clientFlags)
+        public void SendFullUpdateToClient(IClientAPI remoteClient, Vector3 lPos)
         {
             if (ParentGroup == null)
                 return;
@@ -3328,16 +3318,11 @@ namespace OpenSim.Region.Framework.Scenes
                 (ParentGroup.AttachmentPoint >= 31) && (ParentGroup.AttachmentPoint <= 38))
                 return;
 
-            clientFlags &= ~(uint)PrimFlags.CreateSelected;
-
             if (remoteClient.AgentId == OwnerID)
             {
                 if ((Flags & PrimFlags.CreateSelected) != 0)
-                {
-                    clientFlags |= (uint)PrimFlags.CreateSelected;
                     Flags &= ~PrimFlags.CreateSelected;
                 }
-            }
             //bool isattachment = IsAttachment;
             //if (LocalId != ParentGroup.RootPart.LocalId)
             //isattachment = ParentGroup.RootPart.IsAttachment;
@@ -3360,6 +3345,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 case UpdateRequired.TERSE:
                 {
+                    ClearUpdateSchedule();
                 // Throw away duplicate or insignificant updates
                 if (!RotationOffset.ApproxEquals(m_lastRotation, ROTATION_TOLERANCE) ||
                     !Acceleration.Equals(m_lastAcceleration) ||
@@ -3369,9 +3355,7 @@ namespace OpenSim.Region.Framework.Scenes
                     !OffsetPosition.ApproxEquals(m_lastPosition, POSITION_TOLERANCE) ||
                     Environment.TickCount - m_lastTerseSent > TIME_MS_TOLERANCE)
                 {
-
                         SendTerseUpdateToAllClients();
-                    ClearUpdateSchedule();
 
                     // Update the "last" values
                     m_lastPosition = OffsetPosition;
@@ -3385,12 +3369,11 @@ namespace OpenSim.Region.Framework.Scenes
             }
                 case UpdateRequired.FULL:
             {
+                    ClearUpdateSchedule();
                     SendFullUpdateToAllClients();
                     break;
                 }
             }
-
-            ClearUpdateSchedule();
         }
 
         /// <summary>
@@ -3773,6 +3756,11 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void SetGroup(UUID groupID, IClientAPI client)
         {
+            // Scene.AddNewPrims() calls with client == null so can't use this.
+//            m_log.DebugFormat(
+//                "[SCENE OBJECT PART]: Setting group for {0} to {1} for {2}",
+//                Name, groupID, OwnerID);
+
             GroupID = groupID;
             if (client != null)
                 //                GetProperties(client);
@@ -4737,7 +4725,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (ParentGroup.Scene == null)
                     return;
 
-                if (PhysActor == null)
+                if (ParentGroup.Scene.CollidablePrims && PhysActor == null)
                 {
                     // It's not phantom anymore. So make sure the physics engine get's knowledge of it
                     PhysActor = ParentGroup.Scene.PhysicsScene.AddPrimShape(

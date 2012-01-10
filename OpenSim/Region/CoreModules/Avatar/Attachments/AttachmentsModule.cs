@@ -113,6 +113,8 @@ namespace OpenSim.Region.CoreModules.Avatar.Attachments
                 return;
             }
 
+//            m_log.DebugFormat("[ATTACHMENTS MODULE]: Rezzing any attachments for {0}", sp.Name);
+
             List<AvatarAttachment> attachments = sp.Appearance.GetAttachments();
             foreach (AvatarAttachment attach in attachments)
             {
@@ -460,6 +462,14 @@ namespace OpenSim.Region.CoreModules.Avatar.Attachments
         /// <param name="grp"></param>
         private void UpdateKnownItem(IScenePresence sp, SceneObjectGroup grp)
         {
+            // Saving attachments for NPCs messes them up for the real owner!
+            INPCModule module = m_scene.RequestModuleInterface<INPCModule>();
+            if (module != null)
+            {
+                if (module.IsNPC(sp.UUID, m_scene))
+                    return;
+            }
+
             if (grp.HasGroupChanged || grp.ContainsScripts())
             {
                 m_log.DebugFormat(

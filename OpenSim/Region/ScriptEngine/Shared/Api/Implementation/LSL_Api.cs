@@ -468,26 +468,31 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 
         //Now we start getting into quaternions which means sin/cos, matrices and vectors. ckrinke
 
-        // Old implementation of llRot2Euler. Normalization not required as Atan2 function will
-        // only return values >= -PI (-180 degrees) and <= PI (180 degrees).
-
+        /// <summary>
+        /// Convert an LSL rotation to a Euler vector.
+        /// </summary>
+        /// <remarks>
+        /// Using algorithm based off http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/quat_2_euler_paper_ver2-1.pdf
+        /// to avoid issues with singularity and rounding with Y rotation of +/- PI/2
+        /// </remarks>
+        /// <param name="r"></param>
+        /// <returns></returns>
         public LSL_Vector llRot2Euler(LSL_Rotation r)
         {
             m_host.AddScriptLPS(1);
-            //This implementation is from http://lslwiki.net/lslwiki/wakka.php?wakka=LibraryRotationFunctions. ckrinke
-            LSL_Rotation t = new LSL_Rotation(r.x * r.x, r.y * r.y, r.z * r.z, r.s * r.s);
-            double m = (t.x + t.y + t.z + t.s);
-            if (m == 0) return new LSL_Vector();
-            double n = 2 * (r.y * r.s + r.x * r.z);
-            double p = m * m - n * n;
-            if (p > 0)
-                return new LSL_Vector(Math.Atan2(2.0 * (r.x * r.s - r.y * r.z), (-t.x - t.y + t.z + t.s)),
-                                             Math.Atan2(n, Math.Sqrt(p)),
-                                             Math.Atan2(2.0 * (r.z * r.s - r.x * r.y), (t.x - t.y - t.z + t.s)));
-            else if (n > 0)
-                return new LSL_Vector(0.0, Math.PI * 0.5, Math.Atan2((r.z * r.s + r.x * r.y), 0.5 - t.x - t.z));
-            else
-                return new LSL_Vector(0.0, -Math.PI * 0.5, Math.Atan2((r.z * r.s + r.x * r.y), 0.5 - t.x - t.z));
+
+            LSL_Vector v = new LSL_Vector(0.0, 0.0, 1.0) * r;   // Z axis unit vector unaffected by Z rotation component of r.
+            double m = LSL_Vector.Mag(v);                       // Just in case v isn't normalized, need magnitude for Asin() operation later.
+            if (m == 0.0) return new LSL_Vector();
+            double x = Math.Atan2(-v.y, v.z);
+            double sin = v.x / m;
+            if (sin < -0.999999 || sin > 0.999999) x = 0.0;     // Force X rotation to 0 at the singularities.
+            double y = Math.Asin(sin);
+            // Rotate X axis unit vector by r and unwind the X and Y rotations leaving only the Z rotation
+            v = new LSL_Vector(1.0, 0.0, 0.0) * ((r * new LSL_Rotation(Math.Sin(-x / 2.0), 0.0, 0.0, Math.Cos(-x / 2.0))) * new LSL_Rotation(0.0, Math.Sin(-y / 2.0), 0.0, Math.Cos(-y / 2.0)));
+            double z = Math.Atan2(v.y, v.x);
+
+            return new LSL_Vector(x, y, z);
         }
 
         /* From wiki:
@@ -4693,15 +4698,19 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             return (double)Math.Asin(val);
         }
 
-        // Xantor 30/apr/2008
+        // jcochran 5/jan/2012
         public LSL_Float llAngleBetween(LSL_Rotation a, LSL_Rotation b)
         {
             m_host.AddScriptLPS(1);
 
-            double angle = Math.Acos(a.x * b.x + a.y * b.y + a.z * b.z + a.s * b.s) * 2;
-            if (angle < 0) angle = -angle;
-            if (angle > Math.PI) return (Math.PI * 2 - angle);
-            return angle;
+            double aa = (a.x * a.x + a.y * a.y + a.z * a.z + a.s * a.s);
+            double bb = (b.x * b.x + b.y * b.y + b.z * b.z + b.s * b.s);
+            double aa_bb = aa * bb;
+            if (aa_bb == 0) return 0.0;
+            double ab = (a.x * b.x + a.y * b.y + a.z * b.z + a.s * b.s);
+            double quotient = (ab * ab) / aa_bb;
+            if (quotient >= 1.0) return 0.0;
+            return Math.Acos(2 * quotient - 1);
         }
 
         public LSL_String llGetInventoryKey(string name)
@@ -5573,9 +5582,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             // note: this may need some tweaking when walking downhill. you "fall down" for a brief instant
             // and don't collide when walking downhill, which instantly registers as in-air, briefly. should
             // there be some minimum non-collision threshold time before claiming the avatar is in-air?
-            if ((flags & ScriptBaseClass.AGENT_WALKING) == 0 &&
-                agent.PhysicsActor != null &&
-                !agent.PhysicsActor.IsColliding)
+            if ((flags & ScriptBaseClass.AGENT_WALKING) == 0 && !agent.IsColliding )
             {
                     flags |= ScriptBaseClass.AGENT_IN_AIR;
             }
