@@ -155,9 +155,10 @@ namespace OpenSim.Region.Physics.OdePlugin
         private Random fluidRandomizer = new Random(Environment.TickCount);
 
         const d.ContactFlags comumContactFlags = d.ContactFlags.SoftERP | d.ContactFlags.SoftCFM |d.ContactFlags.Approx1 | d.ContactFlags.Bounce;
-        const float comumContactERP = 0.6f;
-        const float comumContactCFM = 0.0001f;
-        //const float comumContactCFM = 0.001f;
+        //        const float comumContactERP = 0.6f;
+        //        const float comumContactCFM = 0.0001f;
+        const float comumContactERP = 0.12f;
+        const float comumContactCFM = 0.001f;
         
         float frictionScale = 5.0f;
         
@@ -509,8 +510,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.WorldSetGravity(world, gravityx, gravityy, gravityz);
             d.WorldSetContactSurfaceLayer(world, contactsurfacelayer);
 
-            d.WorldSetLinearDamping(world, 0.001f);
-            d.WorldSetAngularDamping(world, 0.001f);
+            d.WorldSetLinearDamping(world, 0.002f);
+            d.WorldSetAngularDamping(world, 0.002f);
             d.WorldSetAngularDampingThreshold(world, 0f);
             d.WorldSetLinearDampingThreshold(world, 0f);
             d.WorldSetMaxAngularSpeed(world, 256f);
