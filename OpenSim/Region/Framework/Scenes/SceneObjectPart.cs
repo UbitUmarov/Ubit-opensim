@@ -3345,7 +3345,7 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 case UpdateRequired.TERSE:
                 {
-                    ClearUpdateSchedule();
+                    
                 // Throw away duplicate or insignificant updates
                 if (!RotationOffset.ApproxEquals(m_lastRotation, ROTATION_TOLERANCE) ||
                     !Acceleration.Equals(m_lastAcceleration) ||
@@ -3369,11 +3369,12 @@ namespace OpenSim.Region.Framework.Scenes
             }
                 case UpdateRequired.FULL:
             {
-                    ClearUpdateSchedule();
+      
                     SendFullUpdateToAllClients();
                     break;
                 }
             }
+		ClearUpdateSchedule();
         }
 
         /// <summary>
