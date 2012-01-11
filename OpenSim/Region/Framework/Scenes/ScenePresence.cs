@@ -1823,8 +1823,6 @@ namespace OpenSim.Region.Framework.Scenes
             //            m_log.DebugFormat("[SCENE PRESENCE]: StandUp() for {0}", Name);
 
             SitGround = false;
-            if (PhysicsActor == null)
-                AddToPhysicalScene(false);
 
             if (m_sitPart != null)
             {
@@ -1857,9 +1855,12 @@ namespace OpenSim.Region.Framework.Scenes
             ParentID = 0;
             SitPartID = 0;
             m_sitPart = null;
+            m_requestedSitTargetID = 0;
+
+            if (PhysicsActor == null)
+                AddToPhysicalScene(false);
 
             SendAvatarDataToAllAgents();
-            m_requestedSitTargetID = 0;
 
             Animator.TrySetMovementAnimation("STAND");
         }

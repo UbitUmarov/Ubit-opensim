@@ -155,10 +155,9 @@ namespace OpenSim.Region.Physics.OdePlugin
         private Random fluidRandomizer = new Random(Environment.TickCount);
 
         const d.ContactFlags comumContactFlags = d.ContactFlags.SoftERP | d.ContactFlags.SoftCFM |d.ContactFlags.Approx1 | d.ContactFlags.Bounce;
-        //        const float comumContactERP = 0.6f;
-        //        const float comumContactCFM = 0.0001f;
-        const float comumContactERP = 0.12f;
-        const float comumContactCFM = 0.001f;
+        const float comumContactERP = 0.6f;
+        const float comumSoftContactERP = 0.02f;
+        const float comumContactCFM = 0.0001f;
         
         float frictionScale = 5.0f;
         
@@ -560,7 +559,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         // sets a global contact for a joint for contactgeom , and base contact description)
 
-        private IntPtr CreateContacJoint(ref d.ContactGeom contactGeom, float mu, float bounce)
+        private IntPtr CreateContacJoint(ref d.ContactGeom contactGeom, float mu, float bounce, bool softerp)
         {
             if (GlobalContactsArray == IntPtr.Zero || m_global_contactcount >= maxContactsbeforedeath)
                 return IntPtr.Zero;
@@ -579,7 +578,10 @@ namespace OpenSim.Region.Physics.OdePlugin
             newcontact.surface.mu = mu;
             newcontact.surface.bounce = bounce;
             newcontact.surface.soft_cfm = comumContactCFM;
-            newcontact.surface.soft_erp = comumContactERP;
+            if (softerp)
+                newcontact.surface.soft_erp = comumSoftContactERP;
+            else
+                newcontact.surface.soft_erp = comumContactERP;
 
             IntPtr contact = new IntPtr(GlobalContactsArray.ToInt64() + (Int64)(m_global_contactcount * d.Contact.unmanagedSizeOf));
             Marshal.StructureToPtr(newcontact, contact, false);
@@ -874,7 +876,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if (Math.Abs(p2.Velocity.X) > 0.1f || Math.Abs(p2.Velocity.Y) > 0.1f)
                                 mu *= frictionMovementMult;
 
-                            Joint = CreateContacJoint(ref curContact, mu, bounce);
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, true);
                         }
                     }
 
@@ -919,7 +921,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                             if (Math.Abs(p1.Velocity.X) > 0.1f || Math.Abs(p1.Velocity.Y) > 0.1f)
                                 mu *= frictionMovementMult;
 
-                            Joint = CreateContacJoint(ref curContact, mu, bounce);
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, true);
                         }
                     }
 
@@ -934,7 +936,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                         }
                         mu = 0;
                         bounce = 0;
-                        Joint = CreateContacJoint(ref curContact, mu, bounce);
+                        Joint = CreateContacJoint(ref curContact, mu, bounce,true);
                     }
 
                     else
@@ -945,14 +947,21 @@ namespace OpenSim.Region.Physics.OdePlugin
                             contactdata1 = p1.ContactData;
                             contactdata2 = p2.ContactData;
 
+                            bool erpsoft;
+                            // avatars fail colisions if 2 soft
+                            if (p1.PhysicsActorType == (int)ActorTypes.Agent || p2.PhysicsActorType == (int)ActorTypes.Agent)
+                                erpsoft = false;
+                            else
+                                erpsoft = true;
+
                             bounce = contactdata1.bounce * contactdata2.bounce;
                             
                             mu = (float)Math.Sqrt(contactdata1.mu * contactdata2.mu);
 
                             if ((Math.Abs(p2.Velocity.X - p1.Velocity.X) > 0.1f || Math.Abs(p2.Velocity.Y - p1.Velocity.Y) > 0.1f))
                                 mu *= frictionMovementMult;
-                            
-                            Joint = CreateContacJoint(ref curContact, mu, bounce);
+
+                            Joint = CreateContacJoint(ref curContact, mu, bounce, erpsoft);
                         }
                     }
                     if (Joint != IntPtr.Zero)
