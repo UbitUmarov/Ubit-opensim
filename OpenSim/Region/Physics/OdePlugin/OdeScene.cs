@@ -156,8 +156,8 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         const d.ContactFlags comumContactFlags = d.ContactFlags.SoftERP | d.ContactFlags.SoftCFM |d.ContactFlags.Approx1 | d.ContactFlags.Bounce;
         const float comumContactERP = 0.6f;
-        //        const float comumContactCFM = 0.0001f;
-        const float comumContactCFM = 0.001f;
+        const float comumContactCFM = 0.0001f;
+        //const float comumContactCFM = 0.001f;
         
         float frictionScale = 5.0f;
         
@@ -515,8 +515,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             d.WorldSetLinearDampingThreshold(world, 0f);
             d.WorldSetMaxAngularSpeed(world, 256f);
 
-            //            d.WorldSetCFM(world,1e-6f); // a bit harder than default
-            d.WorldSetCFM(world, 1e-4f); // a bit harder than default
+            d.WorldSetCFM(world,1e-6f); // a bit harder than default
+            //d.WorldSetCFM(world, 1e-4f); // a bit harder than default
             d.WorldSetERP(world, 0.6f); // higher than original
 
             // Set how many steps we go without running collision testing
