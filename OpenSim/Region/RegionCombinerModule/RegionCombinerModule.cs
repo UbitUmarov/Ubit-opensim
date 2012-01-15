@@ -93,12 +93,18 @@ namespace OpenSim.Region.RegionCombinerModule
         {
         }
 
-        public bool InitLoadAddRegion(RegionInfo regioninfo)
+        public bool InitLoadAddRegion(ref RegionInfo regioninfo)
         {
             if (enabledYN)
             {
                 if (m_firstRegion == null)
+                {
                     m_firstRegion = regioninfo;
+                    regioninfo.CombinedRegionHandle = 0;
+                }
+                else
+                    regioninfo.CombinedRegionHandle = m_firstRegion.RegionHandle;
+
 
                 if (regioninfo.RegionLocX < m_regionsMinX)
                     m_regionsMinX = regioninfo.RegionLocX;

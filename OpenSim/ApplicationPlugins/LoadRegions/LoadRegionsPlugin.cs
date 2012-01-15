@@ -183,7 +183,7 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
             {
                 if (m_regionCombiner != null)
                 {
-                    if (!m_regionCombiner.InitLoadAddRegion(regions[i]))
+                    if (!m_regionCombiner.InitLoadAddRegion(ref regions[i]))
                         return false;
                 }
 
@@ -218,7 +218,7 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
             if (m_regionCombiner != null)
             {
                 // do the last one also
-                if (!m_regionCombiner.InitLoadAddRegion(regions[i]))
+                if (!m_regionCombiner.InitLoadAddRegion(ref regions[i]))
                     return false;
 
                 if (!m_regionCombiner.InitLoadCheckRegions())
