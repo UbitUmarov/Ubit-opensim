@@ -152,11 +152,12 @@ namespace OpenSim.Region.Physics.OdePlugin
         private readonly ILog m_log;
         // private Dictionary<string, sCollisionData> m_storedCollisions = new Dictionary<string, sCollisionData>();
 
+        private int threadid = 0;
         private Random fluidRandomizer = new Random(Environment.TickCount);
 
         const d.ContactFlags comumContactFlags = d.ContactFlags.SoftERP | d.ContactFlags.SoftCFM |d.ContactFlags.Approx1 | d.ContactFlags.Bounce;
         const float comumContactERP = 0.6f;
-        const float comumSoftContactERP = 0.02f;
+        const float comumSoftContactERP = 0.1f;
         const float comumContactCFM = 0.0001f;
         
         float frictionScale = 5.0f;
@@ -172,7 +173,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         private const uint m_regionWidth = Constants.RegionSize;
         private const uint m_regionHeight = Constants.RegionSize;
 
-        public float ODE_STEPSIZE = 0.020f; // make it visible
+        public float ODE_STEPSIZE = 0.020f;
         private float metersInSpace = 25.6f;
         private float m_timeDilation = 1.0f;
 
@@ -220,8 +221,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private d.NearCallback nearCallback;
 
-        public d.TriCallback triCallback;
-        public d.TriArrayCallback triArrayCallback;
         private readonly HashSet<OdeCharacter> _characters = new HashSet<OdeCharacter>();
         private readonly HashSet<OdePrim> _prims = new HashSet<OdePrim>();
         private readonly HashSet<OdePrim> _activeprims = new HashSet<OdePrim>();
@@ -244,7 +243,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         //private Dictionary<String, IntPtr> jointpart_name_map = new Dictionary<String,IntPtr>();
         private readonly Dictionary<String, List<PhysicsJoint>> joints_connecting_actor = new Dictionary<String, List<PhysicsJoint>>();
 
-        private float contactsurfacelayer = 0.001f;
+        private float contactsurfacelayer = 0.002f;
 
         private int contactsPerCollision = 80;
         internal IntPtr ContactgeomsArray = IntPtr.Zero;
@@ -320,6 +319,19 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         private ODERayCastRequestManager m_rayCastManager;
 
+
+/* maybe needed if ode uses tls
+        private void checkThread()
+        {
+
+            int th = Thread.CurrentThread.ManagedThreadId;
+            if(th != threadid)
+            {
+                threadid = th;
+                d.AllocateODEDataForThread(~0U);
+            }
+        }
+ */
         /// <summary>
         /// Initiailizes the scene
         /// Sets many properties that ODE requires to be stable
@@ -330,6 +342,7 @@ namespace OpenSim.Region.Physics.OdePlugin
             m_log 
                 = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType.ToString() + "." + sceneIdentifier);
 
+//            checkThread();
             Name = sceneIdentifier;
 
             OdeLock = new Object();
@@ -337,8 +350,6 @@ namespace OpenSim.Region.Physics.OdePlugin
 
             nearCallback = near;
 
-            triCallback = TriCallback;
-            triArrayCallback = TriArrayCallback;
             m_rayCastManager = new ODERayCastRequestManager(this);
             lock (OdeLock)
                 {
@@ -397,8 +408,11 @@ namespace OpenSim.Region.Physics.OdePlugin
         // Initialize the mesh plugin
         public override void Initialise(IMesher meshmerizer, IConfigSource config, RegionInfo region )
         {
+//            checkThread();
             mesher = meshmerizer;
             m_config = config;
+
+            m_log.WarnFormat("ODE configuration: {0}", d.GetConfiguration("ODE"));
 
             if (region != null)
             {
@@ -423,7 +437,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
                     metersInSpace = physicsconfig.GetFloat("meters_in_small_space", 29.9f);
 
-                    contactsurfacelayer = physicsconfig.GetFloat("world_contact_surface_layer", 0.001f);
+                    contactsurfacelayer = physicsconfig.GetFloat("world_contact_surface_layer", contactsurfacelayer);
 
                     ODE_STEPSIZE = physicsconfig.GetFloat("world_stepsize", 0.020f);
                     m_physicsiterations = physicsconfig.GetInt("world_internal_steps_without_collisions", 10);
@@ -584,7 +598,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 newcontact.surface.soft_erp = comumContactERP;
 
             IntPtr contact = new IntPtr(GlobalContactsArray.ToInt64() + (Int64)(m_global_contactcount * d.Contact.unmanagedSizeOf));
-            Marshal.StructureToPtr(newcontact, contact, false);
+            Marshal.StructureToPtr(newcontact, contact, true);
             return d.JointCreateContactPtr(world, contactgroup, contact);
         }
 
@@ -734,6 +748,9 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (!GetCurContactGeom(i, ref curContact))
                     break;
 
+                if (curContact.depth <= 0)
+                    continue;
+
                 if(curContact.g1 == IntPtr.Zero)
                     curContact.g1 = g1;
                 if(curContact.g2 == IntPtr.Zero)
@@ -825,8 +842,8 @@ namespace OpenSim.Region.Physics.OdePlugin
                 if (!skipThisContact && (p2 is OdePrim) && (((OdePrim)p2).m_isVolumeDetect))
                     skipThisContact = true;   // No collision on volume detect prims
 
-                if (!skipThisContact && curContact.depth < 0f)
-                    skipThisContact = true;
+//                if (!skipThisContact && curContact.depth < 0f)
+//                    skipThisContact = true;
 
                 //                if (!skipThisContact && checkDupe(curContact, p2.PhysicsActorType))
                 //                    skipThisContact = true;
@@ -1082,52 +1099,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                     break;
                 }
             }
-
-        public int TriArrayCallback(IntPtr trimesh, IntPtr refObject, int[] triangleIndex, int triCount)
-        {
-            /*            String name1 = null;
-                        String name2 = null;
-
-                        if (!geom_name_map.TryGetValue(trimesh, out name1))
-                        {
-                            name1 = "null";
-                        }
-                        if (!geom_name_map.TryGetValue(refObject, out name2))
-                        {
-                            name2 = "null";
-                        }
-
-                        m_log.InfoFormat("TriArrayCallback: A collision was detected between {1} and {2}", 0, name1, name2);
-            */
-            return 1;
-        }
-
-        public int TriCallback(IntPtr trimesh, IntPtr refObject, int triangleIndex)
-        {
-//            String name1 = null;
-//            String name2 = null;
-//
-//            if (!geom_name_map.TryGetValue(trimesh, out name1))
-//            {
-//                name1 = "null";
-//            }
-//
-//            if (!geom_name_map.TryGetValue(refObject, out name2))
-//            {
-//                name2 = "null";
-//            }
-
-            //            m_log.InfoFormat("TriCallback: A collision was detected between {1} and {2}. Index was {3}", 0, name1, name2, triangleIndex);
-
-            d.Vector3 v0 = new d.Vector3();
-            d.Vector3 v1 = new d.Vector3();
-            d.Vector3 v2 = new d.Vector3();
-
-            d.GeomTriMeshGetTriangle(trimesh, 0, ref v0, ref v1, ref v2);
-            //            m_log.DebugFormat("Triangle {0} is <{1},{2},{3}>, <{4},{5},{6}>, <{7},{8},{9}>", triangleIndex, v0.X, v0.Y, v0.Z, v1.X, v1.Y, v1.Z, v2.X, v2.Y, v2.Z);
-
-            return 1;
-        }
 
         /// <summary>
         /// This is our collision testing routine in ODE
@@ -2119,6 +2090,8 @@ namespace OpenSim.Region.Physics.OdePlugin
             }
 
             int nodeframes = 0;
+
+//            checkThread();
 
             lock (SimulationLock)
             {

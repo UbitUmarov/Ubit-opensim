@@ -535,6 +535,13 @@ namespace OdeAPI
         [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dBodyGetWorld"), SuppressUnmanagedCodeSecurity]
         public static extern IntPtr BodyGetWorld(IntPtr body);
 
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dBodyGetFirstGeom"), SuppressUnmanagedCodeSecurity]
+        public static extern IntPtr BodyGetFirstGeom(IntPtr body);
+
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dBodyGetNextGeom"), SuppressUnmanagedCodeSecurity]
+        public static extern IntPtr dBodyGetNextGeom(IntPtr Geom);
+
+
 		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dBodyIsEnabled"), SuppressUnmanagedCodeSecurity]
 		public static extern bool BodyIsEnabled(IntPtr body);
 
@@ -1188,8 +1195,11 @@ namespace OdeAPI
 		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dGeomTriMeshSetLastTransform"), SuppressUnmanagedCodeSecurity]
 		public static extern void GeomTriMeshSetLastTransform(IntPtr g, ref dReal M00);
 
-		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dGeomTriMeshSetRayCallback"), SuppressUnmanagedCodeSecurity]
-		public static extern void GeomTriMeshSetRayCallback(IntPtr g, TriRayCallback callback);
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dGeomTriMeshSetRayCallback"), SuppressUnmanagedCodeSecurity]
+        public static extern void GeomTriMeshSetRayCallback(IntPtr g, TriRayCallback callback);
+
+        [DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dGetConfiguration"), SuppressUnmanagedCodeSecurity]
+        public static extern string GetConfiguration(string str);
 
 		[DllImport("ode", CallingConvention = CallingConvention.Cdecl, EntryPoint = "dHashSpaceCreate"), SuppressUnmanagedCodeSecurity]
 		public static extern IntPtr HashSpaceCreate(IntPtr space);

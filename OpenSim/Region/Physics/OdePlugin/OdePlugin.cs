@@ -52,17 +52,22 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public bool Init()
         {
-            return true;
+            if (d.InitODE2(0) != 0)
+            {
+                if (d.AllocateODEDataForThread(~0U) == 0)
+                {
+                    d.CloseODE();
+                    return false;
+                }
+                return true;
+            }
+            return false;
         }
 
         public PhysicsScene GetScene(String sceneIdentifier)
         {
             if (m_scene == null)
             {
-                // Initializing ODE only when a scene is created allows alternative ODE plugins to co-habit (according to
-                // http://opensimulator.org/mantis/view.php?id=2750).
-                d.InitODE();
-                
                 m_scene = new OdeScene(sceneIdentifier);
             }
             return (m_scene);
@@ -75,6 +80,7 @@ namespace OpenSim.Region.Physics.OdePlugin
 
         public void Dispose()
         {
+            d.CloseODE();
         }
     }
 }

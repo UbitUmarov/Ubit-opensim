@@ -1108,7 +1108,7 @@ namespace OpenSim.Region.Physics.OdePlugin
         {
             if (_triMeshData != IntPtr.Zero)
             {
-                //                d.GeomTriMeshDataDestroy(_triMeshData);
+                d.GeomTriMeshDataDestroy(_triMeshData);
                 _triMeshData = IntPtr.Zero;
             }
 
@@ -1765,7 +1765,6 @@ namespace OpenSim.Region.Physics.OdePlugin
         private void CalcPrimBodyData()
         {
             float volume;
-
 
             if (prim_geom == IntPtr.Zero)
             {
@@ -2804,6 +2803,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                     {
                         d.BodyAddTorque(Body, trq.X, trq.Y, trq.Z);
                     }
+
                 }
             }
             else
@@ -2911,7 +2911,6 @@ namespace OpenSim.Region.Physics.OdePlugin
                         d.BodySetLinearVel(Body, 0, 0, 0); // stop it
                         d.BodySetAngularVel(Body, 0, 0, 0); // stop it
                         d.BodySetPosition(Body, lpos.X, lpos.Y, lpos.Z); // put it somewhere 
-
                         m_lastposition = _position;
                         m_lastorientation = _orientation;
 
