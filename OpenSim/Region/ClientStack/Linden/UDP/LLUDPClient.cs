@@ -527,7 +527,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     m_nextPackets[(int)ThrottleOutPacketType.Resend] = null;
                     packetSent = true;
                 }
-                return packetSent;
             }
             else
             {
@@ -551,8 +550,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         // Save the dequeued packet for the next iteration
                         m_nextPackets[(int)ThrottleOutPacketType.Resend] = packet;
                     }
-                    // don't go doing other cats if still have to resend
-                    return packetSent;
+                    // No packets in this queue. Fire the queue empty callback
+                    // not usefull for resends but keep it for now
+                    if (queue.Count == 0)
+                        emptyCategories |= CategoryToFlag((int)ThrottleOutPacketType.Resend);
                 }
                 else
                 {
