@@ -219,7 +219,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             // Initialize this to a sane value to prevent early disconnects
             TickLastPacketReceived = Environment.TickCount & Int32.MaxValue;
-            LastOutThrCatChecked = -1;
+            LastOutThrCatChecked = 0;
         }
 
         /// <summary>
@@ -622,7 +622,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     }
                 }
 
-            if (emptyCategories != 0)
+            if (emptyCategories != 0 && NeedAcks.Count() < 500)
                 BeginFireQueueEmpty(emptyCategories);
 
             //m_log.Info("[LLUDPCLIENT]: Queues: " + queueDebugOutput); // Serious debug business
