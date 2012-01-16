@@ -33,7 +33,7 @@ namespace OpenSim.Framework
     {
         /// <summary>Unthrottled packets</summary>
         Unknown = -1,
-        /// <summary>Packets that are being resent</summary>
+        /// <summary>Packets that are being resent MUST BE 0</summary>
         Resend = 0,
         /// <summary>Terrain data</summary>
         Land = 1,

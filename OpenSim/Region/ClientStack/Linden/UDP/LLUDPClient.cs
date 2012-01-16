@@ -156,7 +156,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 // this should improve wire multiplexing by clients
 // also giving it time to really do the send, reducing piling up of waiting threads on asyncsend
         /// <summary>control throttle category to check</summary>
-        private int LastOutThrCatChecked = -1; // -1 so it starts checking 0
+        private int LastOutThrCatChecked = 0; // -1 so it starts checking 1 ( skiping resends
 
         /// <summary>A reference to the LLUDPServer that is managing this client</summary>
         private readonly LLUDPServer m_udpServer;
@@ -511,15 +511,61 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             bool packetSent = false;
             ThrottleOutPacketTypeFlags emptyCategories = 0;
 
-            //string queueDebugOutput = String.Empty; // Serious debug business
 
-            for (int i = 0; i < THROTTLE_CATEGORY_COUNT; i++)
+            // first to resend cat
+
+            if (m_nextPackets[(int)ThrottleOutPacketType.Resend] != null)
+            {
+                // if have a dequeued packet still waiting to be sent out
+                // send it again
+                OutgoingPacket nextPacket = m_nextPackets[(int)ThrottleOutPacketType.Resend];
+                bucket = m_throttleCategories[(int)ThrottleOutPacketType.Resend];
+                if (bucket.RemoveTokens(nextPacket.Buffer.DataLength))
+                {
+                    // Send the packet
+                    m_udpServer.SendPacketFinal(nextPacket);
+                    m_nextPackets[(int)ThrottleOutPacketType.Resend] = null;
+                    packetSent = true;
+                }
+                return packetSent;
+            }
+            else
+            {
+                // No dequeued packet waiting to be sent, try to pull one off
+                // this queue
+                queue = m_packetOutboxes[(int)ThrottleOutPacketType.Resend];
+                if (queue.Dequeue(out packet))
+                {
+                    // A packet was pulled off the queue. See if we have
+                    // enough tokens in the bucket to send it out
+                    bucket = m_throttleCategories[(int)ThrottleOutPacketType.Resend];
+                    if (bucket.RemoveTokens(packet.Buffer.DataLength))
+                    {
+                        // Send the packet
+                        m_udpServer.SendPacketFinal(packet);
+                        packetSent = true;
+                        
+                    }
+                    else
+                    {
+                        // Save the dequeued packet for the next iteration
+                        m_nextPackets[(int)ThrottleOutPacketType.Resend] = packet;
+                    }
+                    // don't go doing other cats if still have to resend
+                    return packetSent;
+                }
+                else
+                {
+                    // No packets in this queue. Fire the queue empty callback
+                    // not usefull for resends but keep it for now
+                    emptyCategories |= CategoryToFlag((int)ThrottleOutPacketType.Resend);
+                }
+            }
+
+            for (int i = 0; i < THROTTLE_CATEGORY_COUNT - 1; i++) // exclude resends
                 {
                 if (++LastOutThrCatChecked >= THROTTLE_CATEGORY_COUNT)
-                    LastOutThrCatChecked = 0;
-
-                bucket = m_throttleCategories[LastOutThrCatChecked];
-                //queueDebugOutput += m_packetOutboxes[i].Count + " ";  // Serious debug business
+                    LastOutThrCatChecked = 1; // exclude resends
 
                 if (m_nextPackets[LastOutThrCatChecked] != null)
                     {
@@ -527,6 +573,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     // leaving a dequeued packet still waiting to be sent out. Try to
                     // send it again
                     OutgoingPacket nextPacket = m_nextPackets[LastOutThrCatChecked];
+                    bucket = m_throttleCategories[LastOutThrCatChecked];
                     if (bucket.RemoveTokens(nextPacket.Buffer.DataLength))
                         {
                         // Send the packet
@@ -545,7 +592,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         {
                         // A packet was pulled off the queue. See if we have
                         // enough tokens in the bucket to send it out
-                        if (bucket.RemoveTokens(packet.Buffer.DataLength))
+                            bucket = m_throttleCategories[LastOutThrCatChecked];
+                            if (bucket.RemoveTokens(packet.Buffer.DataLength))
                             {
                             // Send the packet
                             m_udpServer.SendPacketFinal(packet);
