@@ -1481,6 +1481,7 @@ namespace OpenSim.Region.Framework.Scenes
             StatsReporter.addScriptLines(m_sceneGraph.GetScriptLPS());
 
             lastCompletedFrame = Util.EnvironmentTickCount();
+            m_lastUpdate = lastCompletedFrame;
 
             frameMS = MyWatch.Elapsed - Start;
             StatsReporter.addFrameMS((float)frameMS.TotalMilliseconds);
