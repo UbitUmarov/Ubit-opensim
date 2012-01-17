@@ -945,7 +945,11 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         
                 // We only want to send initial data to new clients, not ones which are being converted from child to root.
                 if (client != null)
+                {
+                    // moved from AddClient so it doesn't delay the ack
+                    client.Start();
                     client.SceneAgent.SendInitialDataToMe();
+                }
             }
             else
             {
@@ -1031,7 +1035,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
                     ((LLClientView)client).DisableFacelights = m_disableFacelights;
 
-                    client.Start();
+//                    client.Start();
                 }
             }
 

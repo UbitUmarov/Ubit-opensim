@@ -4819,9 +4819,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             update.TextureAnim = Utils.EmptyBytes;
 
             // Don't send texture entry for avatars here - this is accomplished via the AvatarAppearance packet
-            // Ubit test sending for firestorm
-//            update.TextureEntry = Utils.EmptyBytes;
-            update.TextureEntry = (data.Appearance.Texture != null) ? data.Appearance.Texture.GetBytes() : Utils.EmptyBytes;
+            update.TextureEntry = Utils.EmptyBytes;
+//            update.TextureEntry = (data.Appearance.Texture != null) ? data.Appearance.Texture.GetBytes() : Utils.EmptyBytes;
 
             update.UpdateFlags = (uint)(
                 PrimFlags.Physics | PrimFlags.ObjectModify | PrimFlags.ObjectCopy | PrimFlags.ObjectAnyOwner |
