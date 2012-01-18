@@ -248,7 +248,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             base.Start(m_recvBufferSize, m_asyncPacketHandling);
 
             // Start the packet processing threads
-            Watchdog.StartThread(IncomingPacketHandler, "Incoming Packets (" + m_scene.RegionInfo.RegionName + ")", ThreadPriority.Normal, false,10200);
+            Watchdog.StartThread(IncomingPacketHandler, "Incoming Packets (" + m_scene.RegionInfo.RegionName + ")", ThreadPriority.Normal, false, 10200);
             Watchdog.StartThread(OutgoingPacketHandler, "Outgoing Packets (" + m_scene.RegionInfo.RegionName + ")", ThreadPriority.Normal, false);
             m_elapsedMSSinceLastStatReport = Environment.TickCount;
         }
@@ -527,16 +527,20 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             //m_log.DebugFormat("[LLUDPSERVER]: Resending packet #{0} (attempt {1}), {2}ms have passed",
             //    outgoingPacket.SequenceNumber, outgoingPacket.ResendCount, Environment.TickCount - outgoingPacket.TickCount);
 
-            // Set the resent flag
-            outgoingPacket.Buffer.Data[0] = (byte)(outgoingPacket.Buffer.Data[0] | Helpers.MSG_RESENT);
-            outgoingPacket.Category = ThrottleOutPacketType.Resend;
-
             // Bump up the resend count on this packet
-            Interlocked.Increment(ref outgoingPacket.ResendCount);
+            // forget packets we resent 2 many times..  SL says 3 retries
+            if (Interlocked.Increment(ref outgoingPacket.ResendCount) < 5)
+            {
+                // Set the resent flag
+                outgoingPacket.Buffer.Data[0] = (byte)(outgoingPacket.Buffer.Data[0] | Helpers.MSG_RESENT);
+                outgoingPacket.Category = ThrottleOutPacketType.Resend;
 
-            // Requeue or resend the packet
-            if (!outgoingPacket.Client.EnqueueOutgoing(outgoingPacket, false))
-                SendPacketFinal(outgoingPacket);
+                // Requeue or resend the packet
+                if (!outgoingPacket.Client.EnqueueOutgoing(outgoingPacket, false))
+                    SendPacketFinal(outgoingPacket);
+            }
+            else
+                outgoingPacket.Client.NeedAcks.Remove(outgoingPacket.SequenceNumber);
         }
 
         public void Flush(LLUDPClient udpClient)
@@ -947,7 +951,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 if (client != null)
                 {
                     // moved from AddClient so it doesn't delay the ack
-                    client.Start();
+//                    client.Start();
                     client.SceneAgent.SendInitialDataToMe();
                 }
             }
@@ -1035,7 +1039,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
                     ((LLClientView)client).DisableFacelights = m_disableFacelights;
 
-//                    client.Start();
+                    client.Start();
                 }
             }
 
