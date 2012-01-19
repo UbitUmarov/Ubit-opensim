@@ -775,8 +775,16 @@ namespace OpenSim.Region.Framework.Scenes
                 UserLevel = account.UserLevel;
 
             IGroupsModule gm = m_scene.RequestModuleInterface<IGroupsModule>();
+
+            // UBIT: this is 2 slow to be here
+            Grouptitle = "";
             if (gm != null)
-                Grouptitle = gm.GetGroupTitle(m_uuid);
+            {
+                Util.FireAndForget(delegate
+                {
+                    Grouptitle = gm.GetGroupTitle(m_uuid);
+                });
+            }
 
             m_scriptEngines = m_scene.RequestModuleInterfaces<IScriptModule>();
             

@@ -609,6 +609,9 @@ namespace OpenSim.Region.Framework.Scenes
 
             Entities[presence.UUID] = presence;
 
+
+// if locked why do a copy and work on it ?
+
             lock (m_presenceLock)
             {
                 Dictionary<UUID, ScenePresence> newmap = new Dictionary<UUID, ScenePresence>(m_scenePresenceMap);
