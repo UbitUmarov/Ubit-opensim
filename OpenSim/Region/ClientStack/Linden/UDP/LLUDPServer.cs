@@ -597,6 +597,9 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             #region Sequence Number Assignment
 
+            // Keep track of when this packet was sent out (right now)
+            outgoingPacket.TickCount = Environment.TickCount & Int32.MaxValue;
+
             if (!isResend)
             {
                 // Not a resend, assign a new sequence number
@@ -622,9 +625,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             // Put the UDP payload on the wire
             UDPBaseSend(buffer);
-
-            // Keep track of when this packet was sent out (right now)
-            outgoingPacket.TickCount = Environment.TickCount & Int32.MaxValue;
         }
 
         public override void PacketReceived(UDPPacketBuffer buffer)
