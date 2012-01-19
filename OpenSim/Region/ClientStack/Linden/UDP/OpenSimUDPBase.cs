@@ -197,12 +197,15 @@ namespace OpenMetaverse
                                     buf);
                                 salvaged = true;
                             }
-                            catch (SocketException) { }
+                            catch (SocketException) {
+                            }
                             catch (ObjectDisposedException) { return; }
                         }
 
                         m_log.Warn("[UDPBASE]: Salvaged the UDP listener on port " + m_udpPort);
                     }
+                    else
+                        m_log.Warn("[UDPBASE]: receive SocketException {0} " + e.Message);
                 }
                 catch (ObjectDisposedException) { }
             }
@@ -268,7 +271,10 @@ namespace OpenMetaverse
                         buf.RemoteEndPoint
                         );
                 }
-                catch (SocketException) { }
+                catch (SocketException e)
+                {
+                    m_log.Warn("[UDPBASE]: sync send SocketException {0} " + e.Message);
+                }
                 catch (ObjectDisposedException) { }
             }
 
