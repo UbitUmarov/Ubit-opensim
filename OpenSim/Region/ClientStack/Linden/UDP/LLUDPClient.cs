@@ -165,7 +165,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         private byte[] m_packedThrottles;
 
         private int m_defaultRTO = 1000; // 1sec is the recommendation in the RFC
-        private int m_maxRTO = 60000;
+        private int m_maxRTO = 10000;
 
         /// <summary>
         /// Default constructor
@@ -622,7 +622,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     }
                 }
 
-            if (emptyCategories != 0 && NeedAcks.Count() < 500)
+            if (emptyCategories != 0 && UnackedBytes < 128000)
                 BeginFireQueueEmpty(emptyCategories);
 
             //m_log.Info("[LLUDPCLIENT]: Queues: " + queueDebugOutput); // Serious debug business

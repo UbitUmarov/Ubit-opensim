@@ -1605,6 +1605,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             //
             // for one example of this kind of thing.  In fact, the Linden servers appear to only send about
             // 6 to 7 items at a time, so let's stick with 6
+            // UBIT: actually ethernet MTU is around 1500 bytes
             int MAX_ITEMS_PER_PACKET = 5;
             int MAX_FOLDERS_PER_PACKET = 6;
 
@@ -11098,6 +11099,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             OutPacket(scriptQuestion, ThrottleOutPacketType.Task);
         }
 
+
+        // UBIT this should to a copy from memory, loaded by scene or other place, avoiding reading files on every login
         private void InitDefaultAnimations()
         {
             using (XmlTextReader reader = new XmlTextReader("data/avataranimations.xml"))

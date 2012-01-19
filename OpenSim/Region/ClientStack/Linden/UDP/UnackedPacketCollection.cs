@@ -98,11 +98,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         {
             m_pendingAcknowledgements.Enqueue(new PendingAck(sequenceNumber, currentTime, fromResend));
         }
-
-        public int Count()
-        {
-            return m_packets.Count;
-        }
+ 
         /// <summary>
         /// Marks a packet as no longer needing acknowledgement without a received acknowledgement.
         /// This method is called when a packet expires and we no longer need an acknowledgement.
