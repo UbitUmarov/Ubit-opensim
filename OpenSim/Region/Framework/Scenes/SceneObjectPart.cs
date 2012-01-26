@@ -4678,6 +4678,8 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 // State machine logic for VolumeDetect
                 // More logic below
+
+/* sl seems not to reset VD is we turn phantom off
                 bool phanReset = (SetPhantom != wasPhantom) && !SetPhantom;
 
                 if (phanReset) // Phantom changes from on to off switch VD off too
@@ -4689,11 +4691,13 @@ namespace OpenSim.Region.Framework.Scenes
                 }
                 else
                 {
+ */
                     // If volumedetect is active we don't want phantom to be applied.
                     // If this is a new call to VD out of the state "phantom"
                     // this will also cause the prim to be visible to physics
+
                     SetPhantom = false;
-                }
+//                }
             }
 
             if (UsePhysics && IsJoint())
@@ -4770,11 +4774,14 @@ namespace OpenSim.Region.Framework.Scenes
                 // Defensive programming calls for a check here.
                 // Better would be throwing an exception that could be catched by a unit test as the internal 
                 // logic should make sure, this Physactor is always here.
-                if (this.PhysActor != null)
+                if (this.PhysActor != null )
                 {
-                    PhysActor.SetVolumeDetect(1);
-                    AddFlag(PrimFlags.Phantom); // We set this flag also if VD is active
-                    this.VolumeDetectActive = true;
+                    if (this.VolumeDetectActive == false) // don't do it if already done
+                    {
+                        PhysActor.SetVolumeDetect(1);
+                        AddFlag(PrimFlags.Phantom); // We set this flag also if VD is active
+                        this.VolumeDetectActive = true;
+                    }
                 }
             }
             else
@@ -4784,7 +4791,8 @@ namespace OpenSim.Region.Framework.Scenes
                 PhysicsActor pa = this.PhysActor;
                 if (pa != null)
                 {
-                    PhysActor.SetVolumeDetect(0);
+                    if (this.VolumeDetectActive == true)  // don't do it if already done
+                        PhysActor.SetVolumeDetect(0);
                 }
 
                 this.VolumeDetectActive = false;

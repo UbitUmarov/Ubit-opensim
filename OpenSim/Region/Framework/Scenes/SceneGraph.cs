@@ -1442,7 +1442,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (m_parentScene.Permissions.CanEditObject(group.UUID, remoteClient.AgentId))
                 {
                     // VolumeDetect can't be set via UI and will always be off when a change is made there
-                    group.UpdatePrimFlags(localID, UsePhysics, SetTemporary, SetPhantom, false);
+                    group.UpdatePrimFlags(localID, UsePhysics, SetTemporary, SetPhantom, group.IsVolumeDetect);
                 }
             }
         }
