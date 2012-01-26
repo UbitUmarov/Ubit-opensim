@@ -64,11 +64,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
     /// </summary>
     public sealed class LLUDPClient
     {
-        // TODO: Make this a config setting
-        /// <summary>Percentage of the task throttle category that is allocated to avatar and prim
-        /// state updates</summary>
-        const float STATE_TASK_PERCENTAGE = 0.8f;
-
         private static readonly ILog m_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
         /// <summary>The number of packet categories to throttle on. If a throttle category is added

@@ -94,11 +94,13 @@ namespace OpenSim.Region.ClientStack.LindenUDP
     public class LLUDPServer : OpenSimUDPBase
     {
         /// <summary>Maximum transmission unit, or UDP packet size, for the LLUDP protocol</summary>
-        public const int MTU = 1400;
+        //        public const int MTU = 1400;
+        // make it identical to libovm value
+        public const int MTU = 1200;
 
 
 
-//        List<Packet> debugPackectsRecv = new List<Packet>();
+        List<Packet> debugPackectsRecv = new List<Packet>();
 
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
@@ -624,6 +626,12 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             Interlocked.Increment(ref udpClient.PacketsSent);
 
             // Put the UDP payload on the wire
+/*
+            if (buffer.DataLength >= MTU)
+            {
+                // ohhh rats
+            }
+*/
             UDPBaseSend(buffer);
         }
 
@@ -947,13 +955,15 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 // circuit code to the existing child agent.  This is not particularly obvious.
                 SendAckImmediate(remoteEndPoint, uccp.Header.Sequence);
         
-                // We only want to send initial data to new clients, not ones which are being converted from child to root.
-                if (client != null)
+//                if (client != null)
                 {
-                    // moved from AddClient so it doesn't delay the ack
 //                    client.Start();
-                    client.SceneAgent.SendInitialDataToMe();
+
+                // We only want to send initial data to new clients, not ones which are being converted from child to root.
+                // moved to complet movement
+                //    client.SceneAgent.SendInitialDataToMe();
                 }
+ 
             }
             else
             {
