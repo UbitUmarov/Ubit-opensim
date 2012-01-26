@@ -960,8 +960,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 //                    client.Start();
 
                 // We only want to send initial data to new clients, not ones which are being converted from child to root.
-                // moved to complet movement
-                //    client.SceneAgent.SendInitialDataToMe();
+//                    client.SceneAgent.SendInitialDataToMe();
                 }
  
             }

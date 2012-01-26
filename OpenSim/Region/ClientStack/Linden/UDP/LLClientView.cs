@@ -6141,9 +6141,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
         private bool HandleCompleteAgentMovement(IClientAPI sender, Packet Pack)
         {
-            // moved from Server circuit creation
-            SceneAgent.SendInitialDataToMe();
-
             Action<IClientAPI, bool> handlerCompleteMovementToRegion = OnCompleteMovementToRegion;
 
 
@@ -6151,6 +6148,9 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             {
                 handlerCompleteMovementToRegion(sender, true);
             }
+
+            SceneAgent.SendInitialDataToMe();
+
             handlerCompleteMovementToRegion = null;
 
             return true;
