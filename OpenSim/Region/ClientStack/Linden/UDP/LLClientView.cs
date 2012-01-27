@@ -6148,8 +6148,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             {
                 handlerCompleteMovementToRegion(sender, true);
             }
-
-            SceneAgent.SendInitialDataToMe();
+            // tried to move here from circuit creation code but seems bad :(
+//            SceneAgent.SendInitialDataToMe();
 
             handlerCompleteMovementToRegion = null;
 
