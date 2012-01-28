@@ -2064,16 +2064,17 @@ namespace OpenSim.Region.Physics.OdePlugin
         /// <returns></returns>
         public override float Simulate(float timeStep)
         {
-            if (framecount >= int.MaxValue)
-                framecount = 0;
-
-            framecount++;
 
             // acumulate time so we can reduce error
             step_time += timeStep;
 
             if (step_time < ODE_STEPSIZE)
                 return 0;
+
+            if (framecount >= int.MaxValue)
+                framecount = 0;
+
+            framecount++;
 
             int curphysiteractions = m_physicsiterations;
 
@@ -2315,7 +2316,7 @@ namespace OpenSim.Region.Physics.OdePlugin
                 }
             }
 
-            return nodeframes * ODE_STEPSIZE;
+            return nodeframes * ODE_STEPSIZE; // return real simulated time
         }
 
         /// <summary>

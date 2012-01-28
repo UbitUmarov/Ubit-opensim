@@ -751,17 +751,17 @@ namespace OpenSim.Region.Framework.Scenes
 
                 float fps = startupConfig.GetFloat("SimulationFPS", 45f);
                 m_simframetime = 1000.0f / fps;
-                // limit it from 10 to 50fps
-                if (m_simframetime < 22.0)
-                    m_simframetime = 22.0f;
-                else if (m_simframetime > 100f)
-                    m_simframetime = 100f;
+                // limit it from 5 to 50fps
+                if (m_simframetime < 20.0)
+                    m_simframetime = 20.0f;
+                else if (m_simframetime > 200f)
+                    m_simframetime = 200f;
 
                 fps = startupConfig.GetFloat("PhysicsSimulationFPS", 45f);
                 // limit it from  2fps to SimulationFPS
                 m_simphysframetime = 1000.0f / fps;
-                if (m_simphysframetime <= m_simframetime)
-                    m_simphysframetime = m_simframetime - 2; // the 2 is bc of my bad coding in timing control
+                if (m_simphysframetime < m_simframetime)
+                    m_simphysframetime = m_simframetime;
                 else if (m_simphysframetime > 500f)
                     m_simphysframetime = 500f;
                 IConfig packetConfig = m_config.Configs["PacketPool"];
@@ -1322,7 +1322,7 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     Now = MyWatch.Elapsed;
                     TimeSpan SincePhysUpdate = Now - m_lastphysupdate;
-//                    if (SincePhysUpdate.Milliseconds >= m_simphysframetime)
+                    if (SincePhysUpdate.Milliseconds >= m_simphysframetime)
                     {
                         // we must tell physics real time since last frame, so it can try to keep time sync
                         physicsFPS = 1000.0f * m_sceneGraph.UpdatePhysics(SincePhysUpdate.TotalSeconds) / m_simphysframetime;
@@ -2606,10 +2606,10 @@ namespace OpenSim.Region.Framework.Scenes
             AgentCircuitData aCircuit = m_authenticateHandler.GetAgentCircuitData(client.CircuitCode);
             bool vialogin = false;
 
-//            if (aCircuit == null) // no good, didn't pass NewUserConnection successfully
-//                return;
+            //            if (aCircuit == null) // no good, didn't pass NewUserConnection successfully
+            //                return;
 
-            vialogin = (aCircuit.teleportFlags & (uint)Constants.TeleportFlags.ViaHGLogin) != 0 || 
+            vialogin = (aCircuit.teleportFlags & (uint)Constants.TeleportFlags.ViaHGLogin) != 0 ||
                        (aCircuit.teleportFlags & (uint)Constants.TeleportFlags.ViaLogin) != 0;
 
             CheckHeartbeat();
@@ -2644,7 +2644,7 @@ namespace OpenSim.Region.Framework.Scenes
                     sp.IsChildAgent = false;
 
                     if (AttachmentsModule != null)
-                    Util.FireAndForget(delegate(object o) { AttachmentsModule.RezAttachments(sp); });
+                        Util.FireAndForget(delegate(object o) { AttachmentsModule.RezAttachments(sp); });
                 }
             }
             else
@@ -2654,18 +2654,17 @@ namespace OpenSim.Region.Framework.Scenes
                     sp.IsChildAgent ? "child" : "root", sp.Name, RegionInfo.RegionName);
             }
 
-                m_LastLogin = Util.EnvironmentTickCount();
+            m_LastLogin = Util.EnvironmentTickCount();
 
-                // Cache the user's name
+            // Cache the user's name
             CacheUserName(sp, aCircuit);
 
-                EventManager.TriggerOnNewClient(client);
-                if (vialogin)
-                    EventManager.TriggerOnClientLogin(client);
+            EventManager.TriggerOnNewClient(client);
+            if (vialogin)
+                EventManager.TriggerOnClientLogin(client);
 
             return sp;
-            }
-
+        }
         /// <summary>
         /// Cache the user name for later use.
         /// </summary>
