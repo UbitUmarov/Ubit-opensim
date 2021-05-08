@@ -1,5 +1,5 @@
-This is a test version of opensim
-For the oficial and stable versions please visit  
+This is very outdated version of opensim
+Please use the oficial versions. Please visit  
 http://opensimulator.org/
 
 Ubit Umarov
